@@ -1,5 +1,6 @@
 add_library(undertow_core STATIC
     src/params.cpp
+    src/filter.cpp
     src/engine.cpp
     src/oscillator.cpp
     src/envelope.cpp
