@@ -74,6 +74,10 @@ void Engine::process(float* left, float* right, int numSamples,
     // Apply parameters to voice
     impl_->voice.setParams(impl_->params);
 
+    // Master gain (dB to linear) — constant for the whole block
+    const double masterDb = static_cast<double>(impl_->params[param::MasterGain]);
+    const double masterLin = std::pow(10.0, masterDb / 20.0);
+
     // Process sample by sample, applying MIDI events at their offsets
     int eventIdx = 0;
     float blockPeak = 0.0f;
@@ -84,26 +88,26 @@ void Engine::process(float* left, float* right, int numSamples,
         while (eventIdx < numEvents && events[eventIdx].sampleOffset == i) {
             const auto& ev = events[eventIdx];
             const int status = ev.status & 0xF0;
-            const int chan = ev.status & 0x0F;
 
             if (status == 0x90 && ev.data2 > 0) {
-                // Note on
+                // Note on (any channel)
                 impl_->voice.noteOn(static_cast<int>(ev.data1),
                                     static_cast<float>(ev.data2) / 127.0f);
             } else if (status == 0x80 || (status == 0x90 && ev.data2 == 0)) {
-                // Note off
+                // Note off (any channel, including velocity-0 note-on)
                 impl_->voice.noteOff(static_cast<int>(ev.data1));
             } else if (status == 0xE0) {
-                // Pitch bend: 14-bit value, centre 8192
+                // Pitch bend (any channel): 14-bit value, centre 8192
                 const int value = (static_cast<int>(ev.data2) << 7) | static_cast<int>(ev.data1);
                 const float bend = static_cast<float>(value - 8192) / 8192.0f;
                 impl_->voice.setPitchBend(bend);
             } else if (status == 0xB0) {
+                // Controller (any channel)
                 if (ev.data1 == 123) {
                     // All notes off
                     impl_->voice.allNotesOff();
                 } else if (ev.data1 == 120) {
-                    // All sound off
+                    // All sound off — silence at once
                     impl_->voice.reset();
                     impl_->voice.setParams(impl_->params);
                 }
@@ -113,10 +117,6 @@ void Engine::process(float* left, float* right, int numSamples,
 
         // Render voice
         const float sample = impl_->voice.process();
-
-        // Master gain (dB to linear)
-        const double masterDb = static_cast<double>(impl_->params[param::MasterGain]);
-        const double masterLin = std::pow(10.0, masterDb / 20.0);
         const float out = static_cast<float>(sample * masterLin);
 
         left[i] = out;
