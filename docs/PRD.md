@@ -94,7 +94,7 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
 |---|---|---|
 | `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 0 to 3, 5 |
 | `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the ROSEDUST UI). | 0, 4, 5 |
-| `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh` (given); `check.sh` (phase 0); the offline renderer and install script (phase 5). | |
+| `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh` (phase 0); the offline renderer and install script (phase 5). | |
 | `tests/spec/` | The spec tests, given: one executable per file. | given |
 | `third_party/doctest/` | doctest 2.5.3, MIT, vendored. | given |
 | `docs/` | This PRD, `design/ui-spec.md`, `specs/phase-N-*.md`. | given |
@@ -222,12 +222,12 @@ host parameters (phase 3).
 
 | Phase | Spec | Builds | Depends on | Size |
 |---|---|---|---|---|
-| 0 | `specs/phase-0-foundation.md` | CMake and presets, the core library with the parameter table and the engine skeleton, the JUCE plugin skeleton (VST3, AU, Standalone) through pluginval, `tools/check.sh` | nothing | M: 4 tasks, about 600 lines |
+| 0 | `specs/phase-0-foundation.md` | CMake and presets, the core library with the parameter table and the engine skeleton, the JUCE plugin skeleton (VST3, AU, Standalone) through pluginval, `tools/check.sh` | nothing | M: 3 tasks, about 600 lines |
 | 1 | `specs/phase-1-voice.md` | PolyBLEP oscillators, the sub, the 24 dB/oct filter with drive, envelopes, the mono voice (glide, legato, accent, bend), MIDI, smoothing, realtime safety | 0 | L: 5 tasks, about 900 lines |
-| 2 | `specs/phase-2-rumble.md` | Tempo-synced LFOs, the rumble engine, saturation, the mono-sub crossover and width, the output clipper | 1 | L: 5 tasks, about 900 lines |
-| 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 4 tasks, about 700 lines |
-| 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 5 tasks, about 1200 lines |
-| 5 | `specs/phase-5-ship.md` | Factory presets, strict pluginval, auval, an install script, the offline renderer and demo WAVs | 4 | M: 4 tasks, about 600 lines |
+| 2 | `specs/phase-2-rumble.md` | Tempo-synced LFOs, the rumble engine, saturation, the mono-sub crossover and width, the output clipper | 1 | L: 4 tasks, about 900 lines |
+| 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
+| 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 6 tasks, about 1200 lines |
+| 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand) | 4 | M: 5 tasks, about 700 lines |
 
 ```text
  phase 0 ──► phase 1 ──► phase 2 ──┬──► phase 4 ──► phase 5
