@@ -91,7 +91,7 @@ const std::vector<Expected> kTable = {
     {"seq_seed", "Seed", ParamKind::Int, 0, 9999, 1, 0, "", {}},
 };
 
-const char* kindName(ParamKind kind) {
+std::string kindName(ParamKind kind) {
     switch (kind) {
     case ParamKind::Float: return "Float";
     case ParamKind::Int: return "Int";
@@ -115,13 +115,13 @@ TEST_CASE("P0.01 the parameter table matches docs/PRD.md row for row") {
         const undertow::ParamSpec& got = undertow::paramSpec(i);
         INFO("parameter " << i << " must be `" << std::string(want.id) << "` (docs/PRD.md, Parameters, row " << i << ")");
         CHECK_MESSAGE(str(got.id) == want.id, "id is `" << str(got.id) << "`");
-        CHECK_MESSAGE(str(got.name) == want.name, "name is \"" << str(got.name) << "\", want \"" << want.name << "\"");
+        CHECK_MESSAGE(str(got.name) == want.name, "name is \"" << str(got.name) << "\", want \"" << std::string(want.name) << "\"");
         CHECK_MESSAGE(got.kind == want.kind, "kind is " << kindName(got.kind) << ", want " << kindName(want.kind));
         CHECK_MESSAGE(same(got.min, want.min), "min is " << got.min << ", want " << want.min);
         CHECK_MESSAGE(same(got.max, want.max), "max is " << got.max << ", want " << want.max);
         CHECK_MESSAGE(same(got.def, want.def), "default is " << got.def << ", want " << want.def);
         CHECK_MESSAGE(same(got.centre, want.centre), "centre is " << got.centre << ", want " << want.centre);
-        CHECK_MESSAGE(str(got.unit) == want.unit, "unit is \"" << str(got.unit) << "\", want \"" << want.unit << "\"");
+        CHECK_MESSAGE(str(got.unit) == want.unit, "unit is \"" << str(got.unit) << "\", want \"" << std::string(want.unit) << "\"");
         CHECK_MESSAGE(got.numChoices == static_cast<int>(want.choices.size()),
                       "numChoices is " << got.numChoices << ", want " << want.choices.size());
         if (got.numChoices == static_cast<int>(want.choices.size()) && got.numChoices > 0) {
@@ -140,7 +140,7 @@ TEST_CASE("P0.01 the parameter table matches docs/PRD.md row for row") {
 TEST_CASE("P0.02 parameters are found by id, and the undertow::param enumerators are their indices") {
     for (int i = 0; i < static_cast<int>(kTable.size()); ++i)
         CHECK_MESSAGE(undertow::findParam(kTable[static_cast<std::size_t>(i)].id) == i,
-                      "findParam(\"" << kTable[static_cast<std::size_t>(i)].id << "\") must return " << i);
+                      "findParam(\"" << std::string(kTable[static_cast<std::size_t>(i)].id) << "\") must return " << i);
     CHECK_MESSAGE(undertow::findParam("no_such_param") == -1, "findParam of an unknown id must return -1");
     CHECK_MESSAGE(undertow::findParam("") == -1, "findParam(\"\") must return -1");
 

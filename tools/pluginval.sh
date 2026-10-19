@@ -24,7 +24,10 @@ if ! cmake --preset plugin >build/pluginval/configure.log 2>&1; then
   grep -E -A3 'CMake Error|error' build/pluginval/configure.log | head -n 40 >&2
   exit 1
 fi
-if ! cmake --build --preset plugin --target Undertow_VST3 >build/pluginval/build.log 2>&1; then
+# Show the build's progress lines as they happen; keep the full log.
+cmake --build --preset plugin --target Undertow_VST3 2>&1 | tee build/pluginval/build.log |
+  grep --line-buffered -E '^\[ *[0-9]+%\]'
+if [ "${PIPESTATUS[0]}" -ne 0 ]; then
   echo "pluginval: FAIL: building Undertow_VST3 failed (full log: build/pluginval/build.log):" >&2
   grep -E -A2 'error:|Error:|undefined symbol|ld: ' build/pluginval/build.log | head -n 40 >&2
   exit 1
