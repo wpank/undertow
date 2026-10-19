@@ -6,7 +6,7 @@ JUCE plugin skeleton (VST3, AU, Standalone) that passes pluginval, so every late
 **Depends on**: nothing (the seed: `docs/`, `tests/spec/`, `third_party/doctest/`, `tools/fetch-juce.sh`,
 `tools/fetch-pluginval.sh`, `tools/spec.sh`, `tools/pluginval.sh`).
 
-**Size**: M, 4 tasks, about 600 lines (most of it the 57-row parameter table).
+**Size**: M, 3 tasks, about 600 lines (most of it the 57-row parameter table).
 
 ---
 
@@ -49,7 +49,8 @@ silence in this phase; that is correct.
    - `cmake/Juce.cmake`: a cache path `UNDERTOW_JUCE_PREFIX`; when empty, run `tools/fetch-juce.sh --prefix`
      (`execute_process`, output stripped, fail the configure if it fails) and `find_package` JUCE there.
    - `core/CMakeLists.txt`: a static library `undertow_core` with the alias `Undertow::core`, public include dir
-     `core/include`, C++17, position-independent code, warnings `-Wall -Wextra -Wpedantic`. No JUCE.
+     `core/include`, C++17, position-independent code, warnings `-Wall -Wextra -Wpedantic`. No JUCE. It lists the
+     sources that exist so far: `src/params.cpp` first; the engine task adds `src/engine.cpp`.
 
 2. **The parameter table** (`core/include/undertow/params.h`, `core/src/params.cpp`)
    - Transcribe `docs/PRD.md` section 4 exactly: 57 rows in that order, with the choice labels listed under the
@@ -227,8 +228,8 @@ public:
 ## Acceptance checks
 
 Each check is one command, run from the repository root. Core checks (`params`, `engine`) build with the `core`
-preset in seconds; plugin checks build the `plugin` preset (about 80 s the first time in a fresh worktree, mostly
-JUCE).
+preset in seconds; the plugin checks build the `plugin` preset (about 80 s the first time in a fresh worktree, mostly
+JUCE). `tools/spec.sh 0 plugin` runs all six plugin test cases (P0.08 to P0.13) in one build and one run.
 
 | Check | Command | Proves |
 |---|---|---|
@@ -239,12 +240,7 @@ JUCE).
 | P0.05 | `tools/spec.sh 0 engine 'P0.05*'` | process, setParam, getParam, meters and reset make no heap allocation over 1000 blocks |
 | P0.06 | `tools/spec.sh 0 engine 'P0.06*'` | The beat clock follows a playing or stopped host transport, and runs at seq_bpm from 0 without one |
 | P0.07 | `tools/spec.sh 0 engine 'P0.07*'` | The core preset builds the core and its tests without configuring JUCE, and no core header includes JUCE |
-| P0.08 | `tools/spec.sh 0 plugin 'P0.08*'` | createPluginFilter makes an UndertowProcessor named Metakosmia Undertow: MIDI in, no MIDI out, no inputs, one stereo output |
-| P0.09 | `tools/spec.sh 0 plugin 'P0.09*'` | The plugin exposes the 57 table parameters in order with the same ids, names, ranges, defaults, skew centres and choices |
-| P0.10 | `tools/spec.sh 0 plugin 'P0.10*'` | getStateInformation then setStateInformation on a new instance restores every parameter |
-| P0.11 | `tools/spec.sh 0 plugin 'P0.11*'` | processBlock is finite, never allocates, and passes host parameter values to the engine |
-| P0.12 | `tools/spec.sh 0 plugin 'P0.12*'` | The editor is an UndertowEditor, fixed 1200 x 760, dark (void ground), with no pure white |
-| P0.13 | `tools/spec.sh 0 plugin 'P0.13*'` | The VST3, AU and Standalone bundles are built with bundle id audio.metakosmia.undertow and the AU is aumu MkUt Mtks |
+| P0.08-P0.13 | `tools/spec.sh 0 plugin` | The plugin skeleton: identity (MIDI in, one stereo out), the 57 parameters, state restore, an allocation-free processBlock feeding the engine, the fixed 1200 x 760 editor, and the three bundles' ids |
 | P0.14 | `tools/pluginval.sh 5` | pluginval 1.0.4 passes the VST3 at strictness 5 (seed 42, no GUI tests) |
 | P0.15 | `tools/check.sh --plugin` | The whole local check passes: both presets build, every present spec test passes in ctest, and pluginval passes |
 
@@ -265,8 +261,21 @@ JUCE).
 
 ## Notes for the planner
 
-- Suggested tasks: (1) the build system and the core library target; (2) the parameter table; (3) the engine
-  skeleton; (4) the plugin skeleton and `tools/check.sh`. Tasks 2 and 3 can run in parallel after 1; task 4 needs
-  1 to 3.
-- A plugin check's first build in a fresh worktree compiles the JUCE modules (about a minute at 4 jobs); later
-  runs are incremental.
+- Three tasks, in this order. Each task's verify steps are exactly the checks named for it, with their commands
+  unchanged, and each passes once that task (and the ones before it) is done:
+  1. **The build system and the parameter table**: `CMakeLists.txt`, `CMakePresets.json`, `cmake/Juce.cmake`,
+     `core/CMakeLists.txt` (with `src/params.cpp`), `core/include/undertow/params.h`, `core/src/params.cpp`.
+     Checks: P0.01 and P0.02.
+  2. **The engine skeleton**: `core/include/undertow/engine.h`, `core/src/engine.cpp`, and `src/engine.cpp` added to
+     `core/CMakeLists.txt`. Checks: P0.03 to P0.07. Needs task 1.
+  3. **The plugin skeleton and the check script**: `plugin/CMakeLists.txt`, `plugin/PluginProcessor.h/.cpp`,
+     `plugin/PluginEditor.h/.cpp`, `tools/check.sh`. Checks: P0.08-P0.13, P0.14 and P0.15. Needs tasks 1 and 2. Its
+     first plugin build in a fresh worktree compiles the JUCE modules (about a minute at 4 jobs); later runs are
+     incremental.
+- `ctest` runs only once a spec test exists: the harness compiles a spec test only when the files its `spec-needs`
+  lines name are present, and the test presets fail on zero tests (`noTestsAction: error`). So no check before task 3
+  runs `ctest` or `tools/check.sh`; P0.01 and P0.02 are the first spec tests that can pass, as soon as the build
+  system and the parameter table exist.
+- Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check
+  before it hands off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep`
+  and `glob`.

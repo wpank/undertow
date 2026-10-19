@@ -1,3 +1,6 @@
 /build/
 /CMakeUserPresets.json
 **/.DS_Store
+
+# roko's workspace state, run records and .roko/.env keys (roko init)
+.roko/

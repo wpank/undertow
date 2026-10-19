@@ -1,0 +1,673 @@
+# REQUIRED_ENV
+# Required environment variables (set in .env or shell):
+# GITHUB_TOKEN       - GitHub personal access token (for MCP GitHub server)
+# GITHUB_WEBHOOK_SECRET - GitHub webhook secret for deploy registration
+# SLACK_BOT_TOKEN    - Slack bot token (for MCP Slack server)
+# SLACK_SIGNING_SECRET - Slack webhook signing secret
+# ANTHROPIC_API_KEY  - Claude API key (for direct API agents, not needed for CLI agents)
+
+config_version = 2
+schema_version = 2
+
+[project]
+name = "roko-project"
+root = "."
+fresh_base_branch = "main"
+
+[agent]
+default_model = "claude-sonnet-4-6"
+default_backend = "claude"
+default_effort = "medium"
+temperament = "balanced"
+context_limit_k = 200
+bare_mode = true
+mode = "ephemeral"
+
+[agent.roles]
+
+[agent.defaults]
+
+[authoring]
+planner_model = ""
+max_generation_usd = 2.0
+
+[spec_quality]
+mode = "advise"
+allow_threshold = 70.0
+block_threshold = 40.0
+red_on_base = true
+red_on_base_cargo = false
+red_on_base_timeout_secs = 120
+holdout_frac = 0.05
+
+[providers]
+
+[models]
+
+[gates]
+mode = "full"
+clippy_enabled = true
+skip_tests = false
+max_iterations = 3
+cargo_fix_enabled = true
+write_eval_artifacts = false
+impact_timeout_ms = 5000
+impact_max_reverse_dependents = 4
+impact_max_targets = 8
+compile_concurrency = 1
+nice = 10
+sibling_settle_secs = 600
+baseline_filter = true
+llm_judge = false
+llm_judge_min_score = 0.800000011920929
+llm_judge_blocking = false
+diff_scope = "record"
+rungs = []
+ema_alpha = 0.1
+adaptive_min_retries = 3
+adaptive_max_retries = 5
+skip_streak_threshold = 20
+convergence_min_observations = 50
+max_review_cycles = 3
+
+[[graduation.policies]]
+always = true
+never = false
+sample_every = 1
+
+[graduation.policies.watch]
+Prefix = "gate.verdict."
+
+[[graduation.policies]]
+always = true
+never = false
+sample_every = 1
+
+[graduation.policies.watch]
+Prefix = "safety.approval."
+
+[[graduation.policies]]
+always = true
+never = false
+sample_every = 1
+
+[graduation.policies.watch]
+Prefix = "conductor.circuit."
+
+[[graduation.policies]]
+always = true
+never = false
+sample_every = 1
+
+[graduation.policies.watch]
+Exact = "cost.charged"
+
+[[graduation.policies]]
+always = false
+never = true
+sample_every = 1
+
+[graduation.policies.watch]
+Prefix = "heartbeat."
+
+[routing]
+mode = "auto_override"
+algorithm = "linucb"
+discount_factor = 0.99
+fast_task_model = "claude-haiku-4-5"
+standard_task_model = "claude-sonnet-4-6"
+complex_task_model = "claude-opus-4-6"
+context_strategy = "mcp_first"
+exhaustion_cooldown_secs = 1800
+explore_epsilon = 0.05
+
+[routing.weights]
+quality = 0.5
+cost = 0.3
+latency = 0.2
+
+[routing.ladder]
+enabled = true
+roles = []
+probe = true
+
+[[routing.ladder.rungs]]
+name = "cheap"
+model = "gpt-oss-120b"
+
+[[routing.ladder.rungs]]
+name = "mid"
+model = "glm-4-7"
+
+[[routing.ladder.rungs]]
+name = "strong"
+model = "gpt-5-4-mini"
+
+[[routing.ladder.rungs]]
+name = "top"
+model = "claude-sonnet-4-6"
+
+[routing.ladder.start]
+mechanical = "cheap"
+focused = "cheap"
+integrative = "mid"
+architectural = "top"
+
+[pipeline]
+default_template = "standard"
+learned_limits = "shadow"
+
+[pipeline.mechanical]
+strategist = false
+reviewers = false
+reviewer_mode = "quick"
+max_iterations = 1
+max_turns = 40
+
+[pipeline.focused]
+strategist = false
+reviewers = false
+reviewer_mode = "quick"
+max_iterations = 2
+max_turns = 60
+
+[pipeline.integrative]
+strategist = true
+reviewers = true
+reviewer_mode = "quick"
+max_iterations = 2
+max_turns = 90
+
+[pipeline.architectural]
+strategist = true
+reviewers = true
+reviewer_mode = "full"
+max_iterations = 3
+max_turns = 120
+
+[budget]
+max_plan_usd = 0.0
+max_task_usd = 0.0
+max_turn_usd = 0.0
+max_task_retry_usd = 5.0
+max_daily_usd = 0.0
+prompt_token_budget = 10000
+max_agent_lifetime_usd = 0.0
+alert_at_percent = [
+    50,
+    80,
+]
+
+[budget.tier_multipliers]
+mechanical = 0.20000000298023224
+standard = 1.0
+complex = 3.0
+expert = 5.0
+
+[pricing]
+snapshot = ""
+
+[conductor]
+max_agents = 8
+max_parallel_plans = 1
+plan_failure_policy = "skip_failed"
+parallel_enabled = false
+express_mode = false
+max_auto_fix_attempts = 3
+auto_fix_model = "claude-haiku-4-5"
+supervise = true
+silence_timeout_secs = 180
+compile_fail_threshold = 3
+task_stall_secs = 300
+report_at_end_stall_secs = 900
+context_pressure_pct = 80
+phase_timeout_secs = 1800
+context_window_small_tokens = 200000
+context_window_opus_tokens = 1000000
+context_pressure_lookback = 3
+
+[conductor.watchers]
+
+[homeostasis]
+mode = "shadow"
+holdout = 0.1
+window = 20
+confirm_k = 2
+dwell_resolutions = 8
+dwell_min_secs = 120
+max_changes_per_episode = 6
+refractory = 20
+recover_window = 10
+relax_window = 40
+random_step_prob = 0.2
+posterior_discount = 0.9
+improve_delta_frac = 0.05
+adaptation_spend_max_frac = 0.15
+m3_prior = true
+feedforward_prearm = false
+
+[audit]
+enabled = true
+rho = 0.1
+eps_floor = 0.05
+lambda_max = 0.8
+ece_ref = 0.1
+window_units = 200
+window_hours = 24
+theta_max = 0.05
+gamma_max = 0.02
+tau_mut = 0.6
+phase_b_rate = 0.5
+budget_frac = 0.12
+per_audit_usd = 0.3
+per_audit_cpu_secs = 900
+drain_secs = 300
+show_failing_hidden_tests = false
+
+[audit.families]
+anthropic = ["claude-*"]
+moonshot = ["kimi-*"]
+openai = [
+    "gpt-5*",
+    "gpt-oss-*",
+]
+zhipu = ["glm-*"]
+
+[self_model]
+mode = "shadow"
+policy = "cascade"
+target = 0.8
+delta = 0.2
+n_min = 100
+state_path = ".roko/learn/self-model/state-v1.json"
+allow_downward_start = true
+allow_rung_skip = false
+
+[learning]
+auto_playbook_refresh = true
+knowledge_file_intel = true
+knowledge_warnings = true
+knowledge_wave_context = true
+knowledge_error_patterns = true
+learning_min_occurrences = 2
+file_intel_max_entries = 15
+warning_max_entries = 5
+dream_on_completion = false
+use_lookahead_router = false
+lookahead_threshold = 0.7
+t0_reflexes = false
+episode_hdc_fingerprint = false
+gate_threshold_flush_interval = 1
+frozen = false
+guarded_commit = "observe"
+
+[learning.dreams]
+trigger_on_plan_complete = true
+max_concurrent = 1
+trigger_on_acp_episodes = false
+acp_episode_threshold = 10
+
+[learning.knowledge]
+transient_confirmations = 2
+working_contexts = 3
+consolidated_age_days = 14
+demotion_balance_threshold = 0.1
+
+[learning.audit]
+enforce = false
+alpha = 0.05
+global_off = 0.03
+placebo = true
+epoch = "utc_day"
+n_eps = 30
+eps_min = 0.5
+n_iota = 50
+iota_min = 0.05
+n_beta = 200
+n_null = 800
+delta_min = 0.03
+delta_ni = 0.03
+kappa_max = 2.0
+pair_rate = 0.03
+pair_weekly_usd = 5.0
+reprobation_days = 14
+spibb_n = 20
+audit_budget_usd_per_day = 5.0
+exempt = [
+    "immune",
+    "quarantine",
+    "capability",
+    "m4_sensor",
+]
+
+[learning.audit.h]
+probation = 0.2
+live = 0.05
+min = 0.02
+suspect = 0.5
+
+[learning.audit.dwell]
+hours = 24
+opps = 100
+
+[tui]
+refresh_rate_ms = 250
+
+[timeouts]
+agent_dispatch_secs = 1800
+gate_compile_secs = 600
+gate_test_secs = 900
+gate_clippy_secs = 300
+llm_call_secs = 120
+dream_consolidation_secs = 600
+http_request_secs = 30
+workspace_lock_secs = 5
+health_check_secs = 3
+plan_total_secs = 3600
+post_run_cleanup_secs = 120
+tool_execution_ms = 120000
+acp_request_ms = 120000
+graph_node_secs = 300
+lost_effect_secs = 600
+
+[statehub]
+history_retention = "7d"
+
+[serve]
+share_ttl_days = 7
+terminal_enabled = false
+terminal_commands = []
+terminal_max_sessions = 8
+terminal_session_ttl_secs = 28800
+auto_orchestrate = true
+revision_max_retries = 1
+auto_start = false
+acknowledge_public_risk = false
+live_agent_output = "trusted"  # hermes-pilot: live agent words on the page (round v7)
+public_routes = [
+    "health",
+    "ready",
+    "metrics",
+    "webhooks",
+    "triggers",
+    "shared",
+    "terminal",
+]
+
+[serve.auth]
+enabled = true
+api_key = ""
+enforcement_mode = "enforce"
+invite_expiry_days = 7
+
+[serve.deploy]
+provider = "railway"
+environment = [
+    "GITHUB_TOKEN",
+    "GITHUB_WEBHOOK_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_SIGNING_SECRET",
+]
+
+[serve.tracing]
+service_name = "roko-serve"
+sample_rate = 1.0
+
+[serve.mcp]
+max_run_usd = 5.0
+allow_without_data_llm = false
+
+[showcase]
+enabled = false
+live_enabled = false
+bundle_root = ".roko/showcase/bundles"
+portal_mounted = false
+
+[showcase.session]
+cookie_name = "__Host-roko_session"
+cookie_secure = true
+ttl_secs = 259200
+idle_ttl_secs = 43200
+max_sessions = 200
+
+[showcase.login]
+per_ip_max_failures = 5
+per_ip_window_secs = 900
+per_ip_block_secs = 900
+block_backoff_max_secs = 86400
+global_max_failures = 50
+global_window_secs = 3600
+global_block_secs = 1800
+verify_concurrency = 2
+trust_fly_client_ip = false
+
+[showcase.caps]
+daily_usd = 5.0
+total_usd = 50.0
+per_run_usd = 1.0
+max_concurrent_runs = 1
+max_tasks_per_run = 10
+max_run_wall_secs = 1800
+runs_per_session_per_day = 4
+
+[showcase.idle]
+exit_after_secs = 1200
+sse_max_idle_secs = 1800
+hold_file = ".roko/showcase/hold"
+
+[showcase.models]
+allow = []
+
+[scheduler]
+
+[webhooks.github]
+secret = ""
+
+[github]
+default_branch = "main"
+auto_pr = false
+merge_method = "squash"
+label_prefix = "roko/"
+auto_update_prs = false
+sync_interval_hours = 4
+cleanup_merged_branches = false
+
+[server]
+bind = "127.0.0.1"
+port = 6677
+cors_origins = []
+unsafe_public_cors = false
+workspace_gc_interval_secs = 300
+rate_limit_per_sec = 100
+rate_limit_per_key_per_sec = 30
+
+[deploy]
+backend = "manual"
+worker_image = "ghcr.io/wpank/roko-worker:latest"
+
+[perplexity]
+search_recency_filter = "year"
+academic_mode = false
+search_domain_filter = []
+return_images = false
+return_related_questions = true
+
+[gemini]
+use_free_tier = false
+thinking_level = "medium"
+enable_context_caching = false
+safety_settings = []
+
+[tools]
+allow = []
+deny = []
+
+[tools.profiles]
+
+[chain]
+enabled = false
+profile = "mirage"
+
+[relay]
+heartbeat_interval_secs = 30
+ring_buffer_size = 65536
+
+[feed_agents]
+enabled = false
+
+[runner]
+plan_timeout_secs = 3600
+dangerously_skip_permissions = false
+sandbox_level = "restrict"
+dispatch_max_retries = 5
+warm_pool_size = 2
+warm_pool_idle_timeout_secs = 300
+log_prompts = false
+prompt_log_retention = 100
+delete_attempt_branches = false
+worktree_per_task = true
+allow_unguarded_agents_in_checkout = false
+
+[validation]
+strict_validation = false
+
+[cold_storage]
+enabled = true
+max_age_days = 7
+batch_size = 500
+interval_secs = 21600
+
+[prompt]
+composition_strategy = "density_greedy"
+vcg_warmup_observations = 10
+
+[resources]
+min_free_disk_mb = 2048
+warn_disk_mb = 5120
+max_plan_disk_mb = 0
+gc_on_plan_start = true
+gc_on_plan_end = true
+gc_on_failure = true
+target_cleanup_enabled = true
+target_max_age_days = 3
+log_rotation_max_mb = 100
+worktree_cleanup_on_complete = true
+worktree_cleanup_on_failure = true
+worktree_max_age_secs = 86400
+auto_cleanup_on_complete = true
+
+[dreams]
+auto_dream = true
+idle_threshold_mins = 15
+min_episodes_for_dream = 5
+episode_count_trigger = 0
+quality_gain = 0.75
+quality_penalty = 1.25
+
+[daimon]
+enabled = false
+
+[daimon.strategy_space]
+domain = "coding"
+dimensions = [
+    "complexity",
+    "risk",
+    "novelty",
+    "confidence",
+    "time_pressure",
+    "scope",
+    "reversibility",
+    "dependency_depth",
+]
+
+[retrieval]
+mode = "hybrid"
+max_results = 10
+min_results = 3
+min_score = 0.1
+token_budget = 4000
+enable_code_index = true
+dense_embedding_enabled = false
+rerank_enabled = false
+
+[retrieval.role_token_budgets]
+
+[experiments]
+maximize = false
+
+[experiments.force_arms]
+
+[sections]
+pinned = ["domain_context"]
+
+# The providers and models of the model ladder ([routing.ladder]), those
+# `roko init` found this machine runs: an API key set, or an agent CLI on PATH.
+
+[providers.cerebras]
+kind = "openai_compat"
+base_url = "https://api.cerebras.ai/v1"
+api_key_env = "CEREBRAS_API_KEY"
+
+[providers.zai]
+kind = "openai_compat"
+base_url = "https://api.z.ai/api/paas/v4"
+api_key_env = "ZAI_API_KEY"
+
+[providers.openai]
+kind = "openai_compat"
+base_url = "https://api.openai.com/v1"
+api_key_env = "OPENAI_API_KEY"
+
+[providers.claude_cli]
+kind = "claude_cli"
+command = "claude"
+
+[models.gpt-oss-120b]
+provider = "cerebras"
+slug = "gpt-oss-120b"
+context_window = 128000
+max_output = 8192
+tool_format = "openai_json"
+cost_input_per_m = 0.35
+cost_output_per_m = 0.75
+cost_cache_read_per_m = 0.35
+
+[models.glm-4-7]
+provider = "zai"
+slug = "glm-4.7"
+context_window = 128000
+max_output = 16384
+tool_format = "openai_json"
+cost_input_per_m = 0.6
+cost_output_per_m = 2.2
+cost_cache_read_per_m = 0.11
+
+[models.gpt-5-4-mini]
+provider = "openai"
+slug = "gpt-5.4-mini"
+context_window = 200000
+max_output = 16384
+tool_format = "openai_json"
+cost_input_per_m = 0.75
+cost_output_per_m = 4.5
+cost_cache_read_per_m = 0.075
+
+[models.claude-sonnet-4-6]
+provider = "claude_cli"
+slug = "claude-sonnet-4-6"
+context_window = 200000
+tool_format = "anthropic_blocks"
+max_tools = 32
+
+# No gate rungs were written: roko init found no project it checks here
+# (profiles: rust, typescript, go, python, solidity, general). Until there is one, a run ends
+# `unverified`. Replace `rungs = []` under [gates] with rungs such as:
+#   [[gates.rungs]]
+#   name = "test"
+#   command = "make test"
+# or move this file aside and run `roko init --profile <profile>`.
+
+# Added by hermes roko fix workspace-chat-ready on 2026-10-19: roko's data-model boundary.
+# Before a run's agent reads what it fetched from the web or an MCP tool, this model screens it.
+[agent.data_llm]
+model = "gpt-5-4-mini"
