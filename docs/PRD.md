@@ -62,8 +62,9 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
 
 ### 1.5 Level and safety
 
-- Below `mono_freq` (default 120 Hz) the output is mono. `width` adds stereo only above it; at width 0 both
-  channels carry the same signal, sample for sample.
+- The low end is mono: a Linkwitz-Riley crossover at `mono_freq` (default 120 Hz) keeps everything under it in the
+  middle (the side signal under `mono_freq / 2` stays at least 25 dB below the mid), and `width` adds stereo only to
+  the band above it. At width 0 both channels carry the same signal, sample for sample.
 - A soft clipper holds every output sample within -0.3 dBFS (0.966) and is exactly transparent below -6 dBFS (0.5).
   When the signal goes over full scale, the meters say so and the editor shows the NERV hazard stripe.
 - Every audio callback is realtime-safe: no allocation, lock, file or log, and no NaN, infinity or denormal out.
