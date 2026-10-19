@@ -90,7 +90,10 @@ silence in this phase; that is correct.
    - `processBlock`: wrap in `juce::ScopedNoDenormals`; copy every parameter's raw value into `engine().setParam`;
      convert the MIDI buffer into a `std::vector<undertow::MidiEvent>` reserved in `prepareToPlay` (never grown in
      `processBlock`: drop events past its capacity); read the play head into an `undertow::Transport` (`valid` when
-     the host gives a ppq position); call `engine().process` on channels 0 and 1.
+     the host gives a ppq position); call `engine().process` on channels 0 and 1. `getPlayHead()` may be null;
+     `getPosition()` returns a `juce::Optional<juce::AudioPlayHead::PositionInfo>`, and its `getPpqPosition()` and
+     `getBpm()` return `juce::Optional<double>`: test with `hasValue()` (or `if (auto ppq = ...)`) and read with `*ppq`
+     or `orFallback(120.0)`. `juce::Optional` has no `value_or`.
    - State: the APVTS state as XML (`copyXmlToBinary` / `getXmlFromBinary`).
    - `getName()` returns `JucePlugin_Name`; `getTailLengthSeconds()` 8 (the rumble's longest decay).
    - `UndertowEditor`: a placeholder, fixed 1200 x 760, not resizable, painting the void (`#060608`) with a
