@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "core",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/core",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "UNDERTOW_BUILD_PLUGIN": "OFF",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "plugin",
+      "inherits": "core",
+      "binaryDir": "${sourceDir}/build/plugin",
+      "cacheVariables": {
+        "UNDERTOW_BUILD_PLUGIN": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "core",
+      "configurePreset": "core"
+    },
+    {
+      "name": "plugin",
+      "configurePreset": "plugin"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "core",
+      "configurePreset": "core",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "plugin",
+      "configurePreset": "plugin",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ]
+}
