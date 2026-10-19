@@ -4,6 +4,7 @@ add_library(undertow_core STATIC
     src/engine.cpp
     src/oscillator.cpp
     src/envelope.cpp
+    src/voice.cpp
 )
 add_library(Undertow::core ALIAS undertow_core)
 

@@ -1,4 +1,5 @@
 #include "undertow/engine.h"
+#include "undertow/voice.h"
 
 #include <algorithm>
 #include <atomic>
@@ -12,10 +13,13 @@ struct Engine::Impl {
     float params[kNumParams];
     double internalPpq = 0.0;
     float rmsSmooth = 0.0f;
+    MonoVoice voice;
 
     std::atomic<float> peak{0.0f};
     std::atomic<float> rms{0.0f};
     std::atomic<double> meterPpq{0.0};
+    std::atomic<int> meterNote{-1};
+    std::atomic<float> meterNoteHz{0.0f};
 
     Impl() {
         for (int i = 0; i < kNumParams; ++i)
@@ -30,6 +34,7 @@ Engine::~Engine() = default;
 void Engine::prepare(double sampleRate, int maxBlockSize) {
     impl_->sampleRate = sampleRate;
     impl_->maxBlockSize = maxBlockSize;
+    impl_->voice.prepare(sampleRate);
     reset();
 }
 
@@ -39,6 +44,10 @@ void Engine::reset() {
     impl_->peak.store(0.0f, std::memory_order_relaxed);
     impl_->rms.store(0.0f, std::memory_order_relaxed);
     impl_->meterPpq.store(0.0, std::memory_order_relaxed);
+    impl_->voice.reset();
+    impl_->voice.setParams(impl_->params);
+    impl_->meterNote.store(-1, std::memory_order_relaxed);
+    impl_->meterNoteHz.store(0.0f, std::memory_order_relaxed);
 }
 
 void Engine::setParam(int index, float value) {
@@ -60,32 +69,78 @@ float Engine::getParam(int index) const {
 }
 
 void Engine::process(float* left, float* right, int numSamples,
-                     const MidiEvent* /*events*/, int /*numEvents*/,
+                     const MidiEvent* events, int numEvents,
                      const Transport& transport) {
-    // Write silence in chunks of maxBlockSize
-    int offset = 0;
-    while (offset < numSamples) {
-        int chunk = (numSamples - offset < impl_->maxBlockSize)
-                     ? (numSamples - offset)
-                     : impl_->maxBlockSize;
-        for (int i = 0; i < chunk; ++i) {
-            left[offset + i] = 0.0f;
-            right[offset + i] = 0.0f;
+    // Apply parameters to voice
+    impl_->voice.setParams(impl_->params);
+
+    // Process sample by sample, applying MIDI events at their offsets
+    int eventIdx = 0;
+    float blockPeak = 0.0f;
+    double blockSumSq = 0.0;
+
+    for (int i = 0; i < numSamples; ++i) {
+        // Apply MIDI events at this sample
+        while (eventIdx < numEvents && events[eventIdx].sampleOffset == i) {
+            const auto& ev = events[eventIdx];
+            const int status = ev.status & 0xF0;
+            const int chan = ev.status & 0x0F;
+
+            if (status == 0x90 && ev.data2 > 0) {
+                // Note on
+                impl_->voice.noteOn(static_cast<int>(ev.data1),
+                                    static_cast<float>(ev.data2) / 127.0f);
+            } else if (status == 0x80 || (status == 0x90 && ev.data2 == 0)) {
+                // Note off
+                impl_->voice.noteOff(static_cast<int>(ev.data1));
+            } else if (status == 0xE0) {
+                // Pitch bend: 14-bit value, centre 8192
+                const int value = (static_cast<int>(ev.data2) << 7) | static_cast<int>(ev.data1);
+                const float bend = static_cast<float>(value - 8192) / 8192.0f;
+                impl_->voice.setPitchBend(bend);
+            } else if (status == 0xB0) {
+                if (ev.data1 == 123) {
+                    // All notes off
+                    impl_->voice.allNotesOff();
+                } else if (ev.data1 == 120) {
+                    // All sound off
+                    impl_->voice.reset();
+                    impl_->voice.setParams(impl_->params);
+                }
+            }
+            ++eventIdx;
         }
-        offset += chunk;
+
+        // Render voice
+        const float sample = impl_->voice.process();
+
+        // Master gain (dB to linear)
+        const double masterDb = static_cast<double>(impl_->params[param::MasterGain]);
+        const double masterLin = std::pow(10.0, masterDb / 20.0);
+        const float out = static_cast<float>(sample * masterLin);
+
+        left[i] = out;
+        right[i] = out;
+
+        const float absOut = std::fabs(out);
+        if (absOut > blockPeak) blockPeak = absOut;
+        blockSumSq += static_cast<double>(out) * static_cast<double>(out);
     }
 
-    // Meters: phase 0 outputs silence so peak and block mean-square are 0
-    float blockPeak = 0.0f;
-    float blockMeanSq = 0.0f;
-
-    // Smoothed RMS with ~50 ms time constant
+    // Meters
+    double blockMeanSq = blockSumSq / static_cast<double>(numSamples);
     double blockDur = static_cast<double>(numSamples) / impl_->sampleRate;
     double alpha = 1.0 - std::exp(-blockDur / 0.05);
     impl_->rmsSmooth = static_cast<float>(alpha * blockMeanSq + (1.0 - alpha) * impl_->rmsSmooth);
 
     impl_->peak.store(blockPeak, std::memory_order_relaxed);
     impl_->rms.store(std::sqrt(impl_->rmsSmooth), std::memory_order_relaxed);
+
+    // Voice meters
+    impl_->meterNote.store(impl_->voice.isActive() ? impl_->voice.currentNote() : -1,
+                           std::memory_order_relaxed);
+    impl_->meterNoteHz.store(impl_->voice.isActive() ? static_cast<float>(impl_->voice.currentHz()) : 0.0f,
+                             std::memory_order_relaxed);
 
     // Beat clock (PRD 3.4)
     if (transport.valid) {
@@ -108,6 +163,8 @@ Meters Engine::meters() const {
     m.peak = impl_->peak.load(std::memory_order_relaxed);
     m.rms = impl_->rms.load(std::memory_order_relaxed);
     m.ppq = impl_->meterPpq.load(std::memory_order_relaxed);
+    m.note = impl_->meterNote.load(std::memory_order_relaxed);
+    m.noteHz = impl_->meterNoteHz.load(std::memory_order_relaxed);
     return m;
 }
 
