@@ -121,7 +121,8 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
   (`setParam`), converts the MIDI buffer into a preallocated `undertow::MidiEvent` array and the host position into
   an `undertow::Transport`, and calls `Engine::process`.
 - The UI thread never calls into the engine's processing. It reads `Engine::meters()` and the scope (phase 4) through
-  lock-free storage, and changes the sequencer pattern through a lock-free handoff (phase 3).
+  lock-free storage, and changes the sequencer pattern through a lock-free handoff that reads back at once what it
+  set (phase 3).
 - In `process`, `setParam`, `meters` and `reset`: no heap allocation (the spec tests count them with an
   `operator new` override), no locks, no I/O, no logging, no exceptions. Everything is sized in `prepare`.
 - Outputs are always finite; state that decays flushes to exact zero instead of drifting into denormals.
