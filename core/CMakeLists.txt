@@ -1,5 +1,6 @@
 add_library(undertow_core STATIC
     src/params.cpp
+    src/filter.cpp
     src/engine.cpp
 )
 add_library(Undertow::core ALIAS undertow_core)
