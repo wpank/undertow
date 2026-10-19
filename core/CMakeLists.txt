@@ -2,6 +2,7 @@ add_library(undertow_core STATIC
     src/params.cpp
     src/engine.cpp
     src/oscillator.cpp
+    src/envelope.cpp
 )
 add_library(Undertow::core ALIAS undertow_core)
 
