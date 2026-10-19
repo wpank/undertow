@@ -12,7 +12,6 @@
 #include "undertow/engine.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -281,9 +280,9 @@ TEST_CASE("P2.19 the full engine renders at least 15 times faster than real time
         events.push_back(spec::noteOff(i * 5625 + 2800, notes[i % 8]));
     }
     std::sort(events.begin(), events.end(), [](const auto& a, const auto& b) { return a.sampleOffset < b.sampleOffset; });
-    const auto start = std::chrono::steady_clock::now();
+    const double start = spec::threadSeconds();
     const auto out = spec::render(engine, 60 * 48000, events, host(128.0, 0.0), 512);
-    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    const double seconds = spec::threadSeconds() - start;
     CHECK_MESSAGE(spec::rms(out.left) > 0.01, "the full engine rendered silence");
-    CHECK_MESSAGE(seconds <= 4.0, "60 s of the full engine took " << seconds << " s; it must take at most 4 s (15x real time)");
+    CHECK_MESSAGE(seconds <= 4.0, "60 s of the full engine took " << seconds << " s of CPU; it must take at most 4 s (15x real time)");
 }

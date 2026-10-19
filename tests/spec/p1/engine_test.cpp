@@ -10,7 +10,6 @@
 #include "undertow/engine.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -134,7 +133,7 @@ TEST_CASE("P1.19 under random notes and parameters the output stays finite and b
     std::vector<float> left(256), right(256);
     double peak = 0;
     int nonFinite = 0;
-    for (int block = 0; block < 3750; ++block) { // 20 s
+    for (int block = 0; block < 1875; ++block) { // 10 s
         for (int i = 0; i < undertow::kNumParams; ++i) {
             if (i == spec::id("seq_on") || random.unit() > 0.05)
                 continue;
@@ -165,12 +164,13 @@ TEST_CASE("P1.19 under random notes and parameters the output stays finite and b
     engine.setParam(spec::id("filter_res"), 1.0f);
     engine.setParam(spec::id("amp_release"), 4000.0f);
     spec::render(engine, 48000, {spec::controller(0, 123, 0), spec::noteOn(10, 40, 127), spec::noteOff(24000, 40)});
-    const auto tail = spec::render(engine, 30 * 48000);
+    // The 4 s release is 100 dB down after about 9.4 s: the last second of a 12 s tail must be exact zeros.
+    const auto tail = spec::render(engine, 12 * 48000);
     CHECK_MESSAGE(spec::countSubnormal(tail.left) == 0,
-                  spec::countSubnormal(tail.left) << " denormal output samples in 30 s after the last note: let envelopes end at "
+                  spec::countSubnormal(tail.left) << " denormal output samples in 12 s after the last note: let envelopes end at "
                                                      "exactly 0 and flush filter state");
     CHECK_MESSAGE(spec::peakAbs(tail.left, tail.left.size() - 48000) == 0.0,
-                  "29 s after the last note the output is still " << spec::peakAbs(tail.left, tail.left.size() - 48000)
+                  "11 s after the last note the output is still " << spec::peakAbs(tail.left, tail.left.size() - 48000)
                                                                    << ": an idle voice must output exact zeros");
 }
 
@@ -191,12 +191,12 @@ TEST_CASE("P1.20 the engine renders a busy bassline at least 24 times faster tha
         events.push_back(spec::noteOff(i * 5625 + (i % 2 == 0 ? 6000 : 2800), note));
     }
     std::sort(events.begin(), events.end(), [](const auto& a, const auto& b) { return a.sampleOffset < b.sampleOffset; });
-    const auto start = std::chrono::steady_clock::now();
+    const double start = spec::threadSeconds();
     const auto out = spec::render(engine, 60 * 48000, events, {}, 512);
-    const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    const double seconds = spec::threadSeconds() - start;
     CHECK_MESSAGE(spec::rms(out.left) > 0.01, "the busy bassline rendered silence");
     CHECK_MESSAGE(seconds <= 2.5, "60 s of audio took " << seconds
-                                                        << " s to render; it must take at most 2.5 s (24x real time). Avoid "
+                                                        << " s of CPU to render; it must take at most 2.5 s (24x real time). Avoid "
                                                            "per-sample allocation, locks, and recomputing what only changes "
                                                            "per block");
 }

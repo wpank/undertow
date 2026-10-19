@@ -12,6 +12,9 @@
 # A file with a "// spec-preset: plugin" line tests the JUCE plugin: it is defined only when the plugin
 # target Undertow exists (the plugin preset), and links it.
 #
+# A file with a "// spec-target: <target>" line runs a program the build makes (the offline renderer): once that
+# target exists, the test depends on it and gets its path as SPEC_TARGET_<TARGET> (upper case).
+#
 # Needs: the target Undertow::core (docs/specs/phase-0-foundation.md); for plugin tests, the target Undertow.
 
 add_library(undertow_spec_support OBJECT
@@ -83,6 +86,19 @@ foreach(source IN LISTS undertow_spec_sources)
         )
         add_dependencies(${target} Undertow_VST3 Undertow_AU Undertow_Standalone)
     endif()
+    file(STRINGS "${source}" target_lines REGEX "^// spec-target: ")
+    foreach(line IN LISTS target_lines)
+        string(REGEX REPLACE "^// spec-target: *" "" program "${line}")
+        string(STRIP "${program}" program)
+        string(TOUPPER "${program}" program_define)
+        if(TARGET ${program})
+            add_dependencies(${target} ${program})
+            target_compile_definitions(${target} PRIVATE SPEC_TARGET_${program_define}="$<TARGET_FILE:${program}>")
+        else()
+            set(present FALSE)
+            target_compile_definitions(${target} PRIVATE SPEC_TARGET_${program_define}="")
+        endif()
+    endforeach()
     if(present)
         add_test(NAME ${target} COMMAND ${target} --no-version)
     else()

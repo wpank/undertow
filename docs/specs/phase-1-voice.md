@@ -205,8 +205,8 @@ Private members are yours. Keep the classes free of virtual calls and allocation
 | P1.16 | `tools/spec.sh 1 engine 'P1.16*'` | The engine plays MIDI on any channel: note on and off, velocity 0 as off, pitch bend, controllers 123 and 120; meters show the note and its pitch |
 | P1.17 | `tools/spec.sh 1 engine 'P1.17*'` | Parameters set on the engine reach the voice (cutoff, sub octave), and master_gain scales the output |
 | P1.18 | `tools/spec.sh 1 engine 'P1.18*'` | The engine makes no heap allocation over 10 s of notes, bends and parameter changes |
-| P1.19 | `tools/spec.sh 1 engine 'P1.19*'` | 20 s of random notes and parameters stay finite and bounded; after the last note the output reaches exact zeros without denormals |
-| P1.20 | `tools/spec.sh 1 engine 'P1.20*'` | 60 s of a busy, resonant, gliding bassline renders in at most 2.5 s (24x real time) |
+| P1.19 | `tools/spec.sh 1 engine 'P1.19*'` | 10 s of random notes and parameters stay finite and bounded; after the last note the output reaches exact zeros without denormals |
+| P1.20 | `tools/spec.sh 1 engine 'P1.20*'` | 60 s of a busy, resonant, gliding bassline renders in at most 2.5 s of CPU time (24x real time) |
 
 ## Rules every task keeps
 

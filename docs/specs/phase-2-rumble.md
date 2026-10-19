@@ -169,7 +169,7 @@ void setModulation(const VoiceModulation& modulation);
 | P2.16 | `tools/spec.sh 2 engine 'P2.16*'` | At width 1 the full mix keeps the side signal 25 dB under the mid below mono_freq / 2, and spreads the band above 500 Hz |
 | P2.17 | `tools/spec.sh 2 engine 'P2.17*'` | A hot patch (no saturation, master +6 dB) never passes 0.966, stays finite, lights meters().clipping, and the meter clears once quiet |
 | P2.18 | `tools/spec.sh 2 engine 'P2.18*'` | With LFOs, rumble, saturation and width on, and their parameters moving, the engine never allocates |
-| P2.19 | `tools/spec.sh 2 engine 'P2.19*'` | 60 s of the full engine renders in at most 4 s (15x real time) |
+| P2.19 | `tools/spec.sh 2 engine 'P2.19*'` | 60 s of the full engine renders in at most 4 s of CPU time (15x real time) |
 
 ## Rules every task keeps
 

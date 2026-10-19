@@ -13,7 +13,17 @@
 #include <string_view>
 #include <vector>
 
+#include <time.h>
+
 namespace spec {
+
+// The CPU time this thread has used, in seconds. The time budgets count it rather than wall time, so other work
+// loading the machine (builds, other tests) cannot fail a check.
+inline double threadSeconds() {
+    timespec t{};
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+    return static_cast<double>(t.tv_sec) + static_cast<double>(t.tv_nsec) * 1e-9;
+}
 
 using Params = std::array<float, undertow::kNumParams>;
 
