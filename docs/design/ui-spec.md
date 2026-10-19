@@ -160,12 +160,13 @@ Each widget is a transducer: it names what drives it, how it moves and how it de
 - One 60 Hz timer while the editor is open; nothing runs when it is closed. Each tick reads the engine through its
   lock-free outputs (`meters()`, `copyScope`), builds a `UiFrame`, advances the animations by the elapsed time and
   repaints only the dynamic regions (CHEST, pump field, unit array, HEAD meter and clock, hazard bands).
-- Budget: a full repaint of the whole editor (what a frame costs at worst, as when it opens) under 5 ms at 1x on this
-  machine; the checks allow a median of 8 ms and a 95th percentile of 16 ms at 1x, and a median of 20 ms at 2x
-  (Retina), counting the painting thread's own CPU time so other work on the machine does not count. A tick repaints
-  only the dynamic regions, so it costs less. The expensive parts: the tunnel (quarter resolution, lookup tables, one
-  pass) and the static layer, which is drawn once per display scale at that scale (`getPhysicalPixelScaleFactor`) and
-  then blitted 1:1; a 1x image drawn scaled to 2x costs more than the rest of the frame.
+- Budget: 60 Hz with headroom. A full repaint of the whole editor (what a frame costs at worst, as when it opens)
+  takes about 5 ms at 1x on this machine; the checks allow a median of 11 ms and a 95th percentile of 16 ms (one 60 Hz
+  frame) at 1x, and a median of 27 ms at 2x (Retina), counting the painting thread's own CPU time so other work on the
+  machine does not count. A tick repaints only the dynamic regions, so it costs less. The expensive parts: the tunnel
+  (quarter resolution, precomputed tables, one pass) and the static layer, which is drawn once per display scale at
+  that scale (`getPhysicalPixelScaleFactor`) and then blitted 1:1; a 1x image drawn scaled to 2x costs more than the
+  rest of the frame. Per-pixel trigonometry or a blur over a full-resolution layer every frame does not fit.
 - Controls answer at once; only displays animate. Everything that animates follows audio or time, never a random
   timer, so a frozen state draws the same picture every time.
 

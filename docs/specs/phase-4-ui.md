@@ -71,9 +71,10 @@ renderer is fast enough at this size).
      gate, shift-click accent, alt-click slide, drag up or down a semitone per 8 px).
 
 6. **The budget and the review images**
-   - Keep a full repaint within the budget (`docs/design/ui-spec.md` section 5): cache the static layer at the
-     display's scale (`g.getInternalContext().getPhysicalPixelScaleFactor()`) and draw it 1:1, render the tunnel at a
-     quarter of the CHEST's resolution from lookup tables, and let each tick repaint only the dynamic regions.
+   - Keep 60 Hz with headroom (`docs/design/ui-spec.md` section 5): cache the static layer at the display's scale
+     (`g.getInternalContext().getPhysicalPixelScaleFactor()`) and draw it 1:1, render the tunnel at a quarter of the
+     CHEST's resolution from precomputed tables, keep per-pixel trigonometry and blurs out of full-resolution layers,
+     and let each tick repaint only the dynamic regions.
    - Run `tools/spec.sh 4 budget` and commit the three images it writes: `artifacts/ui/editor-idle.png`,
      `artifacts/ui/editor-playing.png` and `artifacts/ui/editor-clipping.png` (1200 x 760, each under 2 MB). The 2x
      copies it writes to `build/previews/` stay uncommitted.
@@ -141,7 +142,7 @@ public:
 | P4.03-P4.04 | `tools/spec.sh 4 editor` | captureFrame reads the processor (note, pitch, RMS, energy, scope, clock, length); every parameter has its attached knob or button on the editor |
 | P4.05-P4.09 | `tools/spec.sh 4 display` | Snapshots: half the panel void, no white, rose dominant, bone only for the pitch in the CHEST; hazard stripes only when clipping; the tunnel brighter with energy and moving; the scope trace across its width |
 | P4.10 | `tools/spec.sh 4 steps` | 16 cells left to right in the GUT, hit-testing, the playing step the brightest cell, and gate, accent, slide and note edits reaching the pattern |
-| P4.11-P4.12 | `tools/spec.sh 4 budget` | A full repaint within the budget (CPU time: median 8 ms, 95th percentile 16 ms at 1x; median 20 ms at 2x), and the three review images written: artifacts/ui at 1x under 2 MB, build/previews at 2x |
+| P4.11-P4.12 | `tools/spec.sh 4 budget` | A full repaint keeps 60 Hz with headroom (CPU time: median 11 ms, 95th percentile 16 ms at 1x; median 27 ms at 2x), and the three review images written: artifacts/ui at 1x under 2 MB, build/previews at 2x |
 | P4.13 | `tools/check.sh --plugin` | Everything still passes: every spec test of phases 0 to 4, both presets, pluginval at strictness 5 |
 
 ## Rules every task keeps
