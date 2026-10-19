@@ -45,7 +45,9 @@ editor (phase 4). Their parameters already exist in the table: the engine ignore
      fine too if it meets the checks.
    - Cutoff clamped to 20 Hz .. min(20 kHz, 0.45 sampleRate); resonance and drive to 0 .. 1.
    - Drive is a symmetric saturation (tanh) before the filter: exactly linear at 0, clearly distorting at 1.
-   - Flush state below about 1e-20 to zero, so a silent filter never produces denormals.
+   - Flush state below about 1e-20 to zero, so a silent filter never produces denormals. Flush it as a whole: zero
+     both state variables of a stage together, once both are below the threshold; zeroing one of two coupled states
+     on its own can keep the filter ringing near 1e-19 for ever.
 
 3. **The envelope** (`core/include/undertow/envelope.h`, `core/src/envelope.cpp`)
    - Attack: from the current level up to 1 in a straight line, at `1 / (attackMs * sampleRate / 1000)` per sample.
@@ -222,7 +224,20 @@ Private members are yours. Keep the classes free of virtual calls and allocation
 
 ## Notes for the planner
 
-- Suggested tasks: (1) oscillators, (2) filter, (3) envelope (in parallel), (4) the mono voice (needs 1 to 3), (5) the
-  engine wiring (needs 4). Each task's checks are its own test file's.
-- The voice and engine tests (`P1.11` to `P1.20`) start from `spec::cleanPatch()` and `spec::subPatch()` in
+- Five tasks, one per test file. Each task's verify steps are exactly the checks named for it, with their commands
+  unchanged, and each passes once that task (and the ones it needs) is done:
+  1. **Oscillators** (`oscillator.h`, `oscillator.cpp`): P1.01 to P1.04.
+  2. **The filter** (`filter.h`, `filter.cpp`): P1.05 to P1.07.
+  3. **The envelope** (`envelope.h`, `envelope.cpp`): P1.08 to P1.10.
+  4. **The mono voice** (`voice.h`, `voice.cpp`): P1.11 to P1.15. Needs tasks 1 to 3.
+  5. **The engine wiring** (`engine.cpp`, `core/CMakeLists.txt`): P1.16 to P1.20. Needs task 4.
+  Tasks 1 to 3 can run in parallel. Each adds its own source to `core/CMakeLists.txt`; the engine task makes sure
+  all four are listed.
+- A test file is one executable, so a task owns a whole file's checks: the tests compile only once every class
+  that file uses exists.
+- Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check
+  before it hands off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep`
+  and `glob`.
+- `tools/check.sh` (every present spec test, phases 0 and 1) is the plan's final check, not any one task's.
+- The voice and engine tests start from `spec::cleanPatch()` and `spec::subPatch()` in
   `tests/spec/support/spec_engine.h`: read them to see the parameter values each test uses.
