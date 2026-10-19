@@ -90,7 +90,10 @@ silence in this phase; that is correct.
    - `processBlock`: wrap in `juce::ScopedNoDenormals`; copy every parameter's raw value into `engine().setParam`;
      convert the MIDI buffer into a `std::vector<undertow::MidiEvent>` reserved in `prepareToPlay` (never grown in
      `processBlock`: drop events past its capacity); read the play head into an `undertow::Transport` (`valid` when
-     the host gives a ppq position); call `engine().process` on channels 0 and 1.
+     the host gives a ppq position); call `engine().process` on channels 0 and 1. `getPlayHead()` may be null;
+     `getPosition()` returns a `juce::Optional<juce::AudioPlayHead::PositionInfo>`, and its `getPpqPosition()` and
+     `getBpm()` return `juce::Optional<double>`: test with `hasValue()` (or `if (auto ppq = ...)`) and read with `*ppq`
+     or `orFallback(120.0)`. `juce::Optional` has no `value_or`.
    - State: the APVTS state as XML (`copyXmlToBinary` / `getXmlFromBinary`).
    - `getName()` returns `JucePlugin_Name`; `getTailLengthSeconds()` 8 (the rumble's longest decay).
    - `UndertowEditor`: a placeholder, fixed 1200 x 760, not resizable, painting the void (`#060608`) with a
@@ -240,7 +243,7 @@ JUCE). `tools/spec.sh 0 plugin` runs all six plugin test cases (P0.08 to P0.13) 
 | P0.05 | `tools/spec.sh 0 engine 'P0.05*'` | process, setParam, getParam, meters and reset make no heap allocation over 1000 blocks |
 | P0.06 | `tools/spec.sh 0 engine 'P0.06*'` | The beat clock follows a playing or stopped host transport, and runs at seq_bpm from 0 without one |
 | P0.07 | `tools/spec.sh 0 engine 'P0.07*'` | The core preset builds the core and its tests without configuring JUCE, and no core header includes JUCE |
-| P0.08-P0.13 | `tools/spec.sh 0 plugin` | The plugin skeleton: identity (MIDI in, one stereo out), the 57 parameters, state restore, an allocation-free processBlock feeding the engine, the fixed 1200 x 760 editor, and the three bundles' ids |
+| P0.08-P0.13 | `tools/spec.sh 0 plugin` | The plugin skeleton: identity (MIDI in, one stereo out, the only layout accepted), the 57 parameters, state restore, an allocation-free processBlock feeding the engine, the fixed 1200 x 760 editor, and the three bundles' ids |
 | P0.14 | `tools/pluginval.sh 5` | pluginval 1.0.4 passes the VST3 at strictness 5 (seed 42, no GUI tests) |
 | P0.15 | `tools/check.sh --plugin` | The whole local check passes: both presets build, every present spec test passes in ctest, and pluginval passes |
 

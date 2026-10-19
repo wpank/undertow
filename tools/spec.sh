@@ -5,9 +5,9 @@
 #   tools/spec.sh 1 oscillator 'P1.03*'      runs the P1.03 test cases of tests/spec/p1/oscillator_test.cpp
 #
 # Core tests build with the `core` preset (no JUCE); a test file marked "// spec-preset: plugin" builds with
-# the `plugin` preset. Output is kept short for the person or model fixing a failure: the build shows only its
-# progress lines, a configure or build failure ends with only its errors (full logs in build/spec-logs/), and a
-# run shows only the failed checks.
+# the `plugin` preset. Output is kept short for the person or model fixing a failure: the build shows its progress
+# lines and its error lines as they happen, a configure or build failure ends with only its errors (full logs in
+# build/spec-logs/), and a run shows only the failed checks.
 # Exits 0 only when every selected test case passes, and fails when the filter selects none.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -42,10 +42,11 @@ if ! cmake --preset "$preset" >"$logs/$preset-configure.log" 2>&1; then
   grep -E -A3 'CMake Error|error' "$logs/$preset-configure.log" | head -n 40 >&2
   exit 1
 fi
-# The build's progress lines (`[ 42%] Building CXX object ...`) are shown as they happen, so a long plugin build
-# shows its progress; the full log is kept, and a failure ends with only its errors.
+# The build's progress lines (`[ 42%] Building CXX object ...`) and error lines are shown as they happen, so a long
+# plugin build shows its progress and a failing one its errors at once; the full log is kept, and a failure ends
+# with its errors again, with context.
 cmake --build --preset "$preset" --target "$target" 2>&1 | tee "$logs/$target-build.log" |
-  grep --line-buffered -E '^\[ *[0-9]+%\]'
+  grep --line-buffered -E '^\[ *[0-9]+%\]|error:|[Uu]ndefined symbol|ld: |CMake Error'
 build_status=${PIPESTATUS[0]}
 if [ "$build_status" -ne 0 ]; then
   echo "spec: FAIL $target: \`cmake --build --preset $preset --target $target\` failed (full log: $logs/$target-build.log):" >&2
