@@ -66,6 +66,12 @@ TEST_CASE("P0.08 the processor is the Metakosmia Undertow synth: MIDI in, one st
     CHECK_MESSAGE(processor->getBusCount(true) == 0, "a synth has no input bus; found " << processor->getBusCount(true));
     REQUIRE_MESSAGE(processor->getBusCount(false) == 1, "the synth has exactly one output bus");
     CHECK_MESSAGE(processor->getChannelCountOfBus(false, 0) == 2, "the output bus is stereo by default");
+    juce::AudioProcessor::BusesLayout stereo, mono;
+    stereo.outputBuses.add(juce::AudioChannelSet::stereo());
+    mono.outputBuses.add(juce::AudioChannelSet::mono());
+    CHECK_MESSAGE(processor->checkBusesLayoutSupported(stereo), "isBusesLayoutSupported must accept one stereo output and no input");
+    CHECK_MESSAGE(!processor->checkBusesLayoutSupported(mono),
+                  "isBusesLayoutSupported must refuse a mono output: stereo is the only layout (processBlock writes two channels)");
 }
 
 TEST_CASE("P0.09 the plugin exposes the 57 parameters of the core table, in order, with the same ranges") {
