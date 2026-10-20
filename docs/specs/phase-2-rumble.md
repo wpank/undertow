@@ -62,14 +62,19 @@ Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` paramete
 
 3. **The output stage** (`core/include/undertow/output_stage.h`, `core/src/output_stage.cpp`)
    - `softClip(x)`: `x` for `|x| <= 0.5`; above, `sign(x) * (0.5 + 0.466 * tanh((|x| - 0.5) / 0.466))`, never above 0.966.
-   - `process(mono, left, right)`, in order: saturation `tanh(g x) / g` with `g = 1 + 3 sat_drive` (bypassed at 0;
-     quiet signals pass at unity gain and loud peaks are rounded down, by up to 12 dB at full drive, which
-     `master_gain` makes up);
-     `master_gain` (dB, smoothed); a 4th-order Linkwitz-Riley crossover at `mono_freq` (two cascaded Butterworth
-     low-passes and high-passes), always running; the low band goes to both channels; the high band gets width:
-     with `theta = width * pi / 4` and `d` the high band delayed by 12 ms,
-     `left = low + cos(theta) * high + sin(theta) * d` and `right = low + cos(theta) * high - sin(theta) * d`;
-     then `softClip` on each channel.
+   - `process(mono, left, right)`, in order:
+     - a DC blocker: a one-pole high-pass at about 5 Hz, whose state flushes to exact zero once the input is silent
+       (a narrow pulse's offset would otherwise reach both channels through the low band and make the saturation and
+       the clipper asymmetric);
+     - saturation `tanh(g x) / g` with `g = 1 + 3 sat_drive` (bypassed at 0; quiet signals pass at unity gain and loud
+       peaks are rounded down, by up to 12 dB at full drive, which `master_gain` makes up);
+     - `master_gain` (dB, smoothed over a few milliseconds: an 18 dB step never jumps a sample, and settles within
+       50 ms);
+     - a 4th-order Linkwitz-Riley crossover at `mono_freq` (two cascaded Butterworth low-passes and high-passes),
+       always running; the low band goes to both channels; the high band gets width: with `theta = width * pi / 4`
+       and `d` the high band delayed by 12 ms, `left = low + cos(theta) * high + sin(theta) * d` and
+       `right = low + cos(theta) * high - sin(theta) * d`;
+     - then `softClip` on each channel.
    - `clipped()` is true for 0.5 s after any channel goes over 1.0 before the clipper.
 
 4. **Voice modulation** (`core/include/undertow/voice.h`, `core/src/voice.cpp`)
@@ -87,6 +92,9 @@ Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` paramete
      `lfo*_phase`; Sample & Hold seeds `2 seq_seed + 1` and `2 seq_seed + 2`.
    - Then `mono = voice + rumble.process(voice * send, ppq, tempo, running)` and `output.process(mono, left, right)`.
      The master gain moves from the engine into the output stage.
+   - `master_gain`'s default becomes -12 dB, in `core/src/params.cpp` (the PRD's table says so too). With every
+     parameter at its default, accented notes then peak near -8 dBFS, below the clipper's knee, instead of over full
+     scale.
    - Meters: `clipping` from the output stage; `rumble`, the rumble bus RMS over about 50 ms.
    - Controller 120 (all sound off) now also resets the rumble and the output stage, so the output is silent at once
      (phase 1's check P1.16 requires it now that the crossover always runs).
@@ -152,6 +160,8 @@ void setModulation(const VoiceModulation& modulation);
 
 ## Acceptance checks
 
+Checks that share a command are one verify step: the table repeats the command on every row that command proves.
+
 | Check | Command | Proves |
 |---|---|---|
 | P2.01 | `tools/spec.sh 2 lfo 'P2.01*'` | The 17 rate choices are the right cycle lengths in beats, polyrhythms included |
@@ -162,17 +172,21 @@ void setModulation(const VoiceModulation& modulation);
 | P2.06 | `tools/spec.sh 2 rumble 'P2.06*'` | The tail falls from -10 to -40 dB in half of rumble_decay (within 35%), for 2 s and 6 s |
 | P2.07 | `tools/spec.sh 2 rumble 'P2.07*'` | The ghost kick is never heard dry, the send feeds the reverb, and rumble_level 0 is exact silence |
 | P2.08 | `tools/spec.sh 2 rumble 'P2.08*'` | At full settings with full-scale noise sent in, the rumble stays finite and within 2 and never allocates; after a stop its tail ends in exact zeros, no denormals |
-| P2.09 | `tools/spec.sh 2 output 'P2.09*'` | softClip is exactly transparent to 0.5, odd, rising, gives 0.869 at 1.0 and never passes 0.966 |
-| P2.10 | `tools/spec.sh 2 output 'P2.10*'` | Saturation is linear at 0, distorts a 0.4 sine by 5% or more at 1 with odd harmonics and no DC, and keeps quiet signals at unity gain |
-| P2.11 | `tools/spec.sh 2 output 'P2.11*'` | Width 0 leaves both channels equal and the bands summing flat; width keeps the band under mono_freq mono and decorrelates the band above |
-| P2.12 | `tools/spec.sh 2 output 'P2.12*'` | The clip meter lights when the signal goes over full scale and goes out 0.5 s later; the output never passes the ceiling |
-| P2.13 | `tools/spec.sh 2 engine 'P2.13*'` | LFO 1 moves the cutoff in time with the host's bar (peak at ppq 1 for a 1-bar sine), replays after a host loop, and runs on the internal clock without a host |
-| P2.14 | `tools/spec.sh 2 engine 'P2.14*'` | LFO 2 reaches pitch (+-12 semitones), amp (full to silent), pulse width and cutoff |
-| P2.15 | `tools/spec.sh 2 engine 'P2.15*'` | In the engine the mono rumble pumps on the host's beats, kicks again after a loop to ppq 0, and runs on the internal clock without a host |
-| P2.16 | `tools/spec.sh 2 engine 'P2.16*'` | At width 1 the full mix keeps the side signal 25 dB under the mid below mono_freq / 2, and spreads the band above 500 Hz |
-| P2.17 | `tools/spec.sh 2 engine 'P2.17*'` | A hot patch (no saturation, master +6 dB) never passes 0.966, stays finite, lights meters().clipping, and the meter clears once quiet |
-| P2.18 | `tools/spec.sh 2 engine 'P2.18*'` | With LFOs, rumble, saturation and width on, and their parameters moving, the engine never allocates |
-| P2.19 | `tools/spec.sh 2 engine 'P2.19*'` | 60 s of the full engine renders in at most 4 s of CPU time (15x real time) |
+| P2.09 | `tools/spec.sh 2 output 'P2.09*,P2.10*'` | softClip is exactly transparent to 0.5, odd, rising, gives 0.869 at 1.0 and never passes 0.966 |
+| P2.10 | `tools/spec.sh 2 output 'P2.09*,P2.10*'` | Saturation is linear at 0, distorts a 0.4 sine by 5% or more at 1 with odd harmonics and no DC, and keeps quiet signals at unity gain |
+| P2.11 | `tools/spec.sh 2 output 'P2.11*,P2.12*'` | Width 0 leaves both channels equal and the bands summing flat; width keeps the band under mono_freq mono and decorrelates the band above |
+| P2.12 | `tools/spec.sh 2 output 'P2.11*,P2.12*'` | The clip meter lights when the signal goes over full scale and goes out 0.5 s later; the output never passes the ceiling |
+| P2.13 | `tools/spec.sh 2 engine 'P2.13*,P2.14*,P2.23*'` | LFO 1 moves the cutoff in time with the host's bar (peak at ppq 1 for a 1-bar sine), replays after a host loop, and runs on the internal clock without a host |
+| P2.14 | `tools/spec.sh 2 engine 'P2.13*,P2.14*,P2.23*'` | LFO 2 reaches pitch (+-12 semitones), amp (full to silent), pulse width and cutoff |
+| P2.15 | `tools/spec.sh 2 engine 'P2.15*,P2.16*'` | In the engine the mono rumble pumps on the host's beats, kicks again after a loop to ppq 0, and runs on the internal clock without a host |
+| P2.16 | `tools/spec.sh 2 engine 'P2.15*,P2.16*'` | At width 1 the full mix keeps the side signal 25 dB under the mid below mono_freq / 2, and spreads the band above 500 Hz |
+| P2.17 | `tools/spec.sh 2 engine 'P2.17*,P2.22*'` | A hot patch (no saturation, master +6 dB) never passes 0.966, stays finite, lights meters().clipping, and the meter clears once quiet |
+| P2.18 | `tools/spec.sh 2 engine 'P2.18*,P2.19*'` | With LFOs, rumble, saturation and width on, and their parameters moving, the engine never allocates |
+| P2.19 | `tools/spec.sh 2 engine 'P2.18*,P2.19*'` | 60 s of the full engine renders in at most 4 s of CPU time (15x real time) |
+| P2.20 | `tools/spec.sh 2 output 'P2.20*,P2.21*'` | master_gain is smoothed: an 18 dB step on a held sine never jumps a sample (four steps at different phases), and the level settles within 50 ms |
+| P2.21 | `tools/spec.sh 2 output 'P2.20*,P2.21*'` | A DC blocker: a constant 0.4 at the input leaves the output's mean within 0.01 after 0.2 s, and a 30 Hz sine keeps its level within 0.5 dB |
+| P2.22 | `tools/spec.sh 2 engine 'P2.17*,P2.22*'` | With every parameter at its default, accented notes (velocity 127) on A1, A2 and A3 peak between -12 and -6 dBFS: below the clipper's knee |
+| P2.23 | `tools/spec.sh 2 engine 'P2.13*,P2.14*,P2.23*'` | A 10% pulse swept by LFO 2 (pulse width) leaves the output's mean within 0.01 in every quarter second |
 
 ## Rules every task keeps
 
@@ -200,10 +214,11 @@ void setModulation(const VoiceModulation& modulation);
      `file(GLOB undertow_core_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")` and
      `add_library(undertow_core STATIC ${undertow_core_sources})`. `CONFIGURE_DEPENDS` makes a build re-glob, so a new
      file joins even an already-configured build tree.
-  2. **The rumble** (`rumble.h`, `rumble.cpp`): P2.04 to P2.08. Needs task 1.
-  3. **The output stage** (`output_stage.h`, `output_stage.cpp`): P2.09 to P2.12. Needs task 1.
-  4. **Voice modulation and the engine wiring** (`voice.h`, `voice.cpp`, `engine.cpp`): P2.13 to P2.19. Needs tasks 1
-     to 3.
+  2. **The rumble** (`rumble.h`, `rumble.cpp`): P2.04 to P2.08. Needs task 1. About 200 lines, so architectural.
+  3. **The output stage** (`output_stage.h`, `output_stage.cpp`): P2.09 to P2.12, P2.20 and P2.21, in three verify
+     steps. Needs task 1. About 160 lines, so architectural.
+  4. **Voice modulation and the engine wiring** (`voice.h`, `voice.cpp`, `engine.cpp`, `params.cpp` for the master
+     default): P2.13 to P2.19, P2.22 and P2.23, in four verify steps. Needs tasks 1 to 3. About 80 lines.
   Tasks 2 and 3 run in parallel after task 1, and only add files. Only task 1 lists `core/CMakeLists.txt` in its
   files: no other task edits it.
 - A test file is one executable, so a task owns a whole file's checks: the tests compile only once every class

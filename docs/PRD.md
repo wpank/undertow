@@ -67,6 +67,9 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
   the band above it. At width 0 both channels carry the same signal, sample for sample.
 - A soft clipper holds every output sample within -0.3 dBFS (0.966) and is exactly transparent below -6 dBFS (0.5).
   When the signal goes over full scale, the meters say so and the editor shows the NERV hazard stripe.
+- Headroom: `master_gain` defaults to -12 dB, so the default patch's accented notes peak between -12 and -6 dBFS,
+  clear of the clipper's knee. A DC blocker at the head of the output stage keeps the output centred, whatever the
+  pulse width.
 - Every audio callback is realtime-safe: no allocation, lock, file or log, and no NaN, infinity or denormal out.
 
 ## 2. Signal flow
@@ -186,7 +189,7 @@ run from 0 to their number of choices minus one. `tests/spec/p0/params_test.cpp`
 | 41 | `sat_drive` | Saturation | Float | 0 | 1 | 0.2 | 0 | |
 | 42 | `width` | Width | Float | 0 | 1 | 0.25 | 0 | |
 | 43 | `mono_freq` | Mono Below | Float | 60 | 250 | 120 | 0 | Hz |
-| 44 | `master_gain` | Master | Float | -24 | 6 | -3 | 0 | dB |
+| 44 | `master_gain` | Master | Float | -24 | 6 | -12 | 0 | dB |
 | 45 | `seq_on` | Sequencer | Bool | 0 | 1 | 0 | 0 | |
 | 46 | `seq_sync` | Seq Sync | Choice | 0 | 1 | 0 | 0 | |
 | 47 | `seq_bpm` | Seq BPM | Float | 60 | 200 | 128 | 0 | bpm |
