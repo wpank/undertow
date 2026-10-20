@@ -61,6 +61,10 @@ signing only), an installer package.
      BASS Hypnotic Roller have `seq_on` 1. Every preset, rendered at 128 BPM (holding A2, note 45, when the
      sequencer is off, so a `-1 oct` sub sounds at 55 Hz), is finite, under -0.3 dBFS and at least -30 dBFS RMS (the
      checks render 2 bars).
+   - Level (checked): the presets are loudness-matched. Each preset's render, as above, has an RMS over both channels
+     within 3 dB of -18 dBFS, the level the init patch renders at with the -12 dB master default. Set each preset's
+     `master_gain` to land it there: a render X dB off needs `master_gain` X dB the other way, and the check prints
+     X. The default suits few presets.
 
 2. **The programs and strict validation** (`plugin/PluginProcessor.h/.cpp`)
    - `getNumPrograms()` is the number of factory presets; `getProgramName(i)` its name; `setCurrentProgram(i)` sets
@@ -118,6 +122,8 @@ int findFactoryPreset(std::string_view nameOrSlug);   // its index, or -1
 
 ## Acceptance checks
 
+Checks that share a command are one verify step: the table repeats the command on every row that command proves.
+
 | Check | Command | Proves |
 |---|---|---|
 | P5.01-P5.03 | `tools/spec.sh 5 presets` | At least 12 presets with unique names and slugs in four categories and valid values; each renders clean (finite, under -0.3 dBFS, at least -30 dBFS RMS) and repeatably; each category has its character |
@@ -126,6 +132,7 @@ int findFactoryPreset(std::string_view nameOrSlug);   // its index, or -1
 | P5.06 | `tools/render-demos.sh && tools/spec.sh 5 demos` | The four showcase renders are in artifacts/audio (48 kHz, 24-bit stereo, 8 bars, under 5 MB) and every preset has a render in build/demos |
 | P5.07 | `tools/install.sh --dest build/install-test && tools/spec.sh 5 install` | In a test folder, never the user's own: the three bundles in VST3, Components and Applications, whole, signed, with the Metakosmia ids and the AU's component entry |
 | P5.08 | `tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt` | pluginval passes at strictness 10 (without its GUI tests, so no windows open), and its log is kept for review |
+| P5.09 | `tools/spec.sh 5 presets` | The presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level, so none sounds weak or hot next to another |
 
 ## Rules every task keeps
 
@@ -153,7 +160,8 @@ int findFactoryPreset(std::string_view nameOrSlug);   // its index, or -1
 
 - Five tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
-  1. **The factory presets** (`presets.h`, `presets.cpp`): P5.01-P5.03.
+  1. **The factory presets** (`presets.h`, `presets.cpp`): P5.01-P5.03 and P5.09, in one verify step:
+     `tools/spec.sh 5 presets` runs all four.
   2. **The programs and strict validation** (`plugin/PluginProcessor.h/.cpp`): P5.04 and P5.08. Needs task 1. It
      commits `artifacts/reports/pluginval-strict.txt`. P5.08 may already pass on the base, if phase 4's processor
      restores bool parameters from a saved state; that is fine: it must pass once task 2 is done.

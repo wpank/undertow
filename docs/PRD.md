@@ -70,6 +70,8 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
 - Headroom: `master_gain` defaults to -12 dB, so the default patch's accented notes peak between -12 and -6 dBFS,
   clear of the clipper's knee. A DC blocker at the head of the output stage keeps the output centred, whatever the
   pulse width.
+- The factory presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level, so
+  stepping through them never drops or jumps in level.
 - Every audio callback is realtime-safe: no allocation, lock, file or log, and no NaN, infinity or denormal out.
 
 ## 2. Signal flow
