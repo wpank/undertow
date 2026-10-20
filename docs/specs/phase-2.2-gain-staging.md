@@ -57,9 +57,11 @@ Out of scope: everything under "Not now", the sequencer (phase 3) and the editor
      steadily across the knob, for example a gain at the cutoff linear in dB from -3 at 0 to +12.5 at 0.8, then on to
      the same full Q at 1: `k = 0.5412 * 10^(-g / 20)` with `g = -3.01 + 19.39 r` up to 0.8 and `12.5 + 80.75 (r - 0.8)`
      above it.
-   - Keep phase 2.1's linearity (P2.1.05, P2.1.06) and P1.07's ±4: a stronger peak needs room inside the filter. In the
-     current code the limit between the two stages, from 3 to 4, would flatten +12.5 dB at full level to +8.4. Raise
-     it to 8 to 12 and keep the final limit at 3 to 4.
+   - Keep phase 2.1's linearity (P2.1.05, P2.1.06): a stronger peak needs room inside the filter. Phase 2.1's filter
+     limits its states and the signal between its stages from 10 to 20, which leaves +12.5 dB linear at full level.
+   - Bound the output: a full-scale tone held at the cutoff at high resonance now rings to about 7 (5.7 at 0.9, 7.2 at
+     1), well past the 4 P1.07 allows on a sweep. A final soft limit from 3 to 4 on the output holds it, and costs the
+     +12.5 dB peak at 0.8 under 0.5 dB at full level.
 3. **The rumble** (`core/include/undertow/rumble.h`, `core/src/rumble.cpp`): a makeup gain on its saturation, and an
    output gain.
    - Multiply `tanh(k x) / k` by a makeup gain that keeps the rumble alone (its ghost kick, nothing sent) within 3 dB
@@ -81,7 +83,7 @@ Checks that share a command are one verify step: the table repeats the command o
 |---|---|---|
 | P2.2.01 | `tools/spec.sh 2_2 output 'P2.2.01*,P2.2.02*'` | At width 0 the output stage leaves a saw's (110 and 220 Hz) and a square's (220 and 440 Hz) crest factor within 0.5 dB, both channels the same |
 | P2.2.02 | `tools/spec.sh 2_2 output 'P2.2.01*,P2.2.02*'` | At width 0.5 and 1 the mid, (L + R) / 2, is the width-0 output (within -60 dB), and below 60 Hz the side stays 30 dB under the mid |
-| P2.2.03 | `tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*'` | A 110 Hz saw at 0.6 through cutoff 600 Hz and resonance 0.35 stays within 3 dB of its drive-0 RMS at filter_drive 0.25, 0.5, 0.75 and 1 |
+| P2.2.03 | `tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*,P2.2.13*'` | A 110 Hz saw at 0.6 through cutoff 600 Hz and resonance 0.35 stays within 3 dB of its drive-0 RMS at filter_drive 0.25, 0.5, 0.75 and 1 |
 | P2.2.04 | `tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'` | The rumble alone stays within 3 dB of its drive-0 RMS at rumble_drive 0.25 to 1, and full drive lowers its crest factor by at least 2 dB |
 | P2.2.05 | `tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'` | At every default the rumble sits 9 to 15 dB under the bass below 200 Hz holding A1 and then A2 (velocity 100, 4 bars), and 4 to 13 dB under a rolling line on A2 (sixteenths that rest on every beat) |
 | P2.2.06 | `tools/spec.sh 2 output` | Phase 2's output checks still pass (P2.09 to P2.12, P2.20, P2.21; P2.11 as amended). A regression check: it passes on the base too |
@@ -89,8 +91,9 @@ Checks that share a command are one verify step: the table repeats the command o
 | P2.2.08 | `tools/spec.sh 2 engine 'P2.17*,P2.22*'` | The default patch's accented notes still peak between -12 and -6 dBFS (P2.22), now with less crest. A regression check |
 | P2.2.09 | `tools/spec.sh 1 filter` | Phase 1's filter checks still pass: drive 0 linear, drive 1 an odd-harmonic saturation. A regression check |
 | P2.2.10 | `tools/spec.sh 2 rumble` | Phase 2's rumble checks still pass (P2.04 to P2.08: the grid, the low band, the tail, bounded at full settings). A regression check |
-| P2.2.11 | `tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*'` | Resonance has a musical middle: at least +8 dB at the cutoff at resonance 0.6 (small level), and the peak rises by at least 0.5 dB at every step of 0.2, 0.35, 0.5, 0.6, 0.7, 0.8 and 0.9 |
+| P2.2.11 | `tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*,P2.2.13*'` | Resonance has a musical middle: at least +8 dB at the cutoff at resonance 0.6 (small level), and the peak rises by at least 0.5 dB at every step of 0.2, 0.35, 0.5, 0.6, 0.7, 0.8 and 0.9 |
 | P2.2.12 | `tools/spec.sh 2_1 filter` | Phase 2.1's filter checks still pass: the resonance holds at full level, and drive 0 stays linear. A regression check |
+| P2.2.13 | `tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*,P2.2.13*'` | A 1.0 sine held at the cutoff (600 Hz and 1 kHz) for 1 s at resonance 0.8, 0.9 and 1 peaks within 4 |
 
 ## Rules every task keeps
 
@@ -119,8 +122,8 @@ Checks that share a command are one verify step: the table repeats the command o
   the checks named for it, with their commands unchanged:
   1. **Width** (`core/include/undertow/output_stage.h`, `core/src/output_stage.cpp`): P2.2.01 and P2.2.02 in one step,
      and P2.2.06 to P2.2.08. About 40 lines.
-  2. **The filter's drive and resonance curve** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): P2.2.03 and
-     P2.2.11 in one step, P2.2.09 and P2.2.12. About 20 lines.
+  2. **The filter's drive and resonance curve** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): P2.2.03,
+     P2.2.11 and P2.2.13 in one step, P2.2.09 and P2.2.12. About 20 lines.
   3. **The rumble** (`core/include/undertow/rumble.h`, `core/src/rumble.cpp`): P2.2.04 and P2.2.05 in one step, and
      P2.2.10. About 15 lines.
 - P2.2.06 to P2.2.10 and P2.2.12 are regression checks (`expect = "pass_on_base"`). They keep each task inside the
