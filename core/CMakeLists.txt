@@ -1,11 +1,9 @@
-add_library(undertow_core STATIC
-    src/params.cpp
-    src/filter.cpp
-    src/engine.cpp
-    src/oscillator.cpp
-    src/envelope.cpp
-    src/voice.cpp
+file(GLOB undertow_core_sources CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp
 )
+list(SORT undertow_core_sources)
+
+add_library(undertow_core STATIC ${undertow_core_sources})
 add_library(Undertow::core ALIAS undertow_core)
 
 target_include_directories(undertow_core PUBLIC include)
