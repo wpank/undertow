@@ -8,15 +8,15 @@ clock in the meters, and the pattern saved with the plugin's state.
 
 **Depends on**: phases 2 and 3 (the meters, the rumble and the sequencer's pattern).
 
-**Size**: L, 4 tasks, about 1200 lines.
+**Size**: L, 7 tasks, about 1000 lines.
 
 ---
 
 ## Scope
 
 In scope: `Engine::copyScope` and two clock fields in `Meters`; `UndertowProcessor::setPattern`/`pattern` and the
-pattern in the plugin state; `plugin/ui/UiFrame.h` and the editor (`plugin/PluginEditor.h/.cpp`, with its widgets in
-`plugin/ui/`); the review images under `artifacts/ui/`.
+pattern in the plugin state; the editor (`plugin/PluginEditor.h/.cpp`) and its parts in `plugin/ui/`, one file pair
+each: `UiFrame.h`, `Theme.h`, `Look`, `UnitArray`, `Displays` and `Status`; the review images under `artifacts/ui/`.
 
 Out of scope: presets and the program list (phase 5); resizing (the editor has one size); OpenGL (JUCE's software
 renderer is fast enough at this size).
@@ -33,51 +33,68 @@ renderer is fast enough at this size).
 
 ## What to build
 
-1. **The engine's outputs for the editor** (`core/include/undertow/engine.h`, `core/src/engine.cpp`)
+The editor is split into parts with one file pair each, so the tasks can build them side by side and no file has more
+than two owners. The editor frame writes the four widget headers as the stubs given in the API (inline, empty); each
+widget's task replaces its header, keeping its public members, and adds its `.cpp`, which the `plugin/ui/*.cpp` glob
+picks up.
+
+1. **The plumbing** (`core/include/undertow/engine.h`, `core/src/engine.cpp`, `plugin/PluginProcessor.h/.cpp`,
+   `plugin/CMakeLists.txt`)
    - `copyScope(destination, count)`: the latest `count` mono output samples (`(left + right) / 2`), oldest first, at
      most `kScopeSamples` (4096); returns how many it copied (fewer only before that much audio). A ring buffer the
      audio thread writes and an atomic count, so the UI thread reads without locks; no allocation.
    - `Meters::hostClock` (the host's transport drives the clock, phase 3's rule) and `Meters::bpm` (the tempo in use).
-
-2. **The pattern in the plugin** (`plugin/PluginProcessor.h/.cpp`)
-   - `setPattern(pattern)` hands the pattern to the engine (`Engine::setPattern`); `pattern()` returns
-     `engine().pattern()`.
-   - `getStateInformation` writes the 16 steps (semitones, gate, accent, slide, probability) with the parameters;
-     `setStateInformation` restores them through `Engine::setPattern`. Old states without steps keep the default.
-
-3. **The editor skeleton** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `plugin/PluginEditor.h/.cpp`)
-   - `UiFrame` as below. `captureFrame()` reads it from the processor: `meters()` (peak, rms, clipping, note,
-     noteHz, step, rumble, ppq, hostClock, bpm), `filter_res` and `seq_length` from the engine, the latest 2048
-     scope samples, and `energy` = the RMS in dB mapped from -48 .. -6 to 0 .. 1.
-   - The fixed 1200 x 760 layout of the design's zones; the static layer drawn once into a cached image (void,
-     panels, hairlines, corner stamps, labels, crosshair grid, scanlines, seeded noise floor).
-   - One control per parameter (`juce::Slider` knobs drawn by a ROSEDUST `LookAndFeel`; `seq_on` a `juce::Button`),
-     attached with `AudioProcessorValueTreeState::SliderAttachment`/`ButtonAttachment`; `controlFor(id)` finds it.
-     `LookAndFeel_V4` draws toggle text, ticks and tooltips in white: the `LookAndFeel` sets each of those colours to a
-     token.
-   - A 60 Hz timer: each tick `advance(captureFrame(), elapsed)` and repaint. `freeze()` stops the timer, so tests
-     and previews drive the editor only through `advance`. Everything drawn depends only on the frames advanced
-     and the pattern, never on wall time, so a frozen editor draws the same picture every time.
+   - `UndertowProcessor::setPattern(pattern)` hands the pattern to the engine (`Engine::setPattern`); `pattern()`
+     returns `engine().pattern()`. `getStateInformation` writes the 16 steps (semitones, gate, accent, slide,
+     probability) with the parameters; `setStateInformation` restores them through `Engine::setPattern`. Old states
+     without steps keep the default.
    - `plugin/CMakeLists.txt` adds every `plugin/ui/*.cpp` to the plugin's sources by
      `file(GLOB undertow_ui_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")` (in `target_sources`
-     of `Undertow`), so widget files join without editing it.
+     of `Undertow`).
 
-4. **The displays** (`plugin/ui/`, wired into the editor)
-   - The tunnel, the scope with its phosphor history, the AT field, the bone number, the HEAD clock and meter, the
-     rumble pump field and the hazard stripes, as `docs/design/ui-spec.md` section 4 describes them.
-   - `chestBounds()` is the CHEST zone; `scopeBounds()` the scope's rectangle inside it.
+2. **The editor frame** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `plugin/PluginEditor.h/.cpp`, and the stub
+   headers `plugin/ui/Look.h`, `UnitArray.h`, `Displays.h`, `Status.h`)
+   - `UiFrame` and `StepEdit` as below. `captureFrame()` reads the processor: `meters()` (peak, rms, clipping, note,
+     noteHz, step, rumble, ppq, hostClock, bpm), `filter_res` and `seq_length` from the engine, the latest 2048 scope
+     samples, and `energy` = the RMS in dB mapped from -48 .. -6 to 0 .. 1.
+   - `Theme.h`: the ROSEDUST tokens of `docs/design/ui-spec.md` section 3 as `juce::Colour`s, the two fonts, the zone
+     rectangles of section 2 (and the scope's inside the CHEST), and the heat ramp (void, rose_deep, rose_ember, rose).
+   - The editor: fixed 1200 x 760, not resizable. It owns a `Look`, a `Displays`, a `Status` and a `UnitArray` (a
+     child component over the GUT, whose `pattern` and `onEdit` it connects to the processor). `paint` draws the look,
+     then the displays and the status; `paintOverChildren` the status's hazard bands. `stepBounds`, `stepAt` ask the
+     unit array; `editStep` sets the processor's pattern to `UnitArray::edited(...)` at once.
+   - A 60 Hz timer: each tick `advance(captureFrame(), elapsed)` (which advances every widget) and repaint. `freeze()`
+     stops the timer, so tests and previews drive the editor only through `advance`. Everything drawn depends only on
+     the frames advanced and the pattern, never on wall time, so a frozen editor draws the same picture every time.
+   - `controlFor` returns null until the controls exist.
 
-5. **The unit array** (`plugin/ui/`, wired into the editor)
-   - 16 cells in the GUT; `stepBounds(i)` and `stepAt(point)`; the playing step lit and fading back over 250 ms;
-     rests dashed; steps past `seq_length` dim; accent, slide and probability marks.
-   - `editStep(index, edit)` changes the processor's pattern (`setPattern`) at once; mouse clicks map to it (click
-     gate, shift-click accent, alt-click slide, drag up or down a semitone per 8 px).
+3. **The controls** (`plugin/ui/Theme.h`, `plugin/PluginEditor.h/.cpp`)
+   - `Theme.h` gains the panel table: each panel's stamp, area and parameters, and the cell of each control in it.
+   - One control per parameter: `juce::Slider` rotary knobs, and `seq_on` a `juce::ToggleButton`, attached with
+     `AudioProcessorValueTreeState::SliderAttachment`/`ButtonAttachment`; `controlFor(id)` finds it.
 
-6. **The budget and the review images**
-   - Keep 60 Hz with headroom (`docs/design/ui-spec.md` section 5): cache the static layer at the display's scale
-     (`g.getInternalContext().getPhysicalPixelScaleFactor()`) and draw it 1:1, render the tunnel at a quarter of the
-     CHEST's resolution from precomputed tables, keep per-pixel trigonometry and blurs out of full-resolution layers,
-     and let each tick repaint only the dynamic regions.
+4. **The unit array** (`plugin/ui/UnitArray.h/.cpp`)
+   - 16 cells in the GUT (`stepBounds(i)` in the editor's coordinates, `stepAt(point)`); the playing step lit and
+     fading back over 250 ms; rests dashed; steps past `seq_length` dim; accent, slide and probability marks.
+   - `edited(pattern, index, edit)` applies a `StepEdit`. A click calls `onEdit` with the gate's toggle, a shift-click
+     the accent's, an alt-click the slide's; a drag up or down moves the step a semitone per 8 px.
+
+5. **The look** (`plugin/ui/Look.h/.cpp`)
+   - A ROSEDUST `LookAndFeel` for the knobs and the button, installed on the editor. `LookAndFeel_V4` draws toggle
+     text, ticks and tooltips in white: it sets each of those colours to a token.
+   - The static layer (void, panels, hairlines, stamps, labels, crosshair grid, scanlines, seeded noise floor, the
+     mark), drawn once per display scale at that scale (`g.getInternalContext().getPhysicalPixelScaleFactor()`) and
+     then drawn 1:1.
+
+6. **The CHEST displays** (`plugin/ui/Displays.h/.cpp`)
+   - The tunnel (a quarter of the CHEST's resolution, from precomputed tables), the scope with its phosphor history,
+     the AT field around it, and the bone number, as `docs/design/ui-spec.md` section 4 describes them.
+
+7. **The status displays, the budget and the review images** (`plugin/ui/Status.h/.cpp`, `artifacts/ui/`)
+   - The HEAD clock and meter, the rumble pump field, and the hazard stripes while the output clips, as section 4
+     describes them.
+   - Keep 60 Hz with headroom (`docs/design/ui-spec.md` section 5): no per-pixel trigonometry or blurs over
+     full-resolution layers, and each tick repaints only the dynamic regions.
    - Run `tools/spec.sh 4 budget` and commit the three images it writes: `artifacts/ui/editor-idle.png`,
      `artifacts/ui/editor-playing.png` and `artifacts/ui/editor-clipping.png` (1200 x 760, each under 2 MB). The 2x
      copies it writes to `build/previews/` stay uncommitted.
@@ -117,10 +134,9 @@ struct UiFrame {               // everything the editor draws that changes over 
     bool hostClock = false;
     std::array<float, 2048> scope{};   // the latest mono output, oldest first
 };
+enum class StepEdit { ToggleGate, ToggleAccent, ToggleSlide, Up, Down };
 
 // plugin/PluginEditor.h
-#include "ui/UiFrame.h"
-enum class StepEdit { ToggleGate, ToggleAccent, ToggleSlide, Up, Down };
 class UndertowEditor final : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     explicit UndertowEditor(UndertowProcessor&);
@@ -134,19 +150,58 @@ public:
     void editStep(int index, StepEdit edit);
     juce::Component* controlFor(const juce::String& parameterId) const;
 };
+
+// The widget headers as the editor frame writes them (stubs). Each widget's task replaces its header with the real
+// class, keeping these public members, and adds the .cpp.
+// plugin/ui/Look.h
+class Look {
+public:
+    void install(juce::Component&) {}      // the editor and its controls take the ROSEDUST LookAndFeel
+    void uninstall(juce::Component&) {}    // before the editor goes away
+    void paint(juce::Graphics&) {}         // the static layer, first in the editor's paint
+};
+// plugin/ui/Displays.h
+class Displays {
+public:
+    void advance(const UiFrame&, double) {}
+    void paint(juce::Graphics&) {}         // the CHEST: tunnel, AT field, scope, bone number
+};
+// plugin/ui/Status.h
+class Status {
+public:
+    void advance(const UiFrame&, double) {}
+    void paint(juce::Graphics&) {}         // HEAD clock and meter, pump field
+    void paintOver(juce::Graphics&) {}     // the hazard bands, over the controls
+};
+// plugin/ui/UnitArray.h
+class UnitArray final : public juce::Component {   // a child of the editor over the GUT
+public:
+    std::function<undertow::Pattern()> pattern;            // the pattern to draw
+    std::function<void(int index, StepEdit edit)> onEdit;   // a click or drag on a step
+    void advance(const UiFrame&, double) {}
+    juce::Rectangle<int> stepBounds(int) const { return {}; }   // in the editor's coordinates
+    int stepAt(juce::Point<int>) const { return -1; }
+    static undertow::Pattern edited(undertow::Pattern pattern, int, StepEdit) { return pattern; }
+};
 ```
 
 ## Acceptance checks
+
+Checks that share a command are one verify step: the table repeats the command on every row that command proves.
 
 | Check | Command | Proves |
 |---|---|---|
 | P4.01 | `tools/spec.sh 4 scope` | copyScope returns the latest mono output samples in order across odd blocks, clamps to kScopeSamples, never allocates; meters() names the clock in use and its tempo |
 | P4.02 | `tools/spec.sh 4 state` | The processor passes patterns to the engine, and the 16 steps are saved with the plugin's state and restored |
-| P4.03-P4.04 | `tools/spec.sh 4 editor` | captureFrame reads the processor (note, pitch, RMS, energy, scope, clock, length); every parameter has its attached knob or button on the editor |
-| P4.05-P4.09 | `tools/spec.sh 4 display` | Snapshots: half the panel void, no white, rose dominant, bone only for the pitch in the CHEST; hazard stripes only when clipping; the tunnel brighter with energy and moving; the scope trace across its width |
+| P4.03 | `tools/spec.sh 4 editor 'P4.03*'` | captureFrame reads the processor: meters, pitch, RMS, energy, step, clock, length and scope |
+| P4.04 | `tools/spec.sh 4 editor 'P4.04*'` | Every parameter has its control on the editor, attached to it |
+| P4.05 | `tools/spec.sh 4 display 'P4.05*'` | The panel is at least half void, without white, rose dominant (its knob panels too), bone rare, and its CHEST calm at rest |
+| P4.06 | `tools/spec.sh 4 display 'P4.06*,P4.08*,P4.09*'` | The pitch in bone while a note plays, in one place in the CHEST, and no bone when idle |
+| P4.07 | `tools/spec.sh 4 display 'P4.07*'` | The hazard stripes show while the output clips, and only then |
+| P4.08 | `tools/spec.sh 4 display 'P4.06*,P4.08*,P4.09*'` | The tunnel is brighter with energy, and moving |
+| P4.09 | `tools/spec.sh 4 display 'P4.06*,P4.08*,P4.09*'` | The scope draws the waveform across its width |
 | P4.10 | `tools/spec.sh 4 steps` | 16 cells left to right in the GUT, hit-testing, the playing step the brightest cell, and gate, accent, slide and note edits reaching the pattern |
 | P4.11-P4.12 | `tools/spec.sh 4 budget` | A full repaint keeps 60 Hz with headroom (CPU time: median 11 ms, 95th percentile 16 ms at 1x; median 27 ms at 2x), and the three review images written: artifacts/ui at 1x under 2 MB, build/previews at 2x |
-| P4.13 | `tools/check.sh --plugin` | Everything still passes: every spec test of phases 0 to 4, both presets, pluginval at strictness 5 |
 
 ## Rules every task keeps
 
@@ -165,22 +220,30 @@ public:
 
 ## Notes for the planner
 
-- Four tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
-  passes once that task (and the ones it needs) is done:
-  1. **The engine's outputs for the editor** (`engine.h`, `engine.cpp`): P4.01.
-  2. **The pattern in the plugin** (`PluginProcessor.h/.cpp`): P4.02.
-  3. **The editor skeleton and the unit array** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `PluginEditor.h/.cpp`,
-     `plugin/CMakeLists.txt`): items 3 and 5 above, P4.03-P4.04 and P4.10. Needs tasks 1 and 2. It declares every
-     hook in the API, even ones task 4 fills in, so every phase 4 test file compiles from here on, and it adds the
-     `plugin/ui/*.cpp` glob.
-  4. **The displays, the budget and the review images** (display files in `plugin/ui/`, `PluginEditor.h/.cpp`):
-     items 4 and 6 above, P4.05-P4.09, P4.11-P4.12 and P4.13. Needs task 3. It commits the three `artifacts/ui/*.png`
-     files its check writes.
-- At most two tasks own any file, and only one at a time: `PluginEditor.h/.cpp` belong to tasks 3 and 4, and
-  `plugin/CMakeLists.txt` to task 3 alone (task 4 adds widget files that the glob picks up). The core library's
-  sources are registered by phase 2's glob in `core/CMakeLists.txt`, and no task edits it.
-- A test file is one executable, so a task owns a whole file's checks. The plugin checks build the `plugin` preset:
-  the first build in a fresh worktree compiles JUCE (about a minute), later ones are incremental.
+- Seven tasks, one per part above. Each task's verify steps are exactly the checks named for it, with their commands
+  unchanged, and each passes once that task (and the ones it needs) is done:
+  1. **The plumbing** (`engine.h`, `engine.cpp`, `PluginProcessor.h/.cpp`, `plugin/CMakeLists.txt`): P4.01 and
+     P4.02. About 70 lines.
+  2. **The editor frame** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `PluginEditor.h/.cpp` and the four stub
+     headers): P4.03. Needs task 1. About 220 lines over 8 files, so architectural. It declares every hook of the API,
+     so every phase 4 test file compiles from here on.
+  3. **The controls** (`Theme.h`, `PluginEditor.h/.cpp`): P4.04. Needs task 2. About 90 lines.
+  4. **The unit array** (`UnitArray.h/.cpp`): P4.10. Needs task 2. About 150 lines.
+  5. **The look** (`Look.h/.cpp`): P4.05. Needs task 3 (its static layer draws the controls' labels). About 135
+     lines.
+  6. **The CHEST displays** (`Displays.h/.cpp`): P4.06, P4.08 and P4.09. Needs task 2. About 195 lines, so
+     architectural.
+  7. **The status displays, the budget and the review images** (`Status.h/.cpp` and the three `artifacts/ui/*.png`):
+     P4.07, P4.11 and P4.12. Needs tasks 3 to 6. About 120 lines. It commits the three images its check writes.
+  Tasks 3, 4 and 6 run in parallel after task 2; task 5 runs after 3.
+- No file has more than two owners: `PluginEditor.h/.cpp` and `Theme.h` belong to tasks 2 and 3, each widget header to
+  task 2 (the stub) and its widget's task, and every other file to one task. The core library's sources are
+  registered by phase 2's glob in `core/CMakeLists.txt`, and no task edits it.
+- `tools/check.sh --plugin` is the plan's final check, not any one task's: every present spec test, both presets, and
+  pluginval at strictness 5.
+- A test file is one executable, so a task's checks run its file's test cases by filter; the file compiles from task
+  2 on. The plugin checks build the `plugin` preset: the first build in a fresh worktree compiles JUCE (about a
+  minute), later ones are incremental.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check
   before it hands off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep`
   and `glob`.

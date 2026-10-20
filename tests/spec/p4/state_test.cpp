@@ -4,17 +4,14 @@
 
 #include "doctest.h"
 
-#include "spec_ui.h"
-#include "undertow/params.h"
+#include "PluginProcessor.h"
 #include "undertow/sequencer.h"
 
-#include <chrono>
-#include <cmath>
-#include <string>
-#include <utility>
-#include <vector>
+#include <juce_audio_processors/juce_audio_processors.h>
 
-using namespace spec;
+#include <memory>
+
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter();
 
 TEST_CASE("P4.02 the pattern is part of the plugin's state, and the processor passes it to the engine") {
     juce::ScopedJuceInitialiser_GUI gui;

@@ -37,6 +37,15 @@ TEST_CASE("P4.05 the panel is void and rose: at least half void, no white, rose 
                                                                      "degrees); want 75% or more: colour is a taxonomy, mostly rose");
     CHECK_MESSAGE(all.bone <= all.pixels * 3 / 100, "bone covers " << 100.0 * all.bone / all.pixels
                                                                    << "% of the panel; it is for the one number only (3% at most)");
+    // The knob panels on their own: the LEFT and RIGHT limbs' knobs, labels and stamps are rose too.
+    const std::pair<std::string, juce::Rectangle<int>> limbs[] = {{"LEFT", {16, 56, 280, 464}}, {"RIGHT", {904, 56, 280, 464}}};
+    for (const auto& [name, zone] : limbs) {
+        const auto limb = measure(image, zone);
+        REQUIRE_MESSAGE(limb.colouredPixels > 0, "the " << name << " limb has no coloured pixels: its knobs are missing");
+        CHECK_MESSAGE(limb.rose >= limb.colouredPixels * 3 / 4, "only " << 100.0 * limb.rose / limb.colouredPixels << "% of the " << name
+                                                                        << " limb's coloured pixels are rose; draw its knobs, labels and "
+                                                                           "stamps with the rose tokens");
+    }
 }
 
 

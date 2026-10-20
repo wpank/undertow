@@ -77,12 +77,16 @@ struct Fixture {
 
 inline double luminance(juce::Colour c) { return (0.2126 * c.getRed() + 0.7152 * c.getGreen() + 0.0722 * c.getBlue()) / 255.0; }
 
+// The rose hue band, 300 to 15 degrees, with half a degree of slack under 300: a colour with red equal to blue
+// (text_dim and its anti-aliased edges) sits at exactly 300 and must not fall out of the band through rounding.
 inline bool roseHue(juce::Colour c) {
     const double hue = c.getHue() * 360.0;
-    return hue >= 300.0 || hue < 15.0;
+    return hue >= 299.5 || hue < 15.0;
 }
 
-inline bool coloured(juce::Colour c) { return c.getSaturation() >= 0.15f && c.getBrightness() >= 0.12f; }
+// A pixel with enough colour to count: hairlines and the darkest anti-aliasing (the border token's brightness is
+// 0.125) are not colour statements.
+inline bool coloured(juce::Colour c) { return c.getSaturation() >= 0.15f && c.getBrightness() >= 0.15f; }
 
 inline bool boneLike(juce::Colour c) {
     auto near = [&](int r, int g, int b, int d) {
