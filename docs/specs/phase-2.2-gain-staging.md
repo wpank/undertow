@@ -36,21 +36,23 @@ Out of scope: everything under "Not now", the sequencer (phase 3) and the editor
 
 ## What to fix
 
-1. **Width** (`output_stage.h`, `output_stage.cpp`): a side signal, and no crossover on the mono path.
+1. **Width** (`core/include/undertow/output_stage.h`, `core/src/output_stage.cpp`): a side signal, and no crossover on
+   the mono path.
    - The mono signal (after the DC blocker, the saturation and the master gain) goes to both channels untouched:
      `left = x + s` and `right = x - s`.
    - The side `s` is `width` times a 12 ms delayed copy of `x`, high-passed at `mono_freq` with an 8th-order
      high-pass (two Linkwitz-Riley high-passes in cascade, four Butterworth sections). It is about 49 dB down at
      `mono_freq / 2`, so the low end stays mono, and the delay decorrelates the highs.
    - At width 0 both channels are exactly `x`. Nothing filters `x`, so its peaks keep their shape at any width.
-2. **The filter's drive** (`filter.h`, `filter.cpp`): a makeup gain.
+2. **The filter's drive** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): a makeup gain.
    - Keep the drive's curve, and multiply by a makeup gain that brings a voice-level signal back to its level: a
      110 Hz saw at 0.6 through cutoff 600 Hz and resonance 0.35 stays within 3 dB of drive 0 at every drive.
    - For the current blend `x + d (tanh(K x) / K - x)` with `K = 1 + 10 d`, a makeup of about `12 d^2` dB keeps that saw
      within 0.3 dB. Exactly 1 at drive 0: phase 1 and 2.1 still require drive 0 to be linear.
    - Quiet notes then get a little louder with drive and loud ones a little quieter. That is the compression a drive
      is for.
-3. **The rumble** (`rumble.h`, `rumble.cpp`): a makeup gain on its saturation, and an output gain.
+3. **The rumble** (`core/include/undertow/rumble.h`, `core/src/rumble.cpp`): a makeup gain on its saturation, and an
+   output gain.
    - Multiply `tanh(k x) / k` by a makeup gain that keeps the rumble alone (its ghost kick, nothing sent) within 3 dB
      of drive 0 at every drive. For the current rumble about `10 drive` dB does it. The saturation must still round the
      peaks: full drive lowers the rumble's crest factor by at least 2 dB.
