@@ -126,7 +126,6 @@ int findFactoryPreset(std::string_view nameOrSlug);   // its index, or -1
 | P5.06 | `tools/render-demos.sh && tools/spec.sh 5 demos` | The four showcase renders are in artifacts/audio (48 kHz, 24-bit stereo, 8 bars, under 5 MB) and every preset has a render in build/demos |
 | P5.07 | `tools/install.sh --dest build/install-test && tools/spec.sh 5 install` | In a test folder, never the user's own: the three bundles in VST3, Components and Applications, whole, signed, with the Metakosmia ids and the AU's component entry |
 | P5.08 | `tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt` | pluginval passes at strictness 10 (without its GUI tests, so no windows open), and its log is kept for review |
-| P5.09 | `tools/check.sh --plugin` | Everything still passes: every spec test of every phase, both presets, pluginval at strictness 5 |
 
 ## Rules every task keeps
 
@@ -156,12 +155,15 @@ int findFactoryPreset(std::string_view nameOrSlug);   // its index, or -1
   passes once that task (and the ones it needs) is done:
   1. **The factory presets** (`presets.h`, `presets.cpp`): P5.01-P5.03.
   2. **The programs and strict validation** (`plugin/PluginProcessor.h/.cpp`): P5.04 and P5.08. Needs task 1. It
-     commits `artifacts/reports/pluginval-strict.txt`.
+     commits `artifacts/reports/pluginval-strict.txt`. P5.08 may already pass on the base, if phase 4's processor
+     restores bool parameters from a saved state; that is fine: it must pass once task 2 is done.
   3. **The offline renderer** (`tools/render/`, `CMakeLists.txt`): P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
-  5. **The install script** (`tools/install.sh`): P5.07 and P5.09. Needs tasks 2 to 4.
+  5. **The install script** (`tools/install.sh`): P5.07. Needs tasks 2 to 4.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `presets.cpp` joins it as
   a new file, and no task lists or edits `core/CMakeLists.txt`. Only task 3 edits the top-level `CMakeLists.txt`.
+- `tools/check.sh --plugin` is the plan's final check, not any one task's: every present spec test of phases 0 to 5,
+  both presets, and pluginval at strictness 5.
 - A test file is one executable, so a task owns a whole file's checks.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own check before it hands
   off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep` and `glob`.
