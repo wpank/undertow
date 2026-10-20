@@ -146,7 +146,7 @@ TEST_CASE("P5.03 each category sounds like itself") {
 
 TEST_CASE("P5.09 the presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level") {
     // Browsing from one preset to the next, none should sound weak or hot. -18 dBFS RMS is where the init patch
-    // renders (at the -12 dB master default), and it keeps most peaks under the clipper's knee.
+    // renders (at the -14 dB master default), and it keeps most peaks under the clipper's knee.
     for (int i = 0; i < undertow::numFactoryPresets(); ++i) {
         const std::string name = undertow::factoryPresetName(i);
         INFO("preset \"" << name << "\"");
