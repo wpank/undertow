@@ -15,6 +15,7 @@ void Envelope::prepare(double sampleRate) {
 void Envelope::reset() {
     stage_ = Stage::Idle;
     level_ = 0.0;
+    sustainSmooth_ = sustainTarget_;
 }
 
 void Envelope::setAttackMs(double ms) {
@@ -28,7 +29,11 @@ void Envelope::setDecayMs(double ms) {
 }
 
 void Envelope::setSustain(double level) {
-    sustain_ = std::clamp(level, 0.0, 1.0);
+    sustainTarget_ = std::clamp(level, 0.0, 1.0);
+    if (stage_ == Stage::Sustain && std::fabs(level_ - sustainTarget_) <= kIdleThreshold) {
+        sustainSmooth_ = sustainTarget_;
+        level_ = sustainTarget_;
+    }
 }
 
 void Envelope::setReleaseMs(double ms) {
@@ -59,15 +64,20 @@ float Envelope::process() {
             break;
 
         case Stage::Decay:
-            level_ = sustain_ + (level_ - sustain_) * decayMul_;
-            if (std::fabs(level_ - sustain_) <= kIdleThreshold) {
-                level_ = sustain_;
+            level_ = sustainTarget_ + (level_ - sustainTarget_) * decayMul_;
+            if (std::fabs(level_ - sustainTarget_) <= kIdleThreshold) {
+                level_ = sustainTarget_;
+                sustainSmooth_ = sustainTarget_;
                 stage_ = Stage::Sustain;
             }
             break;
 
         case Stage::Sustain:
-            level_ = sustain_;
+            sustainSmooth_ += (sustainTarget_ - sustainSmooth_) * kSustainGlideRate;
+            if (std::fabs(sustainTarget_ - sustainSmooth_) <= 0.005) {
+                sustainSmooth_ = sustainTarget_;
+            }
+            level_ = sustainSmooth_;
             break;
 
         case Stage::Release:

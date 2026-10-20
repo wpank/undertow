@@ -31,10 +31,14 @@ private:
 
     Stage stage_ = Stage::Idle;
     double level_ = 0.0;
+    double sustainTarget_ = 1.0;
+    double sustainSmooth_ = 1.0;
 
     double attackInc_ = 0.0;    // per-sample increment during attack
     double decayMul_ = 1.0;     // per-sample multiplier during decay
     double releaseMul_ = 1.0;   // per-sample multiplier during release
+
+    static constexpr double kSustainGlideRate = 0.004;
 
     static constexpr double kMinAttackMs = 0.5;
     static constexpr double kMaxAttackMs = 2000.0;
