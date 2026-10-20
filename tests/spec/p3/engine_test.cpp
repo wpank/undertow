@@ -96,7 +96,8 @@ TEST_CASE("P3.10 with seq_on the engine plays the pattern on the host's grid, an
         step.gate = false;
     engine.setPattern(rests);
     const auto quiet = spec::render(engine, static_cast<std::size_t>(4 * kStep), {spec::noteOn(0, 40)}, host(2.0));
-    const double leak = spec::rms(quiet.left, static_cast<std::size_t>(kStep), static_cast<std::size_t>(4 * kStep));
+    // From 2.5 steps on: phase 2's DC blocker (5 Hz) leaves the last note a slow tail that is no voice playing.
+    const double leak = spec::rms(quiet.left, static_cast<std::size_t>(2.5 * kStep), static_cast<std::size_t>(4 * kStep));
     CHECK_MESSAGE(leak < 1e-4, "while the sequencer runs, a MIDI key only transposes the pattern and must not play the voice: "
                                "every step here is a rest, yet a held key 40 sounds (RMS "
                                    << leak << ")");
@@ -111,6 +112,7 @@ TEST_CASE("P3.10 with seq_on the engine plays the pattern on the host's grid, an
 TEST_CASE("P3.11 accented steps are louder, and slides glide without retriggering") {
     auto p = seqSub();
     spec::set(p, "accent", 1);
+    spec::set(p, "sub_level", 0.2f); // both steps under the clipper's knee, so the ratio is the accent's alone
     undertow::Pattern pattern = notes({0, 0, 0, 0});
     pattern.steps[1].accent = true;
     undertow::Engine engine;
@@ -165,9 +167,10 @@ TEST_CASE("P3.12 seq_sync Internal runs at seq_bpm; without a host it falls back
     undertow::Engine stopper;
     prepared(stopper, seqSub(), notes({0}));
     spec::render(stopper, static_cast<std::size_t>(2 * kStep), {}, host());
-    const auto silence = spec::render(stopper, 9600, {}, undertow::Transport{true, false, 128.0, 0.5});
-    CHECK_MESSAGE(spec::peakAbs(silence.left, 4800) <= 1e-4, "when the host stops, the sequencer's note must be released "
-                                                             "(silent within 100 ms with a 5 ms release)");
+    // Silent after 300 ms: the release takes 5 ms, and phase 2's DC blocker (5 Hz) needs the rest to settle its tail.
+    const auto silence = spec::render(stopper, 19200, {}, undertow::Transport{true, false, 128.0, 0.5});
+    CHECK_MESSAGE(spec::peakAbs(silence.left, 14400) <= 1e-4, "when the host stops, the sequencer's note must be released "
+                                                              "(silent within 300 ms with a 5 ms release)");
     CHECK_MESSAGE(stopper.meters().step == -1, "a stopped sequencer shows step -1");
 }
 
