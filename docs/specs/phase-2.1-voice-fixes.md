@@ -31,14 +31,14 @@ Out of scope: everything listed under "Not now", the sequencer (phase 3) and the
 
 ## What to fix
 
-1. **The envelope** (`envelope.h`, `envelope.cpp`): a sustain change glides.
+1. **The envelope** (`core/include/undertow/envelope.h`, `core/src/envelope.cpp`): a sustain change glides.
    - In the Sustain stage the level is set to the sustain level on every sample, so turning `amp_sustain` (or
      `filt_sustain`) while a note is held moves the level at once: 0.7 in one sample for 1 to 0.3, a click.
    - Follow a sustain change with a one-pole of about 5 ms, `level += (sustain - level) * a` with
      `a = 1 - exp(-1 / (0.005 * sampleRate))`. Hold the level exactly once it is within 1e-5 of the sustain level,
      phase 1's rule for the decay.
    - Not the decay time: a 1 ms decay would still click, and a 300 ms one would lag behind the knob.
-2. **The glide** (`voice.h`, `voice.cpp`): a glide keeps its time and its pitch.
+2. **The glide** (`core/include/undertow/voice.h`, `core/src/voice.cpp`): a glide keeps its time and its pitch.
    - Releasing a held note that is not the sounding one must change nothing. Now the voice restarts its glide from
      where it is, over a fresh `glide_ms`. A piano-roll slide, where the old note overlaps the new one, then lands
      late: with `glide_ms` 200 and a 50 ms overlap it lands at 250 ms, and it is 5.25 semitones up at 100 ms, where
@@ -46,13 +46,13 @@ Out of scope: everything listed under "Not now", the sequencer (phase 3) and the
    - A note that does not glide (`glide_mode` Off, or `glide_ms` 0) must land exactly on its pitch, also when a glide
      was under way. Now the glide's position is kept, so the new note stays part way between the old pitch and its
      own: 650 cents flat for a legato note, 300 cents off on a return to a held note, until the next detached note.
-3. **The meters** (`engine.cpp`): a zero-length block changes nothing.
+3. **The meters** (`core/src/engine.cpp`): a zero-length block changes nothing.
    - `process` with `numSamples` 0 divides the block's sum of squares by 0. The NaN then stays in the smoothed RMS for
      the rest of the session, and the peak meter drops to 0.
    - JUCE's VST3 wrapper calls `processBlock` with 0 samples when a host sends an empty block with its output bus
      attached. Return at once when there are no samples.
-4. **The filter** (`filter.h`, `filter.cpp`): at drive 0, linear at the levels the voice gives it (the oscillator's
-   ±1 times `osc_level`, up to 1).
+4. **The filter** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): at drive 0, linear at the levels the voice
+   gives it (the oscillator's ±1 times `osc_level`, up to 1).
    - Now each stage's state is soft-limited from 1.0. At resonance 0.8 the gain at the cutoff is 22.8 dB for a 0.1
      sine but 4.5 dB for a 1.0 sine. A full-scale saw is 32, 17 and 2.5 dB from linear at resonance 0, 0.35 (the
      default) and 0.8: the resonance a techno bass wants is flattened.
@@ -63,7 +63,8 @@ Out of scope: everything listed under "Not now", the sequencer (phase 3) and the
      3.2x (+10 dB) at the cutoff at 0.8, 13 dB over resonance 0 (P1.06 asks for 6).
    - With that law and the state limited from 8 instead of 1, P2.1.05 reads 2.1 dB, P2.1.06 reads -123 dB at worst,
      and P1.05 to P1.07 still pass.
-5. **The oscillator** (`oscillator.h`, `oscillator.cpp`): clamped at Nyquist, as phase 1 asked.
+5. **The oscillator** (`core/include/undertow/oscillator.h`, `core/src/oscillator.cpp`): clamped at Nyquist, as phase 1
+   asked.
    - `setFrequency` doesn't clamp. Note 127 with a 12-semitone bend at `osc_octave` +1 asks for 50.2 kHz and plays a
      2.2 kHz alias; at 26 kHz the saw's alias at 18 kHz is -41 dB. Phase 2's LFO 2 on Pitch reaches these notes more
      easily.

@@ -66,7 +66,7 @@ signing only), an installer package.
      `master_gain` to land it there: a render X dB off needs `master_gain` X dB the other way, and the check prints
      X. The default suits few presets.
 
-2. **The programs and strict validation** (`plugin/PluginProcessor.h/.cpp`)
+2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`)
    - `getNumPrograms()` is the number of factory presets; `getProgramName(i)` its name; `setCurrentProgram(i)` sets
      every parameter (through the APVTS, so the host sees it) and the pattern; `getCurrentProgram()` reports it.
    - Strict validation (P5.08): at strictness 10 pluginval also fuzzes the parameters and then checks that
