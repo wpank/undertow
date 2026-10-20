@@ -10,6 +10,7 @@
 #include "undertow/rumble.h"
 
 #include <cmath>
+#include <vector>
 
 namespace {
 
@@ -35,9 +36,9 @@ spec::Signal rumbleAlone(float drive) {
 
 double crestDb(const spec::Signal& x, std::size_t from) { return spec::toDb(spec::peakAbs(x, from) / spec::rms(x, from)); }
 
-// Every default, holding `note` at velocity 100 for 16 beats at 128 BPM (a playing host), with the rumble at its
-// default level or off; the left channel.
-spec::Signal defaultsHolding(int note, bool rumble) {
+// Every default, playing `events` for 16 beats at 128 BPM (a playing host), with the rumble at its default level or
+// off; the left channel.
+spec::Signal defaultsPlaying(const std::vector<undertow::MidiEvent>& events, bool rumble) {
     auto p = spec::defaults();
     if (!rumble)
         spec::set(p, "rumble_level", 0);
@@ -45,9 +46,20 @@ spec::Signal defaultsHolding(int note, bool rumble) {
     engine.prepare(kRate, 512);
     spec::apply(engine, p);
     engine.reset();
-    return spec::render(engine, static_cast<std::size_t>(16 * kBeat), {spec::noteOn(0, note, 100)},
-                        undertow::Transport{true, true, 128.0, 0.0}, 512)
+    return spec::render(engine, static_cast<std::size_t>(16 * kBeat), events, undertow::Transport{true, true, 128.0, 0.0}, 512)
         .left;
+}
+
+// The rumble's level under the bass below 200 Hz, in dB: what a render with the rumble adds to the same render without
+// it, from beat 4 on.
+double rumbleUnderBass(const std::vector<undertow::MidiEvent>& events) {
+    const auto from = static_cast<std::size_t>(4 * kBeat);
+    const auto with = defaultsPlaying(events, true);
+    const auto bass = defaultsPlaying(events, false);
+    spec::Signal rumble(with.size());
+    for (std::size_t n = 0; n < with.size(); ++n)
+        rumble[n] = with[n] - bass[n];
+    return spec::toDb(spec::rms(spec::lowpass(rumble, 200.0, kRate, 4), from) / spec::rms(spec::lowpass(bass, 200.0, kRate, 4), from));
 }
 
 } // namespace
@@ -66,21 +78,28 @@ TEST_CASE("P2.2.04 rumble_drive keeps the rumble's level and flattens its peaks"
                                     << " dB: the drive must still saturate (round the peaks), not only add gain");
 }
 
-TEST_CASE("P2.2.05 at the defaults the rumble sits 9 to 15 dB under the bass below 200 Hz") {
-    // The rumble is what a render with it adds to the same render without it (rumble_level 0), from beat 4 on.
-    const auto from = static_cast<std::size_t>(4 * kBeat);
+TEST_CASE("P2.2.05 at the defaults the rumble sits 9 to 15 dB under a held bass below 200 Hz, and 4 to 11 dB under a rolling line") {
+    // The conservative case: a held note leaves the bass no gaps (A1 shares the rumble's band; A2 sits above most of it).
     for (const int note : {33, 45}) {
-        const auto with = defaultsHolding(note, true);
-        const auto bass = defaultsHolding(note, false);
-        spec::Signal rumble(with.size());
-        for (std::size_t n = 0; n < with.size(); ++n)
-            rumble[n] = with[n] - bass[n];
-        const double balance = spec::toDb(spec::rms(spec::lowpass(rumble, 200.0, kRate, 4), from) /
-                                          spec::rms(spec::lowpass(bass, 200.0, kRate, 4), from));
+        const double balance = rumbleUnderBass({spec::noteOn(0, note, 100)});
         INFO("holding note " << note);
         CHECK_MESSAGE(balance >= -15.0, "at the defaults the rumble sits " << -balance << " dB under the bass below 200 Hz: "
                                         "too quiet to hear (want 9 to 15 dB under); raise the rumble's output gain");
         CHECK_MESSAGE(balance <= -9.0, "at the defaults the rumble sits only " << -balance << " dB under the bass below "
                                        "200 Hz (want 9 to 15 dB under): it would crowd the bass");
     }
+    // A rolling line: sixteenths on A2 (velocity 90, gate 60%) that rest on every beat, where the ghost kick lands. The
+    // rumble then comes about 5 dB closer, which a duck or a level that only suits a held note would break.
+    std::vector<undertow::MidiEvent> roller;
+    for (int beat = 0; beat < 16; ++beat)
+        for (int step = 1; step < 4; ++step) {
+            const int at = static_cast<int>((beat + step / 4.0) * kBeat);
+            roller.push_back(spec::noteOn(at, 45, 90));
+            roller.push_back(spec::noteOff(at + static_cast<int>(0.6 * kBeat / 4.0), 45));
+        }
+    const double rolling = rumbleUnderBass(roller);
+    CHECK_MESSAGE(rolling >= -11.0, "under a rolling line on A2 the rumble sits " << -rolling << " dB under the bass below 200 Hz: "
+                                    "want 4 to 11 dB under");
+    CHECK_MESSAGE(rolling <= -4.0, "under a rolling line on A2 the rumble sits only " << -rolling << " dB under the bass below "
+                                   "200 Hz: want 4 to 11 dB under, so it doesn't cover the line");
 }
