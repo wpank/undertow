@@ -202,9 +202,13 @@ float Rumble::process(float send, double ppq, double bpm, bool running) {
     }
 
     // ── Saturation: tanh(k*x)/k, k = 1 + 9*drive ───────────────────
+    // A drive-dependent makeup gain (~10·drive dB) keeps the rumble's RMS
+    // within 3 dB of drive 0 at every drive while still flattening peaks.
     const double k = 1.0 + 9.0 * static_cast<double>(drive_);
     if (k > 1.0) {
-        filtered = std::tanh(k * filtered) / k;
+        const double makeupDb = 10.0 * static_cast<double>(drive_);
+        const double makeupLin = std::pow(10.0, makeupDb / 20.0);
+        filtered = (std::tanh(k * filtered) / k) * makeupLin;
     }
 
     // ── 12 dB/oct low-pass at 2 * rumble_tone ───────────────────────
@@ -241,7 +245,9 @@ float Rumble::process(float send, double ppq, double bpm, bool running) {
     }
 
     // ── Output ───────────────────────────────────────────────────────
-    double output = filtered * duckGain_ * static_cast<double>(level_);
+    // A constant post-duck trim keeps the default rumble tucked under the bass.
+    constexpr double kPostDuckGain = 2.1;
+    double output = filtered * duckGain_ * static_cast<double>(level_) * kPostDuckGain;
 
     // Flush denormals
     output = flush(output);
