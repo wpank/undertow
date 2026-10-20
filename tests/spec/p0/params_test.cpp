@@ -6,12 +6,17 @@
 #include "undertow/params.h"
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <vector>
 
 namespace {
 
 using undertow::ParamKind;
+
+// A default this table leaves free. master_gain's default moves from -3 to -12 dB in phase 2 (docs/PRD.md, section
+// 1.5), whose P2.22 checks the level it gives, so here it only has to lie in its range.
+constexpr float kFree = std::numeric_limits<float>::quiet_NaN();
 
 struct Expected {
     const char* id;
@@ -74,7 +79,7 @@ const std::vector<Expected> kTable = {
     {"sat_drive", "Saturation", ParamKind::Float, 0, 1, 0.2f, 0, "", {}},
     {"width", "Width", ParamKind::Float, 0, 1, 0.25f, 0, "", {}},
     {"mono_freq", "Mono Below", ParamKind::Float, 60, 250, 120, 0, "Hz", {}},
-    {"master_gain", "Master", ParamKind::Float, -24, 6, -12, 0, "dB", {}},
+    {"master_gain", "Master", ParamKind::Float, -24, 6, kFree, 0, "dB", {}},
     {"seq_on", "Sequencer", ParamKind::Bool, 0, 1, 0, 0, "", {}},
     {"seq_sync", "Seq Sync", ParamKind::Choice, 0, 1, 0, 0, "", {"Host", "Internal"}},
     {"seq_bpm", "Seq BPM", ParamKind::Float, 60, 200, 128, 0, "bpm", {}},
@@ -119,7 +124,10 @@ TEST_CASE("P0.01 the parameter table matches docs/PRD.md row for row") {
         CHECK_MESSAGE(got.kind == want.kind, "kind is " << kindName(got.kind) << ", want " << kindName(want.kind));
         CHECK_MESSAGE(same(got.min, want.min), "min is " << got.min << ", want " << want.min);
         CHECK_MESSAGE(same(got.max, want.max), "max is " << got.max << ", want " << want.max);
-        CHECK_MESSAGE(same(got.def, want.def), "default is " << got.def << ", want " << want.def);
+        if (std::isnan(want.def))
+            CHECK_MESSAGE((got.def >= want.min && got.def <= want.max), "default is " << got.def << ", outside its range");
+        else
+            CHECK_MESSAGE(same(got.def, want.def), "default is " << got.def << ", want " << want.def);
         CHECK_MESSAGE(same(got.centre, want.centre), "centre is " << got.centre << ", want " << want.centre);
         CHECK_MESSAGE(str(got.unit) == want.unit, "unit is \"" << str(got.unit) << "\", want \"" << std::string(want.unit) << "\"");
         CHECK_MESSAGE(got.numChoices == static_cast<int>(want.choices.size()),
