@@ -1,5 +1,5 @@
-// Phase 2.2 spec tests: the filter's drive colours without turning the voice down (docs/specs/phase-2.2-gain-staging.md,
-// P2.2.03).
+// Phase 2.2 spec tests: the filter's drive colours without turning the voice down, and its resonance has a musical middle
+// (docs/specs/phase-2.2-gain-staging.md, P2.2.03 and P2.2.11).
 // spec-needs: core/include/undertow/filter.h
 
 #include "doctest.h"
@@ -28,6 +28,17 @@ double sawRms(double drive) {
     return spec::rms(out, 24000);
 }
 
+// The filter's gain in dB at its cutoff (1 kHz) for a quiet sine (0.01), drive 0.
+double peakDb(double resonance) {
+    undertow::LowpassFilter f;
+    f.prepare(kRate);
+    f.setCutoff(1000.0);
+    f.setResonance(resonance);
+    f.setDrive(0.0);
+    f.reset();
+    return spec::gainDb([&](float x) { return f.process(x); }, 1000.0, 0.01, kRate, 0.25, 0.25);
+}
+
 } // namespace
 
 TEST_CASE("P2.2.03 filter_drive keeps the voice's level: a 0.6 saw stays within 3 dB of drive 0 at every drive") {
@@ -37,5 +48,19 @@ TEST_CASE("P2.2.03 filter_drive keeps the voice's level: a 0.6 saw stays within 
         CHECK_MESSAGE(std::fabs(change) <= 3.0, "at filter_drive " << drive << " a 110 Hz saw at the default osc_level (0.6) "
                                                 "comes out " << change << " dB from drive 0: give the drive a makeup gain, so "
                                                 "turning it up colours the sound instead of changing its level");
+    }
+}
+
+TEST_CASE("P2.2.11 resonance has a musical middle: at least +8 dB at the cutoff at 0.6, rising steadily across the knob") {
+    // Phase 1's law moves one stage's damping linearly, which leaves the middle of the knob tame (+4.6 dB at 0.6) and
+    // crowds the resonance into its top fifth. Hypnotic techno lives in the middle.
+    const double middle = peakDb(0.6);
+    CHECK_MESSAGE(middle >= 8.0, "at resonance 0.6 the gain at the cutoff is " << middle << " dB; want +8 dB or more");
+    double previous = peakDb(0.0);
+    for (const double resonance : {0.2, 0.35, 0.5, 0.6, 0.7, 0.8, 0.9}) {
+        const double gain = peakDb(resonance);
+        CHECK_MESSAGE(gain >= previous + 0.5, "the peak must rise steadily with resonance: " << gain << " dB at " << resonance
+                                              << " after " << previous << " dB");
+        previous = gain;
     }
 }
