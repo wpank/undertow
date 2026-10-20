@@ -185,12 +185,12 @@ Checks that share a command are one verify step: the table repeats the command o
 
 - Two tasks, one per test file. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the one it needs) is done:
-  1. **The sequencer** (`sequencer.h`, `sequencer.cpp`): steps, patterns, scales, the default pattern, `process`,
-     `mutate` and evolve. P3.01 to P3.09, in four verify steps (the table's four commands). About 270 lines, so
-     architectural: the smallest change that passes any one of its checks is about 210 lines, since the test file
-     calls the whole API.
-  2. **The engine wiring and the pattern handoff** (`engine.h`, `engine.cpp`): P3.10 to P3.15, in three verify steps.
-     About 120 lines. Needs task 1.
+  1. **The sequencer** (`core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`): steps, patterns, scales, the
+     default pattern, `process`, `mutate` and evolve. P3.01 to P3.09, in four verify steps (the table's four commands).
+     About 270 lines, so architectural: the smallest change that passes any one of its checks is about 210 lines, since
+     the test file calls the whole API.
+  2. **The engine wiring and the pattern handoff** (`core/include/undertow/engine.h`, `core/src/engine.cpp`): P3.10 to
+     P3.15, in three verify steps. About 120 lines. Needs task 1.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `sequencer.cpp` joins it
   as a new file, and no task lists or edits `core/CMakeLists.txt`.
 - A test file is one executable, so the sequencer is one task: `sequencer_test.cpp` compiles only once every

@@ -119,12 +119,13 @@ No change: every class keeps phase 1's interface (`docs/specs/phase-1-voice.md`,
 
 - Five tasks, one per test file. They share no file, so all five run in parallel. Each task's verify steps are
   exactly the checks named for it, with their commands unchanged:
-  1. **The envelope** (`envelope.h`, `envelope.cpp`): P2.1.01. About 10 lines.
-  2. **The glide** (`voice.h`, `voice.cpp`): P2.1.02 and P2.1.03. About 15 lines.
-  3. **The meters** (`engine.cpp`): P2.1.04, and P2.1.09, a regression check of the saturation the engine runs. About 3
+  1. **The envelope** (`core/include/undertow/envelope.h`, `core/src/envelope.cpp`): P2.1.01. About 10 lines.
+  2. **The glide** (`core/include/undertow/voice.h`, `core/src/voice.cpp`): P2.1.02 and P2.1.03. About 15 lines.
+  3. **The meters** (`core/src/engine.cpp`): P2.1.04, and P2.1.09, a regression check of the saturation the engine runs.
+     About 3 lines.
+  4. **The filter** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): P2.1.05, P2.1.06 and P2.1.08. About 20
      lines.
-  4. **The filter** (`filter.h`, `filter.cpp`): P2.1.05, P2.1.06 and P2.1.08. About 20 lines.
-  5. **The oscillator** (`oscillator.h`, `oscillator.cpp`): P2.1.07. About 3 lines.
+  5. **The oscillator** (`core/include/undertow/oscillator.h`, `core/src/oscillator.cpp`): P2.1.07. About 3 lines.
 - P2.1.08 and P2.1.09 are regression checks (`expect = "pass_on_base"`). P2.1.08 guards the filter task against a fix
   that raises every limit instead of changing the resonance law: such a fix can pass P2.1.05 and P2.1.06, but not
   P1.07. P2.1.09 holds phase 2's saturation to the blend it was built as, which the -14 dB default rests on; phase 2's

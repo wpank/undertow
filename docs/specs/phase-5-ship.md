@@ -160,12 +160,13 @@ Checks that share a command are one verify step: the table repeats the command o
 
 - Five tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
-  1. **The factory presets** (`presets.h`, `presets.cpp`): P5.01-P5.03 and P5.09, in one verify step:
-     `tools/spec.sh 5 presets` runs all four.
-  2. **The programs and strict validation** (`plugin/PluginProcessor.h/.cpp`): P5.04 and P5.08. Needs task 1. It
-     commits `artifacts/reports/pluginval-strict.txt`. P5.08 may already pass on the base, if phase 4's processor
-     restores bool parameters from a saved state; that is fine: it must pass once task 2 is done.
-  3. **The offline renderer** (`tools/render/`, `CMakeLists.txt`): P5.05. Needs task 1.
+  1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
+     verify step: `tools/spec.sh 5 presets` runs all four.
+  2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`): P5.04 and P5.08.
+     Needs task 1. It commits `artifacts/reports/pluginval-strict.txt`. P5.08 may already pass on the base, if phase 4's
+     processor restores bool parameters from a saved state; that is fine: it must pass once task 2 is done.
+  3. **The offline renderer** (`tools/render/main.cpp`, `tools/render/CMakeLists.txt`, the top-level `CMakeLists.txt`):
+     P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
   5. **The install script** (`tools/install.sh`): P5.07. Needs tasks 2 to 4.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `presets.cpp` joins it as

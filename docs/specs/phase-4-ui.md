@@ -222,19 +222,22 @@ Checks that share a command are one verify step: the table repeats the command o
 
 - Seven tasks, one per part above. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the ones it needs) is done:
-  1. **The plumbing** (`engine.h`, `engine.cpp`, `PluginProcessor.h/.cpp`, `plugin/CMakeLists.txt`): P4.01 and
-     P4.02. About 70 lines.
-  2. **The editor frame** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `PluginEditor.h/.cpp` and the four stub
-     headers): P4.03. Needs task 1. About 220 lines over 8 files, so architectural. It declares every hook of the API,
-     so every phase 4 test file compiles from here on.
-  3. **The controls** (`Theme.h`, `PluginEditor.h/.cpp`): P4.04. Needs task 2. About 90 lines.
-  4. **The unit array** (`UnitArray.h/.cpp`): P4.10. Needs task 2. About 150 lines.
-  5. **The look** (`Look.h/.cpp`): P4.05. Needs task 3 (its static layer draws the controls' labels). About 135
-     lines.
-  6. **The CHEST displays** (`Displays.h/.cpp`): P4.06, P4.08 and P4.09. Needs task 2. About 195 lines, so
-     architectural.
-  7. **The status displays, the budget and the review images** (`Status.h/.cpp` and the three `artifacts/ui/*.png`):
-     P4.07, P4.11 and P4.12. Needs tasks 3 to 6. About 120 lines. It commits the three images its check writes.
+  1. **The plumbing** (`core/include/undertow/engine.h`, `core/src/engine.cpp`, `plugin/PluginProcessor.h`,
+     `plugin/PluginProcessor.cpp`, `plugin/CMakeLists.txt`): P4.01 and P4.02. About 70 lines.
+  2. **The editor frame** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `plugin/PluginEditor.h`,
+     `plugin/PluginEditor.cpp` and the four stub headers `plugin/ui/Look.h`, `plugin/ui/UnitArray.h`,
+     `plugin/ui/Displays.h`, `plugin/ui/Status.h`): P4.03. Needs task 1. About 220 lines over 8 files, so architectural.
+     It declares every hook of the API, so every phase 4 test file compiles from here on.
+  3. **The controls** (`plugin/ui/Theme.h`, `plugin/PluginEditor.h`, `plugin/PluginEditor.cpp`): P4.04. Needs task 2.
+     About 90 lines.
+  4. **The unit array** (`plugin/ui/UnitArray.h`, `plugin/ui/UnitArray.cpp`): P4.10. Needs task 2. About 150 lines.
+  5. **The look** (`plugin/ui/Look.h`, `plugin/ui/Look.cpp`): P4.05. Needs task 3 (its static layer draws the controls'
+     labels). About 135 lines.
+  6. **The CHEST displays** (`plugin/ui/Displays.h`, `plugin/ui/Displays.cpp`): P4.06, P4.08 and P4.09. Needs task 2.
+     About 195 lines, so architectural.
+  7. **The status displays, the budget and the review images** (`plugin/ui/Status.h`, `plugin/ui/Status.cpp` and the
+     three `artifacts/ui/*.png`): P4.07, P4.11 and P4.12. Needs tasks 3 to 6. About 120 lines. It commits the three
+     images its check writes.
   Tasks 3, 4 and 6 run in parallel after task 2; task 5 runs after 3.
 - No file has more than two owners: `PluginEditor.h/.cpp` and `Theme.h` belong to tasks 2 and 3, each widget header to
   task 2 (the stub) and its widget's task, and every other file to one task. The core library's sources are
