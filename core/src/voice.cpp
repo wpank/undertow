@@ -127,6 +127,9 @@ void MonoVoice::setModulation(const VoiceModulation& modulation) {
 void MonoVoice::noteOn(int note, float velocity) {
     const bool wasActive = isActive();
     const bool isLegato = (numHeld_ > 0);
+    const bool glideEnabled = (glideMode_ != 0 && glideMs_ > 0.0);
+    const double prevPitch = gliding_ ? glideFromNote_ + glidePos_ * (glideToNote_ - glideFromNote_)
+                                      : static_cast<double>(currentNote_);
 
     // Add to held notes (last-note priority: newest is last)
     if (numHeld_ < 16)
@@ -145,19 +148,21 @@ void MonoVoice::noteOn(int note, float velocity) {
 
     // Glide setup
     if (isLegato) {
-        // Legato note: glide from current pitch to new note, no envelope restart
-        const double prevPitch = gliding_ ? glideFromNote_ + glidePos_ * (glideToNote_ - glideFromNote_)
-                                          : static_cast<double>(currentNote_);
-        glideFromNote_ = prevPitch;
-        glideToNote_ = static_cast<double>(note);
+        // Legato note: glide from current pitch to new note, no envelope restart.
+        // If glide is disabled, keep the target and source on the new note so a pending glide
+        // cannot leak detuning into this note.
+        if (glideEnabled) {
+            glideFromNote_ = prevPitch;
+            glideToNote_ = static_cast<double>(note);
 
-        if (glideMode_ == 0 || glideMs_ <= 0.0) {
-            // Off: jump immediately
-            gliding_ = false;
-        } else {
             // Legato or Always: glide
             gliding_ = (std::fabs(glideToNote_ - glideFromNote_) > 1e-6);
             glidePos_ = 0.0;
+        } else {
+            glideFromNote_ = static_cast<double>(note);
+            glideToNote_ = static_cast<double>(note);
+            gliding_ = false;
+            glidePos_ = 1.0;
         }
     } else {
         // No overlap: retrigger envelopes
@@ -171,7 +176,7 @@ void MonoVoice::noteOn(int note, float velocity) {
         ampEnv_.noteOn();
         filtEnv_.noteOn();
 
-        if (glideMode_ == 2 && wasActive && glideMs_ > 0.0) {
+        if (glideMode_ == 2 && wasActive && glideEnabled) {
             // Always mode: glide even detached notes while still sounding
             const double prevPitch = gliding_ ? glideFromNote_ + glidePos_ * (glideToNote_ - glideFromNote_)
                                               : static_cast<double>(currentNote_);
@@ -193,6 +198,10 @@ void MonoVoice::noteOn(int note, float velocity) {
 }
 
 void MonoVoice::noteOff(int note) {
+    // Remember whether the released note was the one currently sounding.
+    // Releasing a non-sounding held note must not disturb an in-flight glide.
+    const bool wasSounding = (note == currentNote_);
+
     // Remove from held notes
     for (int i = numHeld_ - 1; i >= 0; --i) {
         if (heldNotes_[i] == note) {
@@ -204,23 +213,29 @@ void MonoVoice::noteOff(int note) {
     }
 
     if (numHeld_ > 0) {
-        // Return to the newest held note (last in array)
-        const double prevPitch = gliding_ ? glideFromNote_ + glidePos_ * (glideToNote_ - glideFromNote_)
-                                          : static_cast<double>(currentNote_);
-        currentNote_ = heldNotes_[numHeld_ - 1];
-        glideFromNote_ = prevPitch;
-        glideToNote_ = static_cast<double>(currentNote_);
+        if (wasSounding) {
+            // Sounding note released: return to the newest held note (last in array).
+            // If glide is disabled, land on the held note immediately and discard
+            // any in-flight glide state.
+            const double prevPitch = gliding_ ? glideFromNote_ + glidePos_ * (glideToNote_ - glideFromNote_)
+                                              : static_cast<double>(currentNote_);
+            currentNote_ = heldNotes_[numHeld_ - 1];
+            if (glideMode_ >= 1 && glideMs_ > 0.0) {
+                glideFromNote_ = prevPitch;
+                glideToNote_ = static_cast<double>(currentNote_);
+                gliding_ = (std::fabs(glideToNote_ - glideFromNote_) > 1e-6);
+                glidePos_ = 0.0;
+            } else {
+                glideFromNote_ = static_cast<double>(currentNote_);
+                glideToNote_ = static_cast<double>(currentNote_);
+                gliding_ = false;
+                glidePos_ = 1.0;
+            }
 
-        // Legato return always glides if glide mode allows
-        if (glideMode_ >= 1 && glideMs_ > 0.0) {
-            gliding_ = (std::fabs(glideToNote_ - glideFromNote_) > 1e-6);
-            glidePos_ = 0.0;
-        } else {
-            gliding_ = false;
+            noteHz_ = midiNoteHz(static_cast<double>(currentNote_));
+            recomputePitch();
         }
-
-        noteHz_ = midiNoteHz(static_cast<double>(currentNote_));
-        recomputePitch();
+        // else: a non-sounding held note was released; leave the glide untouched
     } else {
         // Last note released
         ampEnv_.noteOff();
