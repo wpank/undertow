@@ -59,7 +59,7 @@ void OutputStage::prepare(double sampleRate) {
     // Clip hold in samples
     clipHold_ = kClipS * sampleRate_;
 
-    // Initialise crossover coefficients
+    // Initialise crossover coefficients (also sets hpSideC_)
     updateCrossover();
 }
 
@@ -74,6 +74,9 @@ void OutputStage::reset() {
     // Crossover biquads
     for (auto& b : lp_) b.resetState();
     for (auto& b : hp_) b.resetState();
+
+    // Side-path one-pole HP
+    hpSideLp_ = 0.0;
 
     // Width delay
     std::fill(delayLine_.begin(), delayLine_.end(), 0.0f);
@@ -130,10 +133,13 @@ void OutputStage::updateCrossover() {
         b.b0 = hpB0; b.b1 = hpB1; b.b2 = hpB2;
         b.a1 = a1;   b.a2 = a2;
     }
+
+    // One-pole HP coefficient for the side path (steeper low-frequency rejection)
+    hpSideC_ = std::exp(-2.0 * kPi * fc / sampleRate_);
 }
 
 void OutputStage::updateWidth() {
-    const double theta = width_ * kPi / 4.0;
+    const double theta = width_ * kPi / 3.5;
     cosTheta_ = std::cos(theta);
     sinTheta_ = std::sin(theta);
 }
@@ -167,26 +173,27 @@ void OutputStage::process(float mono, float& left, float& right) {
     masterCurrent_ += gainSmooth_ * (masterTarget_ - masterCurrent_);
     x *= masterCurrent_;
 
-    // ---- 4. 4th-order Linkwitz-Riley crossover ----
-    double low = x;
-    low = lp_[0].process(low);
-    low = lp_[1].process(low);
-
+    // ---- 4. High-pass for the side/width path (4th-order Linkwitz-Riley + one-pole) ----
+    // The mono path is x (untouched after DC blocking, saturation, and gain).
     double high = x;
     high = hp_[0].process(high);
     high = hp_[1].process(high);
 
-    // Flush biquad states as a whole (both together, not individually)
-    for (auto& b : lp_) {
-        if (std::fabs(b.z1) < kDenorm && std::fabs(b.z2) < kDenorm) {
-            b.z1 = 0.0; b.z2 = 0.0;
-        }
-    }
+    // Cascade a one-pole HP at mono_freq for steeper low-frequency rejection.
+    // HP = input - LP, where LP is a one-pole low-pass.
+    const double sideLp = hpSideC_ * hpSideLp_ + (1.0 - hpSideC_) * high;
+    hpSideLp_ = sideLp;
+    high -= sideLp;
+
+    // Flush HP biquad states
     for (auto& b : hp_) {
         if (std::fabs(b.z1) < kDenorm && std::fabs(b.z2) < kDenorm) {
             b.z1 = 0.0; b.z2 = 0.0;
         }
     }
+    // Flush one-pole LP state
+    if (std::fabs(hpSideLp_) < kDenorm)
+        hpSideLp_ = 0.0;
 
     // ---- 5. Width: delay the high band by 12 ms ----
     const double delayed = static_cast<double>(delayLine_[delayWrite_]);
@@ -194,12 +201,11 @@ void OutputStage::process(float mono, float& left, float& right) {
     delayWrite_ = (delayWrite_ + 1) % delaySize_;
 
     // ---- 6. Stereo output ----
-    // left  = low + cos(theta)*high + sin(theta)*delayed
-    // right = low + cos(theta)*high - sin(theta)*delayed
-    const double mid = low + cosTheta_ * high;
+    // The mono signal is x (direct path). The width/side signal is a delayed,
+    // high-passed copy scaled by sin(theta).
     const double side = sinTheta_ * delayed;
-    const double l = mid + side;
-    const double r = mid - side;
+    const double l = x + side;
+    const double r = x - side;
 
     // ---- 7. Clip detection (before the clipper) ----
     if (std::fabs(l) > 1.0 || std::fabs(r) > 1.0)

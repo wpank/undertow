@@ -46,11 +46,17 @@ private:
     double gainSmooth_ = 0.0;   // per-sample smoothing coefficient
 
     // 4th-order Linkwitz-Riley crossover (two cascaded 2nd-order Butterworth sections)
-    Biquad lp_[2];   // low-pass sections
+    Biquad lp_[2];   // low-pass sections (unused in process, kept for coefficient storage)
     Biquad hp_[2];   // high-pass sections
     double monoFreq_ = 120.0;
 
-    // Width: theta = width * pi/4
+    // Additional one-pole HP on the side path for steeper low-frequency rejection
+    double hpSideLp_ = 0.0;  // one-pole LP state
+    double hpSideC_  = 0.0;  // one-pole coefficient
+
+    // Width: theta = width * pi/3.5
+    // The wider angle (vs the old pi/4) compensates for the mono path carrying full
+    // power: the side signal needs more amplitude to decorrelate the high band.
     double width_ = 0.0;
     double cosTheta_ = 1.0;
     double sinTheta_ = 0.0;
