@@ -67,19 +67,26 @@ float LowpassFilter::process(float input) {
     // ---- Drive: cross-fade between linear and tanh-saturated input ----
     // At drive=0 the path is fully linear; at drive=1 it is fully saturated.
     // The saturation is symmetric (odd function) → only odd harmonics.
+    // Makeup gain keeps the compressed path closer to the dry signal while the
+    // internal headroom safeguards remain in place.
     float x = input;
     if (drive_ > 0.0) {
-        const float driveGain = 1.0f + static_cast<float>(drive_) * 10.0f;
+        const float drive = static_cast<float>(drive_);
+        const float driveGain = 1.0f + drive * 10.0f;
+        const float makeupGain = 1.0f + drive * 2.0f;
         const float sat = std::tanhf(x * driveGain) / driveGain;
-        x = x + static_cast<float>(drive_) * (sat - x);
+        x = x + drive * (makeupGain * sat - x);
     }
 
-    // ---- Resonance → per-stage damping (phase-1-style split) ----
+    // ---- Resonance → per-stage damping ----
     // At resonance=0 both stages have Butterworth damping: k1=0.7654, k2=1.8478.
-    // Resonance lowers only the smaller damping (k1) towards 0.02, keeping
-    // stage 2 at Butterworth.  This gives a clean resonance peak from stage 1
-    // while stage 2 stays well-damped for stability.
-    const float k1 = static_cast<float>(kButterK1 - resonance_ * (kButterK1 - 0.02));
+    // The curve is reshaped upward through the middle of the knob so the peak
+    // develops musically before the top end, while preserving the same stable
+    // endpoint and keeping stage 2 at Butterworth.
+    const float resonance = static_cast<float>(resonance_);
+    const float mid = resonance * resonance * (3.0f - 2.0f * resonance);
+    const float peak = std::sin(mid * static_cast<float>(kPi) * 0.5f);
+    const float k1 = static_cast<float>(kButterK1 - peak * (kButterK1 - 0.1f));
     const float k2 = kButterK2;
 
     const float g = g_;
@@ -107,7 +114,7 @@ float LowpassFilter::process(float input) {
         stage_[1].ic2eq = flushDenormal(2.0f * lp - stage_[1].ic2eq);
         stage_[1].ic1eq = softLimit(stage_[1].ic1eq, 10.0f, 20.0f);
         stage_[1].ic2eq = softLimit(stage_[1].ic2eq, 10.0f, 20.0f);
-        x = softLimit(lp, 10.0f, 20.0f);  // limit final output
+        x = softLimit(lp, 3.5f, 4.0f);  // limit final output
     }
 
     return x;
