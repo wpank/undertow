@@ -74,14 +74,13 @@ float LowpassFilter::process(float input) {
         x = x + static_cast<float>(drive_) * (sat - x);
     }
 
-    // ---- Resonance → per-stage damping ----
-    // At resonance=0 the per-stage k values reproduce a Butterworth 4th order
-    // (-3 dB at cutoff, maximally flat passband).
-    // As resonance→1 the damping shrinks toward zero, raising the peak.
-    // We never let the scale reach exactly 0 so the filter always decays.
-    const float resScale = static_cast<float>(1.0 - resonance_ * 0.998);
-    const float k1 = kButterK1 * resScale;
-    const float k2 = kButterK2 * resScale;
+    // ---- Resonance → per-stage damping (phase-1-style split) ----
+    // At resonance=0 both stages have Butterworth damping: k1=0.7654, k2=1.8478.
+    // Resonance lowers only the smaller damping (k1) towards 0.02, keeping
+    // stage 2 at Butterworth.  This gives a clean resonance peak from stage 1
+    // while stage 2 stays well-damped for stability.
+    const float k1 = static_cast<float>(kButterK1 - resonance_ * (kButterK1 - 0.02));
+    const float k2 = kButterK2;
 
     const float g = g_;
 
@@ -93,9 +92,10 @@ float LowpassFilter::process(float input) {
         stage_[0].ic1eq = flushDenormal(2.0f * v1 - stage_[0].ic1eq);
         stage_[0].ic2eq = flushDenormal(2.0f * lp - stage_[0].ic2eq);
         // Limit state to prevent blowup under swept coefficients
-        stage_[0].ic1eq = softLimit(stage_[0].ic1eq, 1.0f, 2.0f);
-        stage_[0].ic2eq = softLimit(stage_[0].ic2eq, 1.0f, 2.0f);
-        x = softLimit(lp, 3.0f, 4.0f);  // limit inter-stage signal
+        // Widened so full-level voice signals remain linear at drive 0.
+        stage_[0].ic1eq = softLimit(stage_[0].ic1eq, 10.0f, 20.0f);
+        stage_[0].ic2eq = softLimit(stage_[0].ic2eq, 10.0f, 20.0f);
+        x = softLimit(lp, 10.0f, 20.0f);  // limit inter-stage signal
     }
 
     // ---- Stage 2 ----
@@ -105,9 +105,9 @@ float LowpassFilter::process(float input) {
         const float lp = g * v1 + stage_[1].ic2eq;
         stage_[1].ic1eq = flushDenormal(2.0f * v1 - stage_[1].ic1eq);
         stage_[1].ic2eq = flushDenormal(2.0f * lp - stage_[1].ic2eq);
-        stage_[1].ic1eq = softLimit(stage_[1].ic1eq, 1.0f, 2.0f);
-        stage_[1].ic2eq = softLimit(stage_[1].ic2eq, 1.0f, 2.0f);
-        x = softLimit(lp, 3.0f, 4.0f);  // limit final output
+        stage_[1].ic1eq = softLimit(stage_[1].ic1eq, 10.0f, 20.0f);
+        stage_[1].ic2eq = softLimit(stage_[1].ic2eq, 10.0f, 20.0f);
+        x = softLimit(lp, 10.0f, 20.0f);  // limit final output
     }
 
     return x;
