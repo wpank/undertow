@@ -62,7 +62,7 @@ signing only), an installer package.
      sequencer is off, so a `-1 oct` sub sounds at 55 Hz), is finite, under -0.3 dBFS and at least -30 dBFS RMS (the
      checks render 2 bars).
    - Level (checked): the presets are loudness-matched. Each preset's render, as above, has an RMS over both channels
-     within 3 dB of -18 dBFS, the level the init patch renders at with the -12 dB master default. Set each preset's
+     within 3 dB of -18 dBFS, the level the init patch renders at with the -14 dB master default. Set each preset's
      `master_gain` to land it there: a render X dB off needs `master_gain` X dB the other way, and the check prints
      X. The default suits few presets.
 

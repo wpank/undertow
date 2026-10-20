@@ -66,8 +66,11 @@ Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` paramete
      - a DC blocker: a one-pole high-pass at about 5 Hz, whose state flushes to exact zero once the input is silent
        (a narrow pulse's offset would otherwise reach both channels through the low band and make the saturation and
        the clipper asymmetric);
-     - saturation `tanh(g x) / g` with `g = 1 + 3 sat_drive` (bypassed at 0; quiet signals pass at unity gain and loud
-       peaks are rounded down, by up to 12 dB at full drive, which `master_gain` makes up);
+     - saturation, a blend of the dry signal and `tanh(g x) / g`: `x + d (tanh(g x) / g - x)` with `d = sat_drive` and
+       `g = 1 + 3 d`. It is exactly `x` at 0 and the full curve at 1, and it moves smoothly between them: the voice
+       reaches it hot (accented notes near +9 dBFS), and the curve alone would cut those peaks by 9 dB as soon as the
+       drive leaves 0. Quiet signals pass at unity gain, and loud peaks are rounded down, by up to 12 dB at full drive,
+       which `master_gain` makes up;
      - `master_gain` (dB, smoothed over a few milliseconds: an 18 dB step never jumps a sample, and settles within
        50 ms);
      - a 4th-order Linkwitz-Riley crossover at `mono_freq` (two cascaded Butterworth low-passes and high-passes),
@@ -92,8 +95,8 @@ Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` paramete
      `lfo*_phase`; Sample & Hold seeds `2 seq_seed + 1` and `2 seq_seed + 2`.
    - Then `mono = voice + rumble.process(voice * send, ppq, tempo, running)` and `output.process(mono, left, right)`.
      The master gain moves from the engine into the output stage.
-   - `master_gain`'s default becomes -12 dB, in `core/src/params.cpp` (the PRD's table says so too). With every
-     parameter at its default, accented notes then peak near -8 dBFS, below the clipper's knee, instead of over full
+   - `master_gain`'s default becomes -14 dB, in `core/src/params.cpp` (the PRD's table says so too). With every
+     parameter at its default, accented notes then peak near -6 dBFS, at the clipper's knee, instead of over full
      scale.
    - Meters: `clipping` from the output stage; `rumble`, the rumble bus RMS over about 50 ms.
    - Controller 120 (all sound off) now also resets the rumble and the output stage, so the output is silent at once
