@@ -228,17 +228,19 @@ host parameters (phase 3).
 | 0 | `specs/phase-0-foundation.md` | CMake and presets, the core library with the parameter table and the engine skeleton, the JUCE plugin skeleton (VST3, AU, Standalone) through pluginval, `tools/check.sh` | nothing | M: 3 tasks, about 600 lines |
 | 1 | `specs/phase-1-voice.md` | PolyBLEP oscillators, the sub, the 24 dB/oct filter with drive, envelopes, the mono voice (glide, legato, accent, bend), MIDI, smoothing, realtime safety | 0 | L: 5 tasks, about 900 lines |
 | 2 | `specs/phase-2-rumble.md` | Tempo-synced LFOs, the rumble engine, saturation, the mono-sub crossover and width, the output clipper | 1 | L: 4 tasks, about 900 lines |
+| 2.1 | `specs/phase-2.1-voice-fixes.md` | Fixes from a listening test of the voice: a sustain change glides, glides keep their time and pitch, an empty block leaves the meters alone, the filter keeps its resonance at full level, the oscillator stops at Nyquist | 2 | S: 5 tasks, about 50 lines |
 | 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
 | 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 7 tasks, about 1000 lines |
 | 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand) | 4 | M: 5 tasks, about 700 lines |
 
 ```text
- phase 0 ──► phase 1 ──► phase 2 ──┬──► phase 4 ──► phase 5
-                    └──► phase 3 ──┘
+ phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──┬──► phase 4 ──► phase 5
+                    └──► phase 3 ────────────────┘
 ```
 
-Run the phases in order. Phases 2 and 3 are independent in their DSP and could run in parallel once phase 1 is
-done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so in parallel they end in a merge there.
+Run the phases in order: 0, 1, 2, 2.1, 3, 4, 5. Phases 2 and 3 are independent in their DSP and could run in
+parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so in parallel they
+end in a merge there.
 
 ## 6. How the checks work
 
