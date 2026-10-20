@@ -87,6 +87,7 @@ No change: every class keeps phase 1's interface (`docs/specs/phase-1-voice.md`,
 | P2.1.06 | `tools/spec.sh 2_1 filter 'P2.1.06*'` | At drive 0 a full-scale 110 Hz saw through cutoff 440 Hz is within -60 dB of 100 times the same saw at 0.01, at resonance 0, 0.35 and 0.8 |
 | P2.1.07 | `tools/spec.sh 2_1 oscillator 'P2.1.07*'` | At 24, 26, 30, 50.2 and 96 kHz and at 1 MHz, the saw, the square and a 10% pulse have no component from 20 Hz to 20 kHz above -60 dB |
 | P2.1.08 | `tools/spec.sh 1 filter` | Phase 1's filter checks (P1.05 to P1.07) still pass. A regression check: it passes on the base too |
+| P2.1.09 | `tools/spec.sh 2_1 engine 'P2.1.09*'` | The saturation keeps phase 2's blend, `x + d (tanh(g x) / g - x)`: at drive 0.2 and 0.5 a sine of amplitude 2 keeps the blend's fundamental (within 0.3 dB), drive 0 passes it unchanged, and drive 0.01 moves it less than 0.1 dB. A regression check: it passes on the base too |
 
 ## Rules every task keeps
 
@@ -120,11 +121,14 @@ No change: every class keeps phase 1's interface (`docs/specs/phase-1-voice.md`,
   exactly the checks named for it, with their commands unchanged:
   1. **The envelope** (`envelope.h`, `envelope.cpp`): P2.1.01. About 10 lines.
   2. **The glide** (`voice.h`, `voice.cpp`): P2.1.02 and P2.1.03. About 15 lines.
-  3. **The meters** (`engine.cpp`): P2.1.04. About 3 lines.
+  3. **The meters** (`engine.cpp`): P2.1.04, and P2.1.09, a regression check of the saturation the engine runs. About 3
+     lines.
   4. **The filter** (`filter.h`, `filter.cpp`): P2.1.05, P2.1.06 and P2.1.08. About 20 lines.
   5. **The oscillator** (`oscillator.h`, `oscillator.cpp`): P2.1.07. About 3 lines.
-- P2.1.08 is a regression check (`expect = "pass_on_base"`). It guards the filter task against a fix that raises
-  every limit instead of changing the resonance law: such a fix can pass P2.1.05 and P2.1.06, but not P1.07.
+- P2.1.08 and P2.1.09 are regression checks (`expect = "pass_on_base"`). P2.1.08 guards the filter task against a fix
+  that raises every limit instead of changing the resonance law: such a fix can pass P2.1.05 and P2.1.06, but not
+  P1.07. P2.1.09 holds phase 2's saturation to the blend it was built as, which the -14 dB default rests on; phase 2's
+  P2.10 checked only drives 0 and 1, where the blend and the curve alone agree.
 - Phase 2 edits `engine.cpp` and `voice.cpp`. If it fixed one of these faults in passing, that check passes on the
   base, and its task has nothing to do: leave the task out of the plan.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check
