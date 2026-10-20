@@ -49,6 +49,8 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
 - At least 90% of the rumble's energy is below 200 Hz at the default tone (110 Hz).
 - The duck pulls the rumble down at every kick and lets it swell back before the next one, so the rumble's
   quietest moments sit on the beat.
+- At the defaults the rumble sits 9 to 15 dB under the bass below 200 Hz: a pumping bed you hear under the line.
+  `rumble_drive` adds grit at a steady level.
 - `rumble_send` feeds the voice into the same reverb, so the bassline gets its own tail.
 
 ### 1.4 Hypnotic motion
@@ -62,9 +64,10 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
 
 ### 1.5 Level and safety
 
-- The low end is mono: a Linkwitz-Riley crossover at `mono_freq` (default 120 Hz) keeps everything under it in the
-  middle (the side signal under `mono_freq / 2` stays at least 25 dB below the mid), and `width` adds stereo only to
-  the band above it. At width 0 both channels carry the same signal, sample for sample.
+- The low end is mono: `width` adds a side signal, a 12 ms delayed copy high-passed steeply at `mono_freq` (default
+  120 Hz), to one channel and takes it from the other, so everything under `mono_freq` stays in the middle (the side
+  under `mono_freq / 2` stays at least 25 dB below the mid). The mono signal itself passes through no filter, so width
+  never reshapes its peaks. At width 0 both channels carry the same signal, sample for sample.
 - A soft clipper holds every output sample within -0.3 dBFS (0.966) and is exactly transparent below -6 dBFS (0.5).
   When the signal goes over full scale, the meters say so and the editor shows the NERV hazard stripe.
 - Headroom: `master_gain` defaults to -14 dB, so the default patch's accented notes peak between -12 and -6 dBFS,
@@ -231,16 +234,17 @@ host parameters (phase 3).
 | 1 | `specs/phase-1-voice.md` | PolyBLEP oscillators, the sub, the 24 dB/oct filter with drive, envelopes, the mono voice (glide, legato, accent, bend), MIDI, smoothing, realtime safety | 0 | L: 5 tasks, about 900 lines |
 | 2 | `specs/phase-2-rumble.md` | Tempo-synced LFOs, the rumble engine, saturation, the mono-sub crossover and width, the output clipper | 1 | L: 4 tasks, about 900 lines |
 | 2.1 | `specs/phase-2.1-voice-fixes.md` | Fixes from a listening test of the voice: a sustain change glides, glides keep their time and pitch, an empty block leaves the meters alone, the filter keeps its resonance at full level, the oscillator stops at Nyquist | 2 | S: 5 tasks, about 50 lines |
+| 2.2 | `specs/phase-2.2-gain-staging.md` | Gain staging from a listening test of phase 2: width as a side signal (no crossover on the mono path), drives with makeup gain, the rumble audible at the defaults | 2.1 | S: 3 tasks, about 60 lines |
 | 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
 | 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 7 tasks, about 1000 lines |
 | 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand) | 4 | M: 5 tasks, about 700 lines |
 
 ```text
- phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──┬──► phase 4 ──► phase 5
-                    └──► phase 3 ────────────────┘
+ phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 5
+                    └──► phase 3 ──────────────────────────────┘
 ```
 
-Run the phases in order: 0, 1, 2, 2.1, 3, 4, 5. Phases 2 and 3 are independent in their DSP and could run in
+Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 5. Phases 2 and 3 are independent in their DSP and could run in
 parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so in parallel they
 end in a merge there.
 
