@@ -130,6 +130,7 @@ latency = 0.2
 enabled = true
 roles = []
 probe = true
+max_secs = { mid = 2700 }
 
 [[routing.ladder.rungs]]
 name = "cheap"
@@ -151,7 +152,7 @@ model = "claude-sonnet-4-6"
 mechanical = "cheap"
 focused = "cheap"
 integrative = "mid"
-architectural = "top"
+architectural = "mid"
 
 [pipeline]
 default_template = "standard"
@@ -363,7 +364,7 @@ dream_consolidation_secs = 600
 http_request_secs = 30
 workspace_lock_secs = 5
 health_check_secs = 3
-plan_total_secs = 7200
+plan_total_secs = 10800
 post_run_cleanup_secs = 120
 tool_execution_ms = 120000
 acp_request_ms = 120000
