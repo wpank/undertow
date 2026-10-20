@@ -105,14 +105,14 @@ TEST_CASE("P2.11 below mono_freq the output is mono; width decorrelates only the
     auto mono = make(outputPatch(0.0f, 0.0f));
     const auto zero = run(mono, in);
     CHECK_MESSAGE(zero.left == zero.right, "at width 0 both channels must be the same signal, sample for sample");
-    // The crossover's two bands sum to an all-pass: no band gains or loses level.
+    // At width 0 no band gains or loses level.
     const double bands[][2] = {{40, 80}, {80, 160}, {160, 320}, {320, 640}, {640, 1280}, {1280, 5000}, {5000, 15000}};
     const auto inSpectrum = spec::spectrum(in, 4096, 1u << 17, kRate);
     const auto outSpectrum = spec::spectrum(zero.left, 4096, 1u << 17, kRate);
     for (const auto& band : bands) {
         const double db = 10.0 * std::log10(spec::bandPower(outSpectrum, band[0], band[1]) / spec::bandPower(inSpectrum, band[0], band[1]));
         CHECK_MESSAGE(std::fabs(db) <= 0.5, "at width 0 the band " << band[0] << "-" << band[1] << " Hz changed by " << db
-                                                                  << " dB: the low and high bands must sum flat (Linkwitz-Riley)");
+                                                                  << " dB: at width 0 every band must keep its level");
     }
     for (float width : {0.5f, 1.0f}) {
         auto stage = make(outputPatch(0.0f, width));
@@ -125,8 +125,11 @@ TEST_CASE("P2.11 below mono_freq the output is mono; width decorrelates only the
         CHECK_MESSAGE(low >= 0.98, "below mono_freq / 2 the channels must stay mono; their correlation is " << low);
         if (width == 1.0f) {
             CHECK_MESSAGE(high <= 0.3, "at width 1 the band above 2 x mono_freq must be decorrelated; correlation " << high);
+            // Phase 2.2 makes width a side signal added to the untouched mono signal: on broadband noise a channel
+            // then gains up to 3 dB at width 1 (bass material much less).
             const double level = spec::toDb(spec::rms(out.left, 9600) / spec::rms(zero.left, 9600));
-            CHECK_MESSAGE(std::fabs(level) <= 1.5, "width must keep each channel's level (within 1.5 dB); it moved " << level << " dB");
+            CHECK_MESSAGE(level >= -1.5, "width must not turn a channel down by more than 1.5 dB; it moved " << level << " dB");
+            CHECK_MESSAGE(level <= 3.5, "width may add its side, at most 3.5 dB on noise; it moved " << level << " dB");
         } else {
             CHECK_MESSAGE(high >= 0.4, "at width 0.5 the high band's correlation must lie between those of width 0 and 1 "
                                        "(0.4 .. 0.9); it is "
