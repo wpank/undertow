@@ -1,4 +1,4 @@
-// Phase 5 spec tests: the factory presets (docs/specs/phase-5-ship.md, P5.01 to P5.03).
+// Phase 5 spec tests: the factory presets (docs/specs/phase-5-ship.md, P5.01 to P5.03 and P5.09).
 // spec-needs: core/include/undertow/presets.h
 
 #include "doctest.h"
@@ -8,6 +8,7 @@
 #include "undertow/engine.h"
 #include "undertow/presets.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <map>
@@ -50,6 +51,12 @@ const spec::Stereo& cachedRender(int index) {
     if (found == renders.end())
         found = renders.emplace(index, renderPreset(index)).first;
     return found->second;
+}
+
+// A render's level: the RMS of both channels together, in dBFS.
+double levelDb(const spec::Stereo& out) {
+    const double left = spec::rms(out.left), right = spec::rms(out.right);
+    return 10.0 * std::log10(std::max(0.5 * (left * left + right * right), 1e-30));
 }
 
 double share(const spec::Signal& x, double loHz, double hiHz) {
@@ -134,5 +141,19 @@ TEST_CASE("P5.03 each category sounds like itself") {
         }
         if (category == "SEQ" || name == "BASS Hypnotic Roller")
             CHECK_MESSAGE(values[static_cast<std::size_t>(spec::id("seq_on"))] == 1.0f, "this preset plays its pattern: seq_on 1");
+    }
+}
+
+TEST_CASE("P5.09 the presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level") {
+    // Browsing from one preset to the next, none should sound weak or hot. -18 dBFS RMS is where the init patch
+    // renders (at the -12 dB master default), and it keeps most peaks under the clipper's knee.
+    for (int i = 0; i < undertow::numFactoryPresets(); ++i) {
+        const std::string name = undertow::factoryPresetName(i);
+        INFO("preset \"" << name << "\"");
+        const double level = levelDb(cachedRender(i));
+        CHECK_MESSAGE(level >= -21.0, "the render is " << level << " dBFS RMS, " << -18.0 - level
+                                                       << " dB under -18: raise this preset's master_gain by that much");
+        CHECK_MESSAGE(level <= -15.0, "the render is " << level << " dBFS RMS, " << level + 18.0
+                                                       << " dB over -18: lower this preset's master_gain by that much");
     }
 }
