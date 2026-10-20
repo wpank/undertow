@@ -120,6 +120,10 @@ void MonoVoice::setParams(const float* v) {
     filtEnv_.setReleaseMs(static_cast<double>(v[param::FiltRelease]));
 }
 
+void MonoVoice::setModulation(const VoiceModulation& modulation) {
+    mod_ = modulation;
+}
+
 void MonoVoice::noteOn(int note, float velocity) {
     const bool wasActive = isActive();
     const bool isLegato = (numHeld_ > 0);
@@ -250,8 +254,8 @@ float MonoVoice::process() {
     // Compute current pitch in semitones (with glide and bend)
     const double glideNote = glideFromNote_ + glidePos_ * (glideToNote_ - glideFromNote_);
     const double bendSemitones = static_cast<double>(pitchBend_) * static_cast<double>(bendRange_);
-    playedHz_ = midiNoteHz(glideNote + bendSemitones);
-    noteHz_ = midiNoteHz(glideNote); // without bend, for currentHz()
+    playedHz_ = midiNoteHz(glideNote + bendSemitones + mod_.pitchSemitones);
+    noteHz_ = midiNoteHz(glideNote); // without bend or modulation, for currentHz()
 
     // Set oscillator and sub frequencies
     if (params_) {
@@ -274,8 +278,10 @@ float MonoVoice::process() {
     accentGainSmooth_.tick();
     log2CutoffSmooth_.tick();
 
-    // Set pulse width from smoother
-    osc_.setPulseWidth(oscPwSmooth_.value());
+    // Set pulse width from smoother + modulation
+    double pw = oscPwSmooth_.value() + mod_.pulseWidth;
+    pw = std::clamp(pw, 0.05, 0.95);
+    osc_.setPulseWidth(pw);
 
     // If voice is fully idle, output zero
     if (ampEnv_.stage() == Envelope::Stage::Idle && !gliding_) {
@@ -290,8 +296,8 @@ float MonoVoice::process() {
     const double oscLevel = oscLevelSmooth_.value();
     float oscFiltered = filter_.process(static_cast<float>(oscSample * oscLevel));
 
-    // Update filter coefficients from smoothers
-    filter_.setResonance(filterResSmooth_.value());
+    // Update filter coefficients from smoothers + modulation
+    filter_.setResonance(std::clamp(filterResSmooth_.value() + mod_.resonance, 0.0, 1.0));
     filter_.setDrive(filterDriveSmooth_.value());
 
     // Update filter cutoff from smoothed log2 cutoff + env + accent + keytrack
@@ -305,6 +311,7 @@ float MonoVoice::process() {
         totalLog2Cutoff += filterEnv * filtEnvLevel;  // filter_env in octaves * level = octaves
         totalLog2Cutoff += accentOctaves_ * filtEnvLevel; // accent adds 2*accent octaves of filter env
         totalLog2Cutoff += filterTrack * (glideNote - 36.0) / 12.0; // key track in octaves
+        totalLog2Cutoff += mod_.cutoffOctaves; // LFO/voice modulation
 
         const double cutoffHz = std::exp2(totalLog2Cutoff);
         filter_.setCutoff(cutoffHz);
@@ -318,7 +325,7 @@ float MonoVoice::process() {
     const float ampEnvSample = ampEnv_.process();
     const float filtEnvSample = filtEnv_.process();
     const double accentGain = accentGainSmooth_.value();
-    const float output = static_cast<float>(mix * static_cast<double>(ampEnvSample) * accentGain);
+    const float output = static_cast<float>(mix * static_cast<double>(ampEnvSample) * accentGain * mod_.gain);
 
     return output;
 }

@@ -116,7 +116,7 @@ static const ParamSpec kParams[kNumParams] = {
     // 43
     {"mono_freq",      "Mono Below",    ParamKind::Float,  60,    250,   120,  0,   "Hz",  nullptr,            0},
     // 44
-    {"master_gain",    "Master",        ParamKind::Float, -24,    6,    -3,    0,   "dB",  nullptr,            0},
+    {"master_gain",    "Master",        ParamKind::Float, -24,    6,    -14,   0,   "dB",  nullptr,            0},
     // 45
     {"seq_on",         "Sequencer",     ParamKind::Bool,   0,     1,     0,    0,   "",    nullptr,            0},
     // 46

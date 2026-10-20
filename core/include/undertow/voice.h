@@ -6,11 +6,20 @@
 
 namespace undertow {
 
+struct VoiceModulation {
+    double cutoffOctaves = 0.0;
+    double resonance = 0.0;
+    double pulseWidth = 0.0;
+    double pitchSemitones = 0.0;
+    double gain = 1.0;
+};
+
 class MonoVoice {
 public:
     void prepare(double sampleRate);
     void reset();
     void setParams(const float* values);
+    void setModulation(const VoiceModulation& modulation);
     void noteOn(int note, float velocity);
     void noteOff(int note);
     void allNotesOff();
@@ -76,6 +85,9 @@ private:
     Smoother filterDriveSmooth_;
     Smoother accentGainSmooth_;
     Smoother log2CutoffSmooth_;  // log2 of cutoff Hz
+
+    // Modulation (set per sample by the engine)
+    VoiceModulation mod_;
 };
 
 }  // namespace undertow
