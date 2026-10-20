@@ -11,7 +11,7 @@ void Oscillator::prepare(double sampleRate) {
 
 void Oscillator::setWave(Wave wave) { wave_ = wave; }
 
-void Oscillator::setFrequency(double frequencyHz) { frequency_ = frequencyHz; }
+void Oscillator::setFrequency(double frequencyHz) { frequency_ = std::clamp(frequencyHz, 0.0, sampleRate_ / 2.0); }
 
 void Oscillator::setPulseWidth(double width) { pulseWidth_ = std::clamp(width, 0.01, 0.99); }
 
@@ -50,7 +50,7 @@ float Oscillator::process() {
 
 void SineOscillator::prepare(double sampleRate) { sampleRate_ = sampleRate; }
 
-void SineOscillator::setFrequency(double frequencyHz) { frequency_ = frequencyHz; }
+void SineOscillator::setFrequency(double frequencyHz) { frequency_ = std::clamp(frequencyHz, 0.0, sampleRate_ / 2.0); }
 
 void SineOscillator::reset(double phase) { phase_ = phase - std::floor(phase); }
 
