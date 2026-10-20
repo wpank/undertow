@@ -1,5 +1,5 @@
-// Phase 2.2 spec tests: the filter's drive colours without turning the voice down, and its resonance has a musical middle
-// (docs/specs/phase-2.2-gain-staging.md, P2.2.03 and P2.2.11).
+// Phase 2.2 spec tests: the filter's drive colours without turning the voice down, its resonance has a musical middle, and
+// a held tone at the cutoff stays bounded (docs/specs/phase-2.2-gain-staging.md, P2.2.03, P2.2.11 and P2.2.13).
 // spec-needs: core/include/undertow/filter.h
 
 #include "doctest.h"
@@ -7,6 +7,7 @@
 #include "spec_analysis.h"
 #include "undertow/filter.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -63,4 +64,26 @@ TEST_CASE("P2.2.11 resonance has a musical middle: at least +8 dB at the cutoff 
                                               << " after " << previous << " dB");
         previous = gain;
     }
+}
+
+TEST_CASE("P2.2.13 a full-scale tone held at the cutoff stays within 4, at any resonance") {
+    // P1.07 bounds a swept cutoff at full drive, which never rings the filter up for long. A note held on the cutoff at
+    // high resonance does: the output needs a final limit near the levels P1.07 allows.
+    for (const double cutoff : {600.0, 1000.0})
+        for (const double resonance : {0.8, 0.9, 1.0}) {
+            undertow::LowpassFilter f;
+            f.prepare(kRate);
+            f.setCutoff(cutoff);
+            f.setResonance(resonance);
+            f.setDrive(0.0);
+            f.reset();
+            double peak = 0;
+            for (int n = 0; n < 96000; ++n) {
+                const float y = f.process(static_cast<float>(std::sin(2.0 * 3.14159265358979323846 * cutoff * n / kRate)));
+                if (n >= 48000)
+                    peak = std::max(peak, static_cast<double>(std::fabs(y)));
+            }
+            CHECK_MESSAGE(peak <= 4.0, "a 1.0 sine held at the cutoff (" << cutoff << " Hz) at resonance " << resonance
+                                       << " peaks at " << peak << ": limit the filter's output to within 4");
+        }
 }
