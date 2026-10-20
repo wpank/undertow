@@ -148,23 +148,25 @@ Pattern pattern() const;                   // any thread; the newest pattern (se
 
 ## Acceptance checks
 
+Checks that share a command are one verify step: the table repeats the command on every row that command proves.
+
 | Check | Command | Proves |
 |---|---|---|
-| P3.01 | `tools/spec.sh 3 sequencer 'P3.01*'` | Steps start on the 1/16 grid to within a sample at 128 BPM across odd block sizes, notes last seq_gate of a step, and currentStep follows |
-| P3.02 | `tools/spec.sh 3 sequencer 'P3.02*'` | seq_rate 1/8 doubles the step, seq_length 5 cycles five steps, and swing 1 delays odd steps by a third of a step |
-| P3.03 | `tools/spec.sh 3 sequencer 'P3.03*'` | Rests play nothing, accents reach the note-on, a slide holds into the next note (note-on before note-off, same sample), and a slide into a rest ends there |
-| P3.04 | `tools/spec.sh 3 sequencer 'P3.04*'` | Stopping ends the note at once and sends nothing more; a loop back to beat 0 ends the note and plays step 0 at once; a start mid-step waits for the next step |
-| P3.05 | `tools/spec.sh 3 sequencer 'P3.05*'` | Probability 0.5 plays about half the steps, the same seed and position decide the same way (loops repeat), another seed differs, 0 and 1 are never and always |
-| P3.06 | `tools/spec.sh 3 sequencer 'P3.06*'` | Notes are root + transpose + the step's semitones |
-| P3.07 | `tools/spec.sh 3 sequencer 'P3.07*'` | The scales are right; mutate(0) changes nothing; mutate(0.25) changes about a quarter of the steps, the same way for the same seed, in scale, within an octave, gates untouched |
-| P3.08 | `tools/spec.sh 3 sequencer 'P3.08*'` | Evolve mutates at the bar line and never inside a bar; with Evolve off the pattern never changes |
-| P3.09 | `tools/spec.sh 3 sequencer 'P3.09*'` | The sequencer's process, setParams, mutate and setPattern never allocate |
-| P3.10 | `tools/spec.sh 3 engine 'P3.10*'` | With seq_on the engine plays the pattern's notes on the host's grid, meters().step follows, a MIDI note transposes it (latched; the key never plays or cuts the voice), and with seq_on off MIDI plays directly again |
-| P3.11 | `tools/spec.sh 3 engine 'P3.11*'` | An accented step is about twice as loud at accent 1; a slide glides into the next note in glide_ms without retriggering the envelope |
-| P3.12 | `tools/spec.sh 3 engine 'P3.12*'` | seq_sync Internal runs at seq_bpm ignoring the host; Host falls back to the internal clock without a host; a host stop releases the note |
-| P3.13 | `tools/spec.sh 3 engine 'P3.13*'` | setPattern and pattern() from another thread while the audio runs: pattern() reads back a set pattern at once, the new pattern is used, never torn, and process never allocates |
-| P3.14 | `tools/spec.sh 3 engine 'P3.14*'` | A new engine starts with defaultPattern(), and defaultPattern() is the table above |
-| P3.15 | `tools/spec.sh 3 engine 'P3.15*'` | 60 s of the default patch with the sequencer and Evolve on renders in at most 4 s of CPU time (15x real time) |
+| P3.01 | `tools/spec.sh 3 sequencer 'P3.01*,P3.02*'` | Steps start on the 1/16 grid to within a sample at 128 BPM across odd block sizes, notes last seq_gate of a step, and currentStep follows |
+| P3.02 | `tools/spec.sh 3 sequencer 'P3.01*,P3.02*'` | seq_rate 1/8 doubles the step, seq_length 5 cycles five steps, and swing 1 delays odd steps by a third of a step |
+| P3.03 | `tools/spec.sh 3 sequencer 'P3.03*,P3.04*'` | Rests play nothing, accents reach the note-on, a slide holds into the next note (note-on before note-off, same sample), and a slide into a rest ends there |
+| P3.04 | `tools/spec.sh 3 sequencer 'P3.03*,P3.04*'` | Stopping ends the note at once and sends nothing more; a loop back to beat 0 ends the note and plays step 0 at once; a start mid-step waits for the next step |
+| P3.05 | `tools/spec.sh 3 sequencer 'P3.05*,P3.06*'` | Probability 0.5 plays about half the steps, the same seed and position decide the same way (loops repeat), another seed differs, 0 and 1 are never and always |
+| P3.06 | `tools/spec.sh 3 sequencer 'P3.05*,P3.06*'` | Notes are root + transpose + the step's semitones |
+| P3.07 | `tools/spec.sh 3 sequencer 'P3.07*,P3.08*,P3.09*'` | The scales are right; mutate(0) changes nothing; mutate(0.25) changes about a quarter of the steps, the same way for the same seed, in scale, within an octave, gates untouched |
+| P3.08 | `tools/spec.sh 3 sequencer 'P3.07*,P3.08*,P3.09*'` | Evolve mutates at the bar line and never inside a bar; with Evolve off the pattern never changes |
+| P3.09 | `tools/spec.sh 3 sequencer 'P3.07*,P3.08*,P3.09*'` | The sequencer's process, setParams, mutate and setPattern never allocate |
+| P3.10 | `tools/spec.sh 3 engine 'P3.10*,P3.11*'` | With seq_on the engine plays the pattern's notes on the host's grid, meters().step follows, a MIDI note transposes it (latched; the key never plays or cuts the voice), and with seq_on off MIDI plays directly again |
+| P3.11 | `tools/spec.sh 3 engine 'P3.10*,P3.11*'` | An accented step is about twice as loud at accent 1; a slide glides into the next note in glide_ms without retriggering the envelope |
+| P3.12 | `tools/spec.sh 3 engine 'P3.12*,P3.13*'` | seq_sync Internal runs at seq_bpm ignoring the host; Host falls back to the internal clock without a host; a host stop releases the note |
+| P3.13 | `tools/spec.sh 3 engine 'P3.12*,P3.13*'` | setPattern and pattern() from another thread while the audio runs: pattern() reads back a set pattern at once, the new pattern is used, never torn, and process never allocates |
+| P3.14 | `tools/spec.sh 3 engine 'P3.14*,P3.15*'` | A new engine starts with defaultPattern(), and defaultPattern() is the table above |
+| P3.15 | `tools/spec.sh 3 engine 'P3.14*,P3.15*'` | 60 s of the default patch with the sequencer and Evolve on renders in at most 4 s of CPU time (15x real time) |
 
 ## Rules every task keeps
 
@@ -184,8 +186,11 @@ Pattern pattern() const;                   // any thread; the newest pattern (se
 - Two tasks, one per test file. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the one it needs) is done:
   1. **The sequencer** (`sequencer.h`, `sequencer.cpp`): steps, patterns, scales, the default pattern, `process`,
-     `mutate` and evolve. P3.01 to P3.09.
-  2. **The engine wiring and the pattern handoff** (`engine.h`, `engine.cpp`): P3.10 to P3.15. Needs task 1.
+     `mutate` and evolve. P3.01 to P3.09, in four verify steps (the table's four commands). About 270 lines, so
+     architectural: the smallest change that passes any one of its checks is about 210 lines, since the test file
+     calls the whole API.
+  2. **The engine wiring and the pattern handoff** (`engine.h`, `engine.cpp`): P3.10 to P3.15, in three verify steps.
+     About 120 lines. Needs task 1.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `sequencer.cpp` joins it
   as a new file, and no task lists or edits `core/CMakeLists.txt`.
 - A test file is one executable, so the sequencer is one task: `sequencer_test.cpp` compiles only once every
