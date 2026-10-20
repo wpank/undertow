@@ -90,6 +90,9 @@ float Engine::getParam(int index) const {
 void Engine::process(float* left, float* right, int numSamples,
                      const MidiEvent* events, int numEvents,
                      const Transport& transport) {
+    if (numSamples <= 0)
+        return;
+
     const auto& p = impl_->params;
 
     // Apply parameters to voice, rumble, output stage
