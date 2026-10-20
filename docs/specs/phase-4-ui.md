@@ -8,7 +8,7 @@ clock in the meters, and the pattern saved with the plugin's state.
 
 **Depends on**: phases 2 and 3 (the meters, the rumble and the sequencer's pattern).
 
-**Size**: L, 6 tasks, about 1200 lines.
+**Size**: L, 4 tasks, about 1200 lines.
 
 ---
 
@@ -58,6 +58,9 @@ renderer is fast enough at this size).
    - A 60 Hz timer: each tick `advance(captureFrame(), elapsed)` and repaint. `freeze()` stops the timer, so tests
      and previews drive the editor only through `advance`. Everything drawn depends only on the frames advanced
      and the pattern, never on wall time, so a frozen editor draws the same picture every time.
+   - `plugin/CMakeLists.txt` adds every `plugin/ui/*.cpp` to the plugin's sources by
+     `file(GLOB undertow_ui_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")` (in `target_sources`
+     of `Undertow`), so widget files join without editing it.
 
 4. **The displays** (`plugin/ui/`, wired into the editor)
    - The tunnel, the scope with its phosphor history, the AT field, the bone number, the HEAD clock and meter, the
@@ -162,17 +165,20 @@ public:
 
 ## Notes for the planner
 
-- Six tasks, one per test file. Each task's verify steps are exactly the checks named for it, with their commands
-  unchanged, and each passes once that task (and the ones it needs) is done:
-  1. **The engine's outputs for the editor** (core): P4.01.
-  2. **The pattern in the plugin** (the processor): P4.02.
-  3. **The editor skeleton** (`UiFrame.h`, the theme, layout, knobs, the timer and the hooks of the API above): P4.03-P4.04.
-     Needs tasks 1 and 2. It must declare every hook in the API, even ones a later task fills in, so every phase 4
-     test file compiles from here on.
-  4. **The displays**: P4.05-P4.09. Needs task 3.
-  5. **The unit array**: P4.10. Needs task 3 (and runs after 4: both edit the editor).
-  6. **The budget and the review images**: P4.11-P4.12 and P4.13. Needs tasks 4 and 5. It commits the three
-     `artifacts/ui/*.png` files its check writes.
+- Four tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
+  passes once that task (and the ones it needs) is done:
+  1. **The engine's outputs for the editor** (`engine.h`, `engine.cpp`): P4.01.
+  2. **The pattern in the plugin** (`PluginProcessor.h/.cpp`): P4.02.
+  3. **The editor skeleton and the unit array** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `PluginEditor.h/.cpp`,
+     `plugin/CMakeLists.txt`): items 3 and 5 above, P4.03-P4.04 and P4.10. Needs tasks 1 and 2. It declares every
+     hook in the API, even ones task 4 fills in, so every phase 4 test file compiles from here on, and it adds the
+     `plugin/ui/*.cpp` glob.
+  4. **The displays, the budget and the review images** (display files in `plugin/ui/`, `PluginEditor.h/.cpp`):
+     items 4 and 6 above, P4.05-P4.09, P4.11-P4.12 and P4.13. Needs task 3. It commits the three `artifacts/ui/*.png`
+     files its check writes.
+- At most two tasks own any file, and only one at a time: `PluginEditor.h/.cpp` belong to tasks 3 and 4, and
+  `plugin/CMakeLists.txt` to task 3 alone (task 4 adds widget files that the glob picks up). The core library's
+  sources are registered by phase 2's glob in `core/CMakeLists.txt`, and no task edits it.
 - A test file is one executable, so a task owns a whole file's checks. The plugin checks build the `plugin` preset:
   the first build in a fresh worktree compiles JUCE (about a minute), later ones are incremental.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check

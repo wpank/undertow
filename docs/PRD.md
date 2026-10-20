@@ -226,7 +226,7 @@ host parameters (phase 3).
 | 1 | `specs/phase-1-voice.md` | PolyBLEP oscillators, the sub, the 24 dB/oct filter with drive, envelopes, the mono voice (glide, legato, accent, bend), MIDI, smoothing, realtime safety | 0 | L: 5 tasks, about 900 lines |
 | 2 | `specs/phase-2-rumble.md` | Tempo-synced LFOs, the rumble engine, saturation, the mono-sub crossover and width, the output clipper | 1 | L: 4 tasks, about 900 lines |
 | 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
-| 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 6 tasks, about 1200 lines |
+| 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 4 tasks, about 1200 lines |
 | 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand) | 4 | M: 5 tasks, about 700 lines |
 
 ```text

@@ -14,7 +14,8 @@ both edit `core/src/engine.cpp`.
 ## Scope
 
 In scope: `undertow/sequencer.h` with `core/src/sequencer.cpp`; `Engine::setPattern` and `Engine::pattern` in
-`undertow/engine.h`; the sequencer wired into `core/src/engine.cpp`; the new source in `core/CMakeLists.txt`.
+`undertow/engine.h`; the sequencer wired into `core/src/engine.cpp`. Phase 2's glob in `core/CMakeLists.txt` picks
+up the new source: no task edits that file.
 
 Out of scope: editing the pattern in the editor and saving it with the plugin's state (phase 4).
 
@@ -68,7 +69,7 @@ Out of scope: editing the pattern in the editor and saving it with the plugin's 
      whose number is a multiple of N (beat a multiple of 4 N), except the first step after a start or jump.
    - No allocation anywhere: `out` is the caller's array.
 
-3. **The engine** (`core/include/undertow/engine.h`, `core/src/engine.cpp`, `core/CMakeLists.txt`)
+3. **The engine** (`core/include/undertow/engine.h`, `core/src/engine.cpp`)
    - The engine owns a `Sequencer` (prepared with the engine, holding `defaultPattern()` after `prepare`).
    - The clock: with `seq_sync` Host and a valid host transport, the host's position and tempo; with `seq_sync`
      Internal, or without a host transport, the internal clock at `seq_bpm` (it always runs). The LFOs and the
@@ -184,8 +185,9 @@ Pattern pattern() const;                   // any thread; the newest pattern (se
   unchanged, and each passes once that task (and the one it needs) is done:
   1. **The sequencer** (`sequencer.h`, `sequencer.cpp`): steps, patterns, scales, the default pattern, `process`,
      `mutate` and evolve. P3.01 to P3.09.
-  2. **The engine wiring and the pattern handoff** (`engine.h`, `engine.cpp`, `core/CMakeLists.txt`): P3.10 to P3.15.
-     Needs task 1.
+  2. **The engine wiring and the pattern handoff** (`engine.h`, `engine.cpp`): P3.10 to P3.15. Needs task 1.
+- The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `sequencer.cpp` joins it
+  as a new file, and no task lists or edits `core/CMakeLists.txt`.
 - A test file is one executable, so the sequencer is one task: `sequencer_test.cpp` compiles only once every
   function it calls exists (including `mutate`).
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check

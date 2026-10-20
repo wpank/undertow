@@ -13,7 +13,7 @@ above it, and a soft clipper that holds every sample under -0.3 dBFS.
 ## Scope
 
 In scope: `undertow/lfo.h`, `undertow/rumble.h`, `undertow/output_stage.h` with their `core/src/*.cpp`; a
-`VoiceModulation` input on `MonoVoice`; the engine wiring; the new sources in `core/CMakeLists.txt`.
+`VoiceModulation` input on `MonoVoice`; the engine wiring; `core/CMakeLists.txt` registering the core sources by glob.
 
 Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` parameters other than `seq_bpm` and
 `seq_seed` do nothing yet.
@@ -30,7 +30,10 @@ Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` paramete
 
 ## What to build
 
-1. **The LFO** (`core/include/undertow/lfo.h`, `core/src/lfo.cpp`)
+1. **The LFO** (`core/include/undertow/lfo.h`, `core/src/lfo.cpp`), and the core sources by glob (`core/CMakeLists.txt`)
+   - `core/CMakeLists.txt` builds the core library from every `src/*.cpp`, found by
+     `file(GLOB … CONFIGURE_DEPENDS …)`, instead of a list, so this phase's other sources (and later phases') join the
+     library without editing it.
    - `lfoCycleBeats(rate)` gives each `lfo*_rate` choice's cycle in beats: 16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 2/3, 1/3,
      1/6, 0.75, 1.25, 1.75, 3, 5, 7 (PRD section 4).
    - `valueAt(ppq)` is a pure function of the beat position: the phase is `frac(ppq / cycleBeats + phaseOffset)`.
@@ -74,7 +77,7 @@ Out of scope: the sequencer (phase 3) and the editor (phase 4). `seq_*` paramete
      `resonance` to `filter_res` (clamped 0 .. 1), `pulseWidth` to `osc_pw` (clamped 0.05 .. 0.95), `pitchSemitones`
      to the played pitch (oscillator and sub), and multiplies its output by `gain`. The default is no modulation.
 
-5. **The engine** (`core/src/engine.cpp`, `core/CMakeLists.txt`)
+5. **The engine** (`core/src/engine.cpp`)
    - Per sample: the beat position `ppq` (with a valid transport, `transport.ppq` advanced at the host's tempo while it
      plays, held while stopped; without one, the internal clock at `seq_bpm`), `running` (valid and playing, or no
      valid transport at all), and the tempo (the host's, or `seq_bpm`).
@@ -192,12 +195,17 @@ void setModulation(const VoiceModulation& modulation);
 
 - Four tasks, one per test file. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the ones it needs) is done:
-  1. **The LFO** (`lfo.h`, `lfo.cpp`): P2.01 to P2.03.
-  2. **The rumble** (`rumble.h`, `rumble.cpp`): P2.04 to P2.08.
-  3. **The output stage** (`output_stage.h`, `output_stage.cpp`): P2.09 to P2.12.
-  4. **Voice modulation and the engine wiring** (`voice.h`, `voice.cpp`, `engine.cpp`, `core/CMakeLists.txt`): P2.13 to
-     P2.19. Needs tasks 1 to 3.
-  Tasks 1 to 3 can run in parallel. Each adds its own source to `core/CMakeLists.txt`; task 4 makes sure all are listed.
+  1. **The LFO, and sources by glob** (`lfo.h`, `lfo.cpp`, `core/CMakeLists.txt`): P2.01 to P2.03. It replaces the
+     core library's source list with a glob, so a task adds a source without editing `core/CMakeLists.txt`:
+     `file(GLOB undertow_core_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")` and
+     `add_library(undertow_core STATIC ${undertow_core_sources})`. `CONFIGURE_DEPENDS` makes a build re-glob, so a new
+     file joins even an already-configured build tree.
+  2. **The rumble** (`rumble.h`, `rumble.cpp`): P2.04 to P2.08. Needs task 1.
+  3. **The output stage** (`output_stage.h`, `output_stage.cpp`): P2.09 to P2.12. Needs task 1.
+  4. **Voice modulation and the engine wiring** (`voice.h`, `voice.cpp`, `engine.cpp`): P2.13 to P2.19. Needs tasks 1
+     to 3.
+  Tasks 2 and 3 run in parallel after task 1, and only add files. Only task 1 lists `core/CMakeLists.txt` in its
+  files: no other task edits it.
 - A test file is one executable, so a task owns a whole file's checks: the tests compile only once every class
   that file uses exists.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check

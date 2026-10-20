@@ -154,12 +154,14 @@ int findFactoryPreset(std::string_view nameOrSlug);   // its index, or -1
 
 - Five tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
-  1. **The factory presets** (`presets.h`, `presets.cpp`, `core/CMakeLists.txt`): P5.01-P5.03.
+  1. **The factory presets** (`presets.h`, `presets.cpp`): P5.01-P5.03.
   2. **The programs and strict validation** (`plugin/PluginProcessor.h/.cpp`): P5.04 and P5.08. Needs task 1. It
      commits `artifacts/reports/pluginval-strict.txt`.
   3. **The offline renderer** (`tools/render/`, `CMakeLists.txt`): P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
   5. **The install script** (`tools/install.sh`): P5.07 and P5.09. Needs tasks 2 to 4.
+- The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `presets.cpp` joins it as
+  a new file, and no task lists or edits `core/CMakeLists.txt`. Only task 3 edits the top-level `CMakeLists.txt`.
 - A test file is one executable, so a task owns a whole file's checks.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own check before it hands
   off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep` and `glob`.
