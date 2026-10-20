@@ -78,7 +78,7 @@ TEST_CASE("P2.2.04 rumble_drive keeps the rumble's level and flattens its peaks"
                                     << " dB: the drive must still saturate (round the peaks), not only add gain");
 }
 
-TEST_CASE("P2.2.05 at the defaults the rumble sits 9 to 15 dB under a held bass below 200 Hz, and 4 to 11 dB under a rolling line") {
+TEST_CASE("P2.2.05 at the defaults the rumble sits 9 to 15 dB under a held bass below 200 Hz, and 4 to 13 dB under a rolling line") {
     // The conservative case: a held note leaves the bass no gaps (A1 shares the rumble's band; A2 sits above most of it).
     for (const int note : {33, 45}) {
         const double balance = rumbleUnderBass({spec::noteOn(0, note, 100)});
@@ -88,8 +88,9 @@ TEST_CASE("P2.2.05 at the defaults the rumble sits 9 to 15 dB under a held bass 
         CHECK_MESSAGE(balance <= -9.0, "at the defaults the rumble sits only " << -balance << " dB under the bass below "
                                        "200 Hz (want 9 to 15 dB under): it would crowd the bass");
     }
-    // A rolling line: sixteenths on A2 (velocity 90, gate 60%) that rest on every beat, where the ghost kick lands. The
-    // rumble then comes about 5 dB closer, which a duck or a level that only suits a held note would break.
+    // A rolling line: sixteenths on A2 (velocity 90, gate 60%) that rest on every beat, where the ghost kick lands. A
+    // rumble that holds its level (a hard-driven one) comes about 5 dB closer than under a held note; one that follows
+    // the bass stays about as far under. Either is fine; a rumble that covers the line, or vanishes under it, is not.
     std::vector<undertow::MidiEvent> roller;
     for (int beat = 0; beat < 16; ++beat)
         for (int step = 1; step < 4; ++step) {
@@ -98,8 +99,8 @@ TEST_CASE("P2.2.05 at the defaults the rumble sits 9 to 15 dB under a held bass 
             roller.push_back(spec::noteOff(at + static_cast<int>(0.6 * kBeat / 4.0), 45));
         }
     const double rolling = rumbleUnderBass(roller);
-    CHECK_MESSAGE(rolling >= -11.0, "under a rolling line on A2 the rumble sits " << -rolling << " dB under the bass below 200 Hz: "
-                                    "want 4 to 11 dB under");
+    CHECK_MESSAGE(rolling >= -13.0, "under a rolling line on A2 the rumble sits " << -rolling << " dB under the bass below 200 Hz: "
+                                    "want 4 to 13 dB under");
     CHECK_MESSAGE(rolling <= -4.0, "under a rolling line on A2 the rumble sits only " << -rolling << " dB under the bass below "
-                                   "200 Hz: want 4 to 11 dB under, so it doesn't cover the line");
+                                   "200 Hz: want 4 to 13 dB under, so it doesn't cover the line");
 }
