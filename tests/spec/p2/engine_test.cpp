@@ -1,5 +1,5 @@
-// Phase 2 spec tests: modulation, rumble and the output stage inside the engine
-// (docs/specs/phase-2-rumble.md, P2.13 to P2.19).
+// Phase 2 spec tests: modulation, rumble and the output stage inside the engine, and the default patch's level
+// (docs/specs/phase-2-rumble.md, P2.13 to P2.19, P2.22 and P2.23).
 // spec-needs: core/include/undertow/lfo.h
 // spec-needs: core/include/undertow/rumble.h
 // spec-needs: core/include/undertow/output_stage.h
@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace {
@@ -132,15 +133,21 @@ TEST_CASE("P2.14 LFO 2 reaches its destinations: pitch, amp, pulse width and cut
                   "LFO 2 on Amp at depth 1 must take the level from full to silence; the low half is only "
                       << spec::toDb(closed / std::max(open, 1e-12)) << " dB down");
 
+    // A pulse's even harmonics vanish at width 0.5 and grow as it widens or narrows: at 0.95 or 0.05 its second
+    // harmonic is about as strong as its fundamental. (Its mean, the old measure, is gone: the output stage blocks DC.)
     auto square = spec::cleanPatch();
     spec::set(square, "osc_wave", 1);
     spec::set(square, "osc_pw", 0.5f);
+    spec::set(square, "osc_level", 0.2f);
     const auto width = lfo2(square, 2, 1.0f);
-    CHECK_MESSAGE(spec::mean(width, 4800, 21600) >= 0.3, "LFO 2 on Pulse Width at depth 1 must widen the pulse to 0.95 (mean "
-                                                         "+0.45 at level 0.5); the mean is "
-                                                             << spec::mean(width, 4800, 21600));
-    CHECK_MESSAGE(spec::mean(width, 28800, 45600) <= -0.3, "and narrow it to 0.05 on the other half; the mean is "
-                                                               << spec::mean(width, 28800, 45600));
+    for (const std::size_t from : {std::size_t{4800}, std::size_t{28800}}) {
+        const auto spectrum = spec::spectrum(width, from, 1u << 14, kRate);
+        const double second = spec::toDb(spec::amplitudeAt(spectrum, 220.0) / std::max(spec::amplitudeAt(spectrum, 110.0), 1e-12));
+        INFO("the LFO's " << std::string(from < 24000 ? "first" : "second") << " half");
+        CHECK_MESSAGE(second >= -3.0, "LFO 2 on Pulse Width at depth 1 must take the pulse to 0.95 and 0.05, where its second harmonic "
+                                      "is about as strong as its fundamental; it is "
+                                          << -second << " dB below it");
+    }
 
     auto dark = spec::cleanPatch();
     spec::set(dark, "filter_cutoff", 400);
@@ -285,4 +292,41 @@ TEST_CASE("P2.19 the full engine renders at least 15 times faster than real time
     const double seconds = spec::threadSeconds() - start;
     CHECK_MESSAGE(spec::rms(out.left) > 0.01, "the full engine rendered silence");
     CHECK_MESSAGE(seconds <= 4.0, "60 s of the full engine took " << seconds << " s of CPU; it must take at most 4 s (15x real time)");
+}
+
+TEST_CASE("P2.22 the default patch's accented notes peak between -12 and -6 dBFS, below the clipper's knee") {
+    undertow::Engine engine;
+    prepared(engine, spec::defaults());
+    std::vector<undertow::MidiEvent> events;
+    int at = 0;
+    for (int note : {33, 45, 57}) {
+        events.push_back(spec::noteOn(at, note, 127));
+        events.push_back(spec::noteOff(at + 48000, note));
+        at += 72000;
+    }
+    const auto out = spec::render(engine, static_cast<std::size_t>(at), events, host(128.0), 512);
+    const double peak = spec::toDb(std::max(spec::peakAbs(out.left), spec::peakAbs(out.right)));
+    CHECK_MESSAGE(peak >= -12.0, "with every parameter at its default, accented notes (velocity 127) on A1, A2 and A3 peak at "
+                                     << peak << " dBFS: too quiet (want -12 to -6)");
+    CHECK_MESSAGE(peak <= -6.0, "with every parameter at its default, accented notes (velocity 127) on A1, A2 and A3 peak at "
+                                    << peak << " dBFS: over the clipper's knee (-6 dBFS); lower master_gain's default (want -12 to -6)");
+}
+
+TEST_CASE("P2.23 a narrow pulse swept by LFO 2 leaves the output centred") {
+    auto p = spec::cleanPatch();
+    spec::set(p, "osc_wave", 1);
+    spec::set(p, "osc_pw", 0.1f);
+    spec::set(p, "osc_level", 0.25f);
+    spec::set(p, "lfo2_dest", 2);
+    spec::set(p, "lfo2_depth", 0.1f);
+    spec::set(p, "lfo2_rate", 2);
+    undertow::Engine engine;
+    prepared(engine, p);
+    const auto out = spec::render(engine, static_cast<std::size_t>(2.0 * kRate), {spec::noteOn(0, 45, 90)}, host(128.0), 512);
+    for (std::size_t from = 12000; from + 12000 <= out.left.size(); from += 12000) {
+        const double centre = spec::mean(out.left, from, from + 12000);
+        INFO("from " << from / kRate << " s");
+        CHECK_MESSAGE(std::fabs(centre) <= 0.01, "a 10% pulse swept by LFO 2 (pulse width) leaves the output's mean at "
+                                                     << centre << " over 0.25 s (want within 0.01): block DC in the output stage");
+    }
 }

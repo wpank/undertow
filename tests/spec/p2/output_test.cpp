@@ -1,5 +1,5 @@
-// Phase 2 spec tests: saturation, the mono-sub crossover with width, and the output clipper
-// (docs/specs/phase-2-rumble.md, P2.09 to P2.12).
+// Phase 2 spec tests: saturation, the mono-sub crossover with width, the output clipper, the master's smoothing and
+// the DC blocker (docs/specs/phase-2-rumble.md, P2.09 to P2.12, P2.20 and P2.21).
 // spec-needs: core/include/undertow/output_stage.h
 
 #include "doctest.h"
@@ -149,4 +149,54 @@ TEST_CASE("P2.12 the clip meter lights for half a second when the signal goes ov
     CHECK_MESSAGE(stage.clipped(), "clipped() must hold for 0.5 s after the last sample over full scale (0.4 s later it is off)");
     run(stage, spec::Signal(static_cast<std::size_t>(0.2 * kRate), 0.0f));
     CHECK_MESSAGE(!stage.clipped(), "clipped() must fall 0.5 s after the last sample over full scale (0.6 s later it is on)");
+}
+
+TEST_CASE("P2.20 master_gain is smoothed: an 18 dB step never jumps the output, and settles within 50 ms") {
+    // A held 187.5 Hz sine (256 samples a cycle), master_gain stepped between -18 and 0 dB every 0.25 s. Each step
+    // lands 45 degrees earlier in the cycle than the one before, so whatever phase the crossover gives the sine, one
+    // of the four lands near a peak, where an unsmoothed gain jumps.
+    auto p = outputPatch(0.0f, 0.0f);
+    spec::set(p, "master_gain", -18);
+    auto stage = make(p);
+    const auto in = spec::sine(187.5, 0.4, 60000, kRate);
+    spec::Signal out(in.size());
+    const std::size_t steps[] = {12000, 24000, 36000, 48000};
+    float right = 0.0f;
+    std::size_t next = 0;
+    for (std::size_t n = 0; n < in.size(); ++n) {
+        if (next < 4 && n == steps[next]) {
+            spec::set(p, "master_gain", next % 2 == 0 ? 0.0f : -18.0f);
+            stage.setParams(p.data());
+            ++next;
+        }
+        stage.process(in[n], out[n], right);
+    }
+    const double slope = 0.4 * 2.0 * 3.141592653589793 * 187.5 / kRate; // the sine's own steepest move at 0 dB
+    for (int k = 0; k < 4; ++k) {
+        const std::size_t at = steps[k];
+        double jump = 0.0;
+        for (std::size_t n = at - 2; n < at + 48; ++n)
+            jump = std::max(jump, static_cast<double>(std::fabs(out[n] - out[n - 1])));
+        INFO("step " << k << " (to " << (k % 2 == 0 ? 0 : -18) << " dB) at sample " << at);
+        CHECK_MESSAGE(jump <= 2.0 * slope, "master_gain moved the output " << jump << " in one sample, where the sine itself moves at most "
+                                                                           << slope << ": smooth master_gain over a few milliseconds");
+        const double want = k % 2 == 0 ? 0.4 : 0.4 * std::pow(10.0, -18.0 / 20.0);
+        const double settled = spec::toDb(spec::peakAbs(out, at + 2400, at + 2400 + 256) / want);
+        CHECK_MESSAGE(std::fabs(settled) <= 0.2, "50 ms after the step the level is " << settled << " dB from its target: master_gain must "
+                                                                                       "settle within 50 ms");
+    }
+}
+
+TEST_CASE("P2.21 a DC blocker: a constant offset leaves the output centred, and the sub keeps its level") {
+    auto stage = make(outputPatch(0.0f, 0.0f));
+    const auto offset = run(stage, spec::Signal(static_cast<std::size_t>(0.5 * kRate), 0.4f));
+    const double centre = spec::mean(offset.left, static_cast<std::size_t>(0.2 * kRate), offset.left.size());
+    CHECK_MESSAGE(std::fabs(centre) <= 0.01, "a constant 0.4 at the input leaves the output's mean at "
+                                                 << centre << " after 0.2 s (want within 0.01): block DC first in the output "
+                                                              "stage, a one-pole high-pass of about 5 Hz");
+    auto bass = make(outputPatch(0.0f, 0.0f));
+    const auto sub = run(bass, spec::sine(30.0, 0.4, static_cast<std::size_t>(kRate), kRate));
+    const double level = spec::toDb(spec::rms(sub.left, 24000) / (0.4 / std::sqrt(2.0)));
+    CHECK_MESSAGE(std::fabs(level) <= 0.5, "a 30 Hz sine changed level by " << level << " dB: the DC blocker must leave the sub alone "
+                                                                                    "(keep it near 5 Hz)");
 }

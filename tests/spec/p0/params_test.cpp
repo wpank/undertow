@@ -74,7 +74,7 @@ const std::vector<Expected> kTable = {
     {"sat_drive", "Saturation", ParamKind::Float, 0, 1, 0.2f, 0, "", {}},
     {"width", "Width", ParamKind::Float, 0, 1, 0.25f, 0, "", {}},
     {"mono_freq", "Mono Below", ParamKind::Float, 60, 250, 120, 0, "Hz", {}},
-    {"master_gain", "Master", ParamKind::Float, -24, 6, -3, 0, "dB", {}},
+    {"master_gain", "Master", ParamKind::Float, -24, 6, -12, 0, "dB", {}},
     {"seq_on", "Sequencer", ParamKind::Bool, 0, 1, 0, 0, "", {}},
     {"seq_sync", "Seq Sync", ParamKind::Choice, 0, 1, 0, 0, "", {"Host", "Internal"}},
     {"seq_bpm", "Seq BPM", ParamKind::Float, 60, 200, 128, 0, "bpm", {}},
