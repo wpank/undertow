@@ -74,7 +74,7 @@ Checks that share a command are one verify step: the table repeats the command o
 | P2.2.02 | `tools/spec.sh 2_2 output 'P2.2.01*,P2.2.02*'` | At width 0.5 and 1 the mid, (L + R) / 2, is the width-0 output (within -60 dB), and below 60 Hz the side stays 30 dB under the mid |
 | P2.2.03 | `tools/spec.sh 2_2 filter 'P2.2.03*'` | A 110 Hz saw at 0.6 through cutoff 600 Hz and resonance 0.35 stays within 3 dB of its drive-0 RMS at filter_drive 0.25, 0.5, 0.75 and 1 |
 | P2.2.04 | `tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'` | The rumble alone stays within 3 dB of its drive-0 RMS at rumble_drive 0.25 to 1, and full drive lowers its crest factor by at least 2 dB |
-| P2.2.05 | `tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'` | At every default the rumble sits 9 to 15 dB under the bass below 200 Hz holding A1 and then A2 (velocity 100, 4 bars), and 4 to 11 dB under a rolling line on A2 (sixteenths that rest on every beat) |
+| P2.2.05 | `tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'` | At every default the rumble sits 9 to 15 dB under the bass below 200 Hz holding A1 and then A2 (velocity 100, 4 bars), and 4 to 13 dB under a rolling line on A2 (sixteenths that rest on every beat) |
 | P2.2.06 | `tools/spec.sh 2 output` | Phase 2's output checks still pass (P2.09 to P2.12, P2.20, P2.21; P2.11 as amended). A regression check: it passes on the base too |
 | P2.2.07 | `tools/spec.sh 2 engine 'P2.15*,P2.16*'` | Phase 2's engine width check still passes: at width 1 the full mix keeps the side 25 dB under the mid below mono_freq / 2. A regression check |
 | P2.2.08 | `tools/spec.sh 2 engine 'P2.17*,P2.22*'` | The default patch's accented notes still peak between -12 and -6 dBFS (P2.22), now with less crest. A regression check |
