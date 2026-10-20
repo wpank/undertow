@@ -7,7 +7,7 @@ a test folder; installing for the person is their step, at the end).
 
 **Depends on**: phase 4.
 
-**Size**: M, 5 tasks, about 700 lines (most of it preset values).
+**Size**: M, 6 tasks, about 710 lines (most of it preset values).
 
 ---
 
@@ -15,7 +15,8 @@ a test folder; installing for the person is their step, at the end).
 
 In scope: `undertow/presets.h` with `core/src/presets.cpp`; the presets as the plugin's programs; `tools/render/`
 (the `undertow_render` program, plain C++ on the core); `tools/render-demos.sh`; `tools/install.sh`; the review
-artifacts under `artifacts/audio/` and `artifacts/reports/`.
+artifacts under `artifacts/audio/` and `artifacts/reports/`; and the top of the filter's resonance knob
+(`core/src/filter.cpp`).
 
 Out of scope: a preset browser in the editor, user preset files, Developer ID signing and notarization (ad hoc
 signing only), an installer package.
@@ -102,6 +103,19 @@ signing only), an installer package.
      `--uninstall` removes the installed copies. The checks run it only with `--dest`; installing for real is the
      person's step (below).
 
+6. **The top of the resonance knob** (`core/include/undertow/filter.h`, `core/src/filter.cpp`)
+   - Phase 2.2's resonance curve stops at Q 10 in its resonant stage (damping floored at 0.1): a quiet tone at the
+     cutoff gains about +14.5 dB at resonance 0.9 and at 1. That is tamer than phase 1's law (+15 and +27.4) and than
+     the curve phase 2.2's spec sketched (+20.4 and +28.5). Phase 2.2's checks covered the middle of the knob (P2.2.11)
+     and a held tone's bound (P2.2.13), not its top.
+   - A quiet tone (0.01) at the cutoff must gain at least +17 dB at resonance 0.9 and +20 dB at 1. Keep everything the
+     earlier checks hold: the middle (P2.2.11), full-level linearity at 0.8 (P2.1.05, P2.1.06), and a held full-scale
+     tone within 4 (P2.2.13).
+   - Lowering the floor alone is not enough: the current curve is already near its top by 0.8, so it would push 0.8
+     past what stays linear at full level. A curve linear in dB does it: `g = -3.01 + 19.39 r` dB up to 0.8, then
+     `12.5 + 80.75 (r - 0.8)`, with the resonant stage's damping `k = 0.5412 * 10^(-g / 20)` (+20.6 dB at 0.9 and
+     +28.6 at 1, the same Q 50 phase 1 reached).
+
 ## API
 
 ```cpp
@@ -133,6 +147,9 @@ Checks that share a command are one verify step: the table repeats the command o
 | P5.07 | `tools/install.sh --dest build/install-test && tools/spec.sh 5 install` | In a test folder, never the user's own: the three bundles in VST3, Components and Applications, whole, signed, with the Metakosmia ids and the AU's component entry |
 | P5.08 | `tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt` | pluginval passes at strictness 10 (without its GUI tests, so no windows open), and its log is kept for review |
 | P5.09 | `tools/spec.sh 5 presets` | The presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level, so none sounds weak or hot next to another |
+| P5.10 | `tools/spec.sh 5 filter` | At the cutoff a quiet tone gains at least +17 dB at resonance 0.9 and +20 dB at 1: the top of the knob rings |
+| P5.11 | `tools/spec.sh 2_2 filter` | Phase 2.2's filter checks still pass: drive keeps its level, the middle of the knob, a held tone within 4. A regression check: it passes on the base too |
+| P5.12 | `tools/spec.sh 2_1 filter` | Phase 2.1's filter checks still pass: the resonance holds at full level, and drive 0 stays linear. A regression check |
 
 ## Rules every task keeps
 
@@ -158,7 +175,7 @@ Checks that share a command are one verify step: the table repeats the command o
 
 ## Notes for the planner
 
-- Five tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
+- Six tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
   1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
      verify step: `tools/spec.sh 5 presets` runs all four.
@@ -169,6 +186,9 @@ Checks that share a command are one verify step: the table repeats the command o
      P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
   5. **The install script** (`tools/install.sh`): P5.07. Needs tasks 2 to 4.
+  6. **The top of the resonance knob** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): P5.10, and the
+     regression checks P5.11 and P5.12 (`expect = "pass_on_base"`). About 10 lines. It shares no file with the other
+     tasks, so it runs in parallel with them.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `presets.cpp` joins it as
   a new file, and no task lists or edits `core/CMakeLists.txt`. Only task 3 edits the top-level `CMakeLists.txt`.
 - `tools/check.sh --plugin` is the plan's final check, not any one task's: every present spec test of phases 0 to 5,
