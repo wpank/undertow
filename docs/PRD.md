@@ -237,7 +237,7 @@ host parameters (phase 3).
 | 2.2 | `specs/phase-2.2-gain-staging.md` | Gain staging from a listening test of phase 2: width as a side signal (no crossover on the mono path), drives with makeup gain, the rumble audible at the defaults | 2.1 | S: 3 tasks, about 60 lines |
 | 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
 | 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 7 tasks, about 1000 lines |
-| 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand) | 4 | M: 5 tasks, about 700 lines |
+| 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand), the top of the resonance knob | 4 | M: 6 tasks, about 710 lines |
 
 ```text
  phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 5
