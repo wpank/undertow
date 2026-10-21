@@ -29,6 +29,8 @@ Out of scope: editing the pattern in the editor and saving it with the plugin's 
 
 ## What to build
 
+The declarations are in **API** below, exactly as the tests call them; this section says what they do.
+
 1. **Steps, patterns and scales** (`core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`)
    - `Step`, `Pattern` (16 steps), `operator==`/`!=` for both, `Scale`, and `inScale(scale, semitones)`, true when
      `semitones` modulo 12 is a degree of the scale: Chromatic all; Minor 0 2 3 5 7 8 10; Phrygian 0 1 3 5 7 8 10;
@@ -44,9 +46,15 @@ Out of scope: editing the pattern in the editor and saving it with the plugin's 
      | probability | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0.5 | 1 | 1 | 1 | 1 |
 
 2. **The sequencer** (`Sequencer`, same files)
-   - Step length in beats from `seq_rate`: 1/8 0.5, 1/16 0.25, 1/32 0.125, 1/16T 1/6. Steps are numbered from beat 0:
-     step `k` starts at `k * stepBeats`, odd steps `seq_swing / 3` of a step later. It plays pattern step
-     `k mod seq_length`.
+   - `setParams(values)` gets the whole parameter array: `kNumParams` values in real units, indexed by parameter id
+     (`values[undertow::param::SeqRate]` and so on), as `Engine::setParam` takes them. A Choice's value is its index.
+     The sequencer reads the `seq_*` entries.
+   - The step length `stepBeats`, in beats (quarter notes, 4 to a bar), comes from `seq_rate` alone, by its index:
+     0 = 1/8, 0.5 beat (8 steps a bar); 1 = 1/16, 0.25 beat (16 a bar, the default); 2 = 1/32, 0.125 beat (32 a
+     bar); 3 = 1/16T, 1/6 beat (24 a bar). `seq_length` never changes the step length, only which pattern step plays.
+     So at seq_rate 0, 128 BPM and 48 kHz a step is 11250 samples, and 4 beats hold 8 steps.
+   - Steps are numbered from beat 0: step `k` starts at beat `k * stepBeats`, odd steps `seq_swing / 3` of a step
+     later. It plays pattern step `k mod seq_length`.
    - `process(ppq, bpm, running, numSamples, out, maxEvents)` writes the block's note events with their sample
      offsets (`round((beat - ppq) / beatsPerSample)`), in time order, and returns how many it wrote.
    - A step plays when its gate is on and `random(seq_seed, k) < probability`, where `random` is a well-mixed hash
@@ -131,7 +139,7 @@ class Sequencer {
 public:
     void prepare(double sampleRate);
     void reset();                              // stopped, nothing playing, mutation count 0
-    void setParams(const float* values);       // the seq_* parameters
+    void setParams(const float* values);       // all kNumParams values by parameter id, in real units
     void setPattern(const Pattern& pattern);   // the caller's thread; the engine calls it on the audio thread
     const Pattern& pattern() const;
     void setTranspose(int semitones);
@@ -153,7 +161,7 @@ Checks that share a command are one verify step: the table repeats the command o
 | Check | Command | Proves |
 |---|---|---|
 | P3.01 | `tools/spec.sh 3 sequencer 'P3.01*,P3.02*'` | Steps start on the 1/16 grid to within a sample at 128 BPM across odd block sizes, notes last seq_gate of a step, and currentStep follows |
-| P3.02 | `tools/spec.sh 3 sequencer 'P3.01*,P3.02*'` | seq_rate 1/8 doubles the step, seq_length 5 cycles five steps, and swing 1 delays odd steps by a third of a step |
+| P3.02 | `tools/spec.sh 3 sequencer 'P3.01*,P3.02*'` | seq_rate 0 (1/8) makes a step half a beat, so 4 beats hold 8 steps; seq_length 5 cycles pattern steps 0 to 4 at the same step length; swing 1 delays odd steps by a third of a step |
 | P3.03 | `tools/spec.sh 3 sequencer 'P3.03*,P3.04*'` | Rests play nothing, accents reach the note-on, a slide holds into the next note (note-on before note-off, same sample), and a slide into a rest ends there |
 | P3.04 | `tools/spec.sh 3 sequencer 'P3.03*,P3.04*'` | Stopping ends the note at once and sends nothing more; a loop back to beat 0 ends the note and plays step 0 at once; a start mid-step waits for the next step |
 | P3.05 | `tools/spec.sh 3 sequencer 'P3.05*,P3.06*'` | Probability 0.5 plays about half the steps, the same seed and position decide the same way (loops repeat), another seed differs, 0 and 1 are never and always |
@@ -183,6 +191,9 @@ Checks that share a command are one verify step: the table repeats the command o
 
 ## Notes for the planner
 
+- This spec is `docs/specs/phase-3-sequencer.md`. Put it first among the files every task reads: What to build holds
+  the rules and API the exact declarations. The tests and the PRD sections under Context do not state the rules (the
+  step length, slides, starts and jumps).
 - Two tasks, one per test file. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the one it needs) is done:
   1. **The sequencer** (`core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`): steps, patterns, scales, the
