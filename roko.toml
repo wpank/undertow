@@ -151,8 +151,11 @@ model = "claude-sonnet-4-6"
 [routing.ladder.start]
 mechanical = "cheap"
 focused = "cheap"
-integrative = "mid"
-architectural = "mid"
+# For tonight's phase 3 resume (2026-10-21, run bdc4461e): glm-4.7 on mid was cut twice at roko's 120 s wait for a
+# streamed response (roko bug-5e597a) without reaching a check, while gpt-5.4-mini on strong reached 131 of 132
+# assertions in 55 s. Revisit before phase 4, with that timeout fix ("mid" is the usual start for these two tiers).
+integrative = "strong"
+architectural = "strong"
 
 [pipeline]
 default_template = "standard"
