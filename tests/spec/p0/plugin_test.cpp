@@ -8,6 +8,7 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "spec_alloc.h"
+#include "spec_paths.h"
 #include "undertow/params.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -228,7 +229,10 @@ TEST_CASE("P0.12 the editor is a fixed 1200 x 760 dark ROSEDUST panel") {
 
 TEST_CASE("P0.13 the build makes VST3, AU and Standalone bundles with the Metakosmia identifiers") {
     juce::ScopedJuceInitialiser_GUI gui;
-    const juce::File vst3(UNDERTOW_VST3_BUNDLE), au(UNDERTOW_AU_BUNDLE), app(UNDERTOW_STANDALONE_BUNDLE);
+    // This checkout's bundles (spec_paths.h).
+    const juce::File vst3{juce::String(spec::built(UNDERTOW_VST3_BUNDLE_IN_BUILD, UNDERTOW_VST3_BUNDLE))},
+        au{juce::String(spec::built(UNDERTOW_AU_BUNDLE_IN_BUILD, UNDERTOW_AU_BUNDLE))},
+        app{juce::String(spec::built(UNDERTOW_STANDALONE_BUNDLE_IN_BUILD, UNDERTOW_STANDALONE_BUNDLE))};
     CHECK_MESSAGE(vst3.getFileName() == "Metakosmia Undertow.vst3", "the VST3 bundle is " << vst3.getFullPathName());
     CHECK_MESSAGE(au.getFileName() == "Metakosmia Undertow.component", "the AU bundle is " << au.getFullPathName());
     CHECK_MESSAGE(app.getFileName() == "Metakosmia Undertow.app", "the Standalone bundle is " << app.getFullPathName());

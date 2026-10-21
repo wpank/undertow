@@ -11,6 +11,9 @@
 # Exits 0 only when every selected test case passes, and fails when the filter selects none.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# The tests read and write this checkout (tests/spec/support/spec_paths.h), whatever paths a build tree copied
+# from another checkout compiled into them.
+export UNDERTOW_ROOT="$PWD"
 
 if [ $# -lt 2 ] || [ $# -gt 3 ]; then
   echo "usage: tools/spec.sh <phase> <name> [<test-case filter>]" >&2

@@ -5,6 +5,7 @@
 #include "doctest.h"
 
 #include "spec_alloc.h"
+#include "spec_paths.h"
 #include "undertow/engine.h"
 #include "undertow/params.h"
 
@@ -150,8 +151,9 @@ TEST_CASE("P0.07 the core builds without JUCE") {
 #if defined(JUCE_CORE_H_INCLUDED) || defined(JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED) || defined(JUCE_API)
     FAIL("a core header pulled in JUCE: core/ must be plain C++17 with no JUCE include");
 #endif
-    std::ifstream cache(std::string(UNDERTOW_BINARY_DIR) + "/CMakeCache.txt");
-    REQUIRE_MESSAGE(cache.good(), "no CMakeCache.txt in " << UNDERTOW_BINARY_DIR);
+    const std::string build = spec::binaryDir();  // this checkout's build tree (spec_paths.h)
+    std::ifstream cache(build + "/CMakeCache.txt");
+    REQUIRE_MESSAGE(cache.good(), "no CMakeCache.txt in " << build);
     std::string line;
     bool pluginOff = false, pluginOn = false;
     while (std::getline(cache, line)) {
@@ -167,8 +169,8 @@ TEST_CASE("P0.07 the core builds without JUCE") {
         return; // the plugin preset: JUCE is expected there
     // The files the latest configure read (the Makefile generator lists them in CMAKE_MAKEFILE_DEPENDS). Unlike the
     // cache, this list is rewritten by every configure, so it shows what the build system does now.
-    std::ifstream depends(std::string(UNDERTOW_BINARY_DIR) + "/CMakeFiles/Makefile.cmake");
-    REQUIRE_MESSAGE(depends.good(), "no CMakeFiles/Makefile.cmake in " << UNDERTOW_BINARY_DIR
+    std::ifstream depends(build + "/CMakeFiles/Makefile.cmake");
+    REQUIRE_MESSAGE(depends.good(), "no CMakeFiles/Makefile.cmake in " << build
                                                                        << ": use the Unix Makefiles generator");
     bool inList = false;
     std::vector<std::string> juce;

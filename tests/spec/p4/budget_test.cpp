@@ -4,6 +4,7 @@
 
 #include "doctest.h"
 
+#include "spec_paths.h"
 #include "spec_ui.h"
 #include "undertow/params.h"
 #include "undertow/sequencer.h"
@@ -74,7 +75,7 @@ TEST_CASE("P4.11 a full repaint keeps 60 Hz with headroom: median 11 ms and 95th
 
 TEST_CASE("P4.12 the editor writes its review images: committed 1x artifacts and 2x previews") {
     Fixture f;
-    const juce::File source(UNDERTOW_SOURCE_DIR);
+    const juce::File source{juce::String(spec::sourceDir())};  // the checkout this test runs in (spec_paths.h)
     const juce::File artifacts = source.getChildFile("artifacts/ui"), previews = source.getChildFile("build/previews");
     REQUIRE(artifacts.createDirectory());
     REQUIRE(previews.createDirectory());

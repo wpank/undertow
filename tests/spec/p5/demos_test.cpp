@@ -4,6 +4,7 @@
 #include "doctest.h"
 
 #include "spec_analysis.h"
+#include "spec_paths.h"
 #include "spec_wav.h"
 #include "undertow/presets.h"
 
@@ -11,7 +12,7 @@
 #include <string>
 
 TEST_CASE("P5.06 render-demos.sh wrote the four committed showcase WAVs and a WAV of every preset") {
-    const std::string root = UNDERTOW_SOURCE_DIR;
+    const std::string root = spec::sourceDir();  // the checkout this test runs in (spec_paths.h)
     for (const char* slug : {"init", "sub-pure-foundation", "bass-hypnotic-roller", "rumble-dark-room"}) {
         const std::string path = root + "/artifacts/audio/" + slug + ".wav";
         INFO(path);

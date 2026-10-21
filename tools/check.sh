@@ -7,6 +7,9 @@
 # Stops at the first failure with its exit code.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# The tests read and write this checkout (tests/spec/support/spec_paths.h), whatever paths a build tree copied
+# from another checkout compiled into them.
+export UNDERTOW_ROOT="$PWD"
 
 cmake --preset core
 cmake --build --preset core

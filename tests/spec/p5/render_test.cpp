@@ -5,6 +5,7 @@
 #include "doctest.h"
 
 #include "spec_analysis.h"
+#include "spec_paths.h"
 #include "spec_wav.h"
 
 #include <cmath>
@@ -24,7 +25,9 @@ struct Run {
 // Run the renderer with `args`, from the repository root, capturing what it prints.
 Run render(const std::string& args) {
     Run r;
-    const std::string command = "cd '" + std::string(UNDERTOW_SOURCE_DIR) + "' && '" + SPEC_TARGET_UNDERTOW_RENDER + "' " + args + " 2>&1";
+    // This checkout's renderer, run from its root (spec_paths.h).
+    const std::string program = spec::built(SPEC_TARGET_UNDERTOW_RENDER_IN_BUILD, SPEC_TARGET_UNDERTOW_RENDER);
+    const std::string command = "cd '" + spec::sourceDir() + "' && '" + program + "' " + args + " 2>&1";
     FILE* pipe = popen(command.c_str(), "r");
     REQUIRE_MESSAGE(pipe != nullptr, "cannot run the renderer");
     char line[512];
@@ -40,12 +43,12 @@ Run render(const std::string& args) {
 TEST_CASE("P5.05 undertow_render writes a 24-bit stereo WAV of the preset, bar-exact, in level and repeatable") {
     REQUIRE_MESSAGE(std::string(SPEC_TARGET_UNDERTOW_RENDER).size() > 0,
                     "there is no undertow_render target: add tools/render (before tests/spec) to the top-level CMakeLists.txt");
-    std::system(("mkdir -p '" + std::string(UNDERTOW_SOURCE_DIR) + "/build/spec-render'").c_str());
+    std::system(("mkdir -p '" + spec::sourceDir() + "/build/spec-render'").c_str());
     const auto first = render("--preset bass-hypnotic-roller --bars 2 --bpm 128 --out build/spec-render/a.wav");
     REQUIRE_MESSAGE(first.status == 0, "undertow_render exited " << first.status << ": " << first.output);
     CHECK_MESSAGE(first.output.find("wrote build/spec-render/a.wav: 180000 frames") != std::string::npos,
                   "the renderer prints `wrote <path>: <frames> frames, peak <x> dBFS, rms <x> dBFS`; it printed: " << first.output);
-    const auto wav = spec::readWav(std::string(UNDERTOW_SOURCE_DIR) + "/build/spec-render/a.wav");
+    const auto wav = spec::readWav(spec::sourceDir() + "/build/spec-render/a.wav");
     REQUIRE_MESSAGE(wav.ok, "the file is not a WAV I can read: " << wav.error);
     CHECK_MESSAGE(wav.format == 1, "the WAV must be integer PCM");
     CHECK_MESSAGE(wav.bitsPerSample == 24, "the WAV must be 24-bit; it is " << wav.bitsPerSample);
@@ -57,16 +60,16 @@ TEST_CASE("P5.05 undertow_render writes a 24-bit stereo WAV of the preset, bar-e
 
     const auto second = render("--preset bass-hypnotic-roller --bars 2 --bpm 128 --out build/spec-render/b.wav");
     REQUIRE(second.status == 0);
-    const auto again = spec::readWav(std::string(UNDERTOW_SOURCE_DIR) + "/build/spec-render/b.wav");
+    const auto again = spec::readWav(spec::sourceDir() + "/build/spec-render/b.wav");
     CHECK_MESSAGE(again.bytes == wav.bytes, "the same arguments must give the same file, byte for byte");
 
     const auto byName = render("--preset 'BASS Hypnotic Roller' --bars 2 --bpm 128 --out build/spec-render/c.wav");
     REQUIRE_MESSAGE(byName.status == 0, "--preset must accept a preset's name: " << byName.output);
-    CHECK_MESSAGE(spec::readWav(std::string(UNDERTOW_SOURCE_DIR) + "/build/spec-render/c.wav").bytes == wav.bytes,
+    CHECK_MESSAGE(spec::readWav(spec::sourceDir() + "/build/spec-render/c.wav").bytes == wav.bytes,
                   "--preset by name and by slug must render the same");
     const auto init = render("--preset init --bars 1 --bpm 120 --sample-rate 44100 --out build/spec-render/d.wav");
     REQUIRE_MESSAGE(init.status == 0, "--preset init (the default patch, holding --note, A2 by default) must render: " << init.output);
-    const auto d = spec::readWav(std::string(UNDERTOW_SOURCE_DIR) + "/build/spec-render/d.wav");
+    const auto d = spec::readWav(spec::sourceDir() + "/build/spec-render/d.wav");
     CHECK_MESSAGE(d.sampleRate == 44100, "--sample-rate 44100 must write a 44.1 kHz file");
     CHECK_MESSAGE(d.frames == 88200u, "1 bar at 120 BPM at 44.1 kHz is 88200 frames; the file has " << d.frames);
     CHECK_MESSAGE(spec::toDb(spec::rms(d.left)) >= -40.0, "the init patch holding A2 must be heard");

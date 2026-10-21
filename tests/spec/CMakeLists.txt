@@ -13,7 +13,8 @@
 # target Undertow exists (the plugin preset), and links it.
 #
 # A file with a "// spec-target: <target>" line runs a program the build makes (the offline renderer): once that
-# target exists, the test depends on it and gets its path as SPEC_TARGET_<TARGET> (upper case).
+# target exists, the test depends on it and gets its path as SPEC_TARGET_<TARGET> (upper case), and its path in the
+# build tree as SPEC_TARGET_<TARGET>_IN_BUILD (spec::built in support/spec_paths.h finds it at run time).
 #
 # Needs: the target Undertow::core (docs/specs/phase-0-foundation.md); for plugin tests, the target Undertow.
 
@@ -63,9 +64,16 @@ foreach(source IN LISTS undertow_spec_sources)
         "${PROJECT_SOURCE_DIR}/third_party/doctest"
     )
     target_compile_features(${target} PRIVATE cxx_std_17)
+    # The checkout and the build tree. The tests use them through spec_paths.h, which prefers the checkout that
+    # tools/spec.sh and tools/check.sh export as UNDERTOW_ROOT, with the build tree and the built files at their paths
+    # relative to it. A build tree copied with its objects from another checkout keeps that checkout's absolute paths
+    # in its compiled tests, so those serve only as the fallback.
+    set(build "${PROJECT_BINARY_DIR}")
+    file(RELATIVE_PATH build_in_source "${PROJECT_SOURCE_DIR}" "${build}")
     target_compile_definitions(${target} PRIVATE
         UNDERTOW_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
         UNDERTOW_BINARY_DIR="${PROJECT_BINARY_DIR}"
+        UNDERTOW_BUILD_IN_SOURCE="${build_in_source}"
     )
     target_link_libraries(${target} PRIVATE Undertow::core)
     if(is_plugin_test)
@@ -83,6 +91,9 @@ foreach(source IN LISTS undertow_spec_sources)
             UNDERTOW_VST3_BUNDLE="$<TARGET_BUNDLE_DIR:Undertow_VST3>"
             UNDERTOW_AU_BUNDLE="$<TARGET_BUNDLE_DIR:Undertow_AU>"
             UNDERTOW_STANDALONE_BUNDLE="$<TARGET_BUNDLE_DIR:Undertow_Standalone>"
+            UNDERTOW_VST3_BUNDLE_IN_BUILD="$<PATH:RELATIVE_PATH,$<TARGET_BUNDLE_DIR:Undertow_VST3>,${build}>"
+            UNDERTOW_AU_BUNDLE_IN_BUILD="$<PATH:RELATIVE_PATH,$<TARGET_BUNDLE_DIR:Undertow_AU>,${build}>"
+            UNDERTOW_STANDALONE_BUNDLE_IN_BUILD="$<PATH:RELATIVE_PATH,$<TARGET_BUNDLE_DIR:Undertow_Standalone>,${build}>"
         )
         add_dependencies(${target} Undertow_VST3 Undertow_AU Undertow_Standalone)
     endif()
@@ -93,10 +104,16 @@ foreach(source IN LISTS undertow_spec_sources)
         string(TOUPPER "${program}" program_define)
         if(TARGET ${program})
             add_dependencies(${target} ${program})
-            target_compile_definitions(${target} PRIVATE SPEC_TARGET_${program_define}="$<TARGET_FILE:${program}>")
+            target_compile_definitions(${target} PRIVATE
+                SPEC_TARGET_${program_define}="$<TARGET_FILE:${program}>"
+                SPEC_TARGET_${program_define}_IN_BUILD="$<PATH:RELATIVE_PATH,$<TARGET_FILE:${program}>,${build}>"
+            )
         else()
             set(present FALSE)
-            target_compile_definitions(${target} PRIVATE SPEC_TARGET_${program_define}="")
+            target_compile_definitions(${target} PRIVATE
+                SPEC_TARGET_${program_define}=""
+                SPEC_TARGET_${program_define}_IN_BUILD=""
+            )
         endif()
     endforeach()
     if(present)

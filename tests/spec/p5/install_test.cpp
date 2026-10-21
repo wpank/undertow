@@ -4,6 +4,8 @@
 
 #include "doctest.h"
 
+#include "spec_paths.h"
+
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -23,7 +25,7 @@ std::string read(const std::string& path) {
 } // namespace
 
 TEST_CASE("P5.07 install.sh --dest puts the three signed bundles where a DAW and the Finder look") {
-    const std::string dest = std::string(UNDERTOW_SOURCE_DIR) + "/build/install-test";
+    const std::string dest = spec::sourceDir() + "/build/install-test";  // in the checkout this test runs in
     const std::string bundles[] = {dest + "/VST3/Metakosmia Undertow.vst3", dest + "/Components/Metakosmia Undertow.component",
                                    dest + "/Applications/Metakosmia Undertow.app"};
     for (const auto& bundle : bundles) {
