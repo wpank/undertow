@@ -130,7 +130,8 @@ latency = 0.2
 enabled = true
 roles = []
 probe = true
-max_secs = { mid = 2700 }
+# No max_secs: roko's default bounds. A try on mid gets 900 s (1800 >> 1 climb left to strong); strong, the
+# highest rung a chat run reaches, keeps the attempt's 1800 s. gpt-5.4-mini tries took 19-196 s on phases 0-3.
 
 [[routing.ladder.rungs]]
 name = "cheap"
@@ -138,11 +139,11 @@ model = "gpt-oss-120b"
 
 [[routing.ladder.rungs]]
 name = "mid"
-model = "glm-4-7"
+model = "gpt-5-4-mini"
 
 [[routing.ladder.rungs]]
 name = "strong"
-model = "gpt-5-4-mini"
+model = "gpt-5-4"
 
 [[routing.ladder.rungs]]
 name = "top"
@@ -152,7 +153,7 @@ model = "claude-sonnet-4-6"
 mechanical = "cheap"
 focused = "cheap"
 integrative = "mid"
-architectural = "mid"
+architectural = "strong"
 
 [pipeline]
 default_template = "standard"
@@ -609,6 +610,8 @@ kind = "openai_compat"
 base_url = "https://api.cerebras.ai/v1"
 api_key_env = "CEREBRAS_API_KEY"
 
+# Unused until Will recharges z.ai: code 1113 on 2026-10-21 06:13 (HTTP 429, "Insufficient balance or no
+# resource package"). The ladder runs on OpenAI meanwhile.
 [providers.zai]
 kind = "openai_compat"
 base_url = "https://api.z.ai/api/paas/v4"
@@ -655,6 +658,16 @@ tool_format = "openai_json"
 cost_input_per_m = 0.75
 cost_output_per_m = 4.5
 cost_cache_read_per_m = 0.075
+
+[models.gpt-5-4]
+provider = "openai"
+slug = "gpt-5.4"
+context_window = 272000
+max_output = 32768
+tool_format = "openai_json"
+cost_input_per_m = 2.5
+cost_output_per_m = 15.0
+cost_cache_read_per_m = 0.25
 
 [models.claude-sonnet-4-6]
 provider = "claude_cli"
