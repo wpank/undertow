@@ -33,6 +33,7 @@ UndertowEditor::UndertowEditor(UndertowProcessor& p)
     unitArray_.onEdit = [this](int index, StepEdit edit) { editStep(index, edit); };
     addAndMakeVisible(unitArray_);
 
+    initialiseControls();
     look_.install(*this);
     lastTimerTickMs_ = juce::Time::getMillisecondCounter();
     startTimerHz(60);
@@ -41,6 +42,42 @@ UndertowEditor::UndertowEditor(UndertowProcessor& p)
 UndertowEditor::~UndertowEditor() {
     stopTimer();
     look_.uninstall(*this);
+}
+
+void UndertowEditor::initialiseControls() {
+    auto addSlider = [this](int paramIndex, const juce::Rectangle<int>& bounds) {
+        auto slider = std::make_unique<juce::Slider>();
+        slider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+        slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 72, 18);
+        slider->setName(undertow::paramSpec(paramIndex).id);
+        slider->setBounds(bounds);
+        addAndMakeVisible(*slider);
+        sliderAttachments_[static_cast<std::size_t>(paramIndex)] = std::make_unique<SliderAttachment>(
+            processor_.parameters(), undertow::paramSpec(paramIndex).id, *slider);
+        sliders_[static_cast<std::size_t>(paramIndex)] = std::move(slider);
+    };
+
+    auto addButton = [this](int paramIndex, const juce::Rectangle<int>& bounds) {
+        auto button = std::make_unique<juce::ToggleButton>();
+        button->setName(undertow::paramSpec(paramIndex).id);
+        button->setButtonText(undertow::paramSpec(paramIndex).name);
+        button->setBounds(bounds);
+        addAndMakeVisible(*button);
+        buttonAttachments_[static_cast<std::size_t>(paramIndex)] = std::make_unique<ButtonAttachment>(
+            processor_.parameters(), undertow::paramSpec(paramIndex).id, *button);
+        buttons_[static_cast<std::size_t>(paramIndex)] = std::move(button);
+    };
+
+    for (const auto& panel : undertow::ui::theme::controlPanels) {
+        for (int i = 0; i < panel.parameterCount; ++i) {
+            const auto paramIndex = panel.parameters[static_cast<std::size_t>(i)];
+            const auto cell = panel.cells[static_cast<std::size_t>(i)];
+            if (paramIndex == undertow::param::SeqOn)
+                addButton(paramIndex, cell.controlBounds);
+            else
+                addSlider(paramIndex, cell.controlBounds);
+        }
+    }
 }
 
 UiFrame UndertowEditor::captureFrame() const {
@@ -103,7 +140,14 @@ void UndertowEditor::editStep(int index, StepEdit edit) {
     processor_.setPattern(UnitArray::edited(processor_.pattern(), index, edit));
 }
 
-juce::Component* UndertowEditor::controlFor(const juce::String&) const {
+juce::Component* UndertowEditor::controlFor(const juce::String& parameterId) const {
+    const auto index = undertow::findParam(parameterId.toStdString());
+    if (index < 0)
+        return nullptr;
+    if (auto* slider = sliders_[static_cast<std::size_t>(index)].get())
+        return slider;
+    if (auto* button = buttons_[static_cast<std::size_t>(index)].get())
+        return button;
     return nullptr;
 }
 
