@@ -117,7 +117,11 @@ void UndertowEditor::advance(const UiFrame& frame, double seconds) {
     displays_.advance(currentFrame_, seconds);
     status_.advance(currentFrame_, seconds);
     unitArray_.advance(currentFrame_, seconds);
-    repaint();
+    repaint(undertow::ui::theme::headBounds);
+    repaint(undertow::ui::theme::chestBounds);
+    repaint(undertow::ui::theme::gutBounds);
+    repaint(undertow::ui::theme::topHazardBounds);
+    repaint(undertow::ui::theme::bottomHazardBounds);
 }
 
 juce::Rectangle<int> UndertowEditor::chestBounds() const {

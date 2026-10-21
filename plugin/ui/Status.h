@@ -6,7 +6,17 @@
 
 class Status {
 public:
-    void advance(const UiFrame&, double) {}
-    void paint(juce::Graphics&) {}
-    void paintOver(juce::Graphics&) {}
+    Status();
+
+    void advance(const UiFrame& frame, double seconds);
+    void paint(juce::Graphics& g);
+    void paintOver(juce::Graphics& g);
+
+private:
+    UiFrame frame_{};
+    double clockPhase_ = 0.0;
+    double borderFlash_ = 0.0;
+    double stripeOffset_ = 0.0;
+    float meterNeedle_ = 0.0f;
+    float rumbleNeedle_ = 0.0f;
 };
