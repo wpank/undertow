@@ -15,9 +15,9 @@ clock in the meters, and the pattern saved with the plugin's state.
 ## Scope
 
 In scope: `Engine::copyScope` and two clock fields in `Meters`; `UndertowProcessor::setPattern`/`pattern` and the
-pattern in the plugin state; the editor (`plugin/PluginEditor.h`, `plugin/PluginEditor.cpp`) and its parts in
-`plugin/ui/`, one file pair each: `UiFrame.h`, `Theme.h`, `Look`, `UnitArray`, `Displays` and `Status`; the review
-images under `artifacts/ui/`.
+pattern in the plugin state, kept through `prepare` and `reset`; the editor (`plugin/PluginEditor.h`,
+`plugin/PluginEditor.cpp`) and its parts in `plugin/ui/`, one file pair each: `UiFrame.h`, `Theme.h`, `Look`,
+`UnitArray`, `Displays` and `Status`; the review images under `artifacts/ui/`.
 
 Out of scope: presets and the program list (phase 5); resizing (the editor has one size); OpenGL (JUCE's software
 renderer is fast enough at this size).
@@ -49,6 +49,10 @@ picks up.
      returns `engine().pattern()`. `getStateInformation` writes the 16 steps (semitones, gate, accent, slide,
      probability) with the parameters; `setStateInformation` restores them through `Engine::setPattern`. Old states
      without steps keep the default.
+   - The pattern survives `Engine::prepare` and `reset`. A host restores its state (so `Engine::setPattern`) before
+     `prepareToPlay`, and prepares again for a new sample rate or block size. Phase 3's engine sets `defaultPattern()`
+     in every `reset` (its spec said the sequencer holds it after `prepare`), which loses a restored or edited
+     pattern: only a new engine starts with `defaultPattern()` (P3.14), and `prepare` and `reset` keep the pattern.
    - `plugin/CMakeLists.txt` adds every `plugin/ui/*.cpp` to the plugin's sources by
      `file(GLOB undertow_ui_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")` (in `target_sources`
      of `Undertow`).
@@ -194,7 +198,7 @@ Checks that share a command are one verify step: the table repeats the command o
 | Check | Command | Proves |
 |---|---|---|
 | P4.01 | `tools/spec.sh 4 scope` | copyScope returns the latest mono output samples in order across odd blocks, clamps to kScopeSamples, never allocates; meters() names the clock in use and its tempo |
-| P4.02 | `tools/spec.sh 4 state` | The processor passes patterns to the engine, and the 16 steps are saved with the plugin's state and restored |
+| P4.02 | `tools/spec.sh 4 state` | The processor passes patterns to the engine, the 16 steps are saved with the plugin's state and restored, and the engine keeps its pattern through prepare and reset (a host restores the state before prepareToPlay) |
 | P4.03 | `tools/spec.sh 4 editor 'P4.03*'` | captureFrame reads the processor: meters, pitch, RMS, energy, step, clock, length and scope |
 | P4.04 | `tools/spec.sh 4 editor 'P4.04*'` | Every parameter has its control on the editor, attached to it |
 | P4.05 | `tools/spec.sh 4 display 'P4.05*'` | The panel is at least half void, without white, rose dominant (its knob panels too), bone rare, and its CHEST calm at rest |
@@ -222,10 +226,14 @@ Checks that share a command are one verify step: the table repeats the command o
 
 ## Notes for the planner
 
+- This spec is `docs/specs/phase-4-ui.md`. Put it first among the files every task reads: What to build holds the
+  rules and API the exact declarations. The tests and `docs/design/ui-spec.md` do not state the rules (the files each
+  task owns and the stub headers it replaces, the editor's hooks the tests drive, copyScope's ring, the clock meters,
+  and the pattern in the saved state and through prepare).
 - Seven tasks, one per part above. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the ones it needs) is done:
   1. **The plumbing** (`core/include/undertow/engine.h`, `core/src/engine.cpp`, `plugin/PluginProcessor.h`,
-     `plugin/PluginProcessor.cpp`, `plugin/CMakeLists.txt`): P4.01 and P4.02. About 70 lines.
+     `plugin/PluginProcessor.cpp`, `plugin/CMakeLists.txt`): P4.01 and P4.02. About 75 lines.
   2. **The editor frame** (`plugin/ui/UiFrame.h`, `plugin/ui/Theme.h`, `plugin/PluginEditor.h`,
      `plugin/PluginEditor.cpp` and the four stub headers `plugin/ui/Look.h`, `plugin/ui/UnitArray.h`,
      `plugin/ui/Displays.h`, `plugin/ui/Status.h`): P4.03. Needs task 1. About 220 lines over 8 files, so architectural.

@@ -25,9 +25,9 @@ signing only), an installer package.
 
 - Sound-design goals: `docs/PRD.md` section 1. The renders are what people will hear first: make the presets sound
   like hypnotic techno at 128 BPM.
-- The spec tests: `tests/spec/p5/presets_test.cpp`, `render_test.cpp`, `demos_test.cpp`, `install_test.cpp` (core
-  preset) and `programs_test.cpp` (plugin preset). `tests/spec/support/spec_wav.h` reads WAVs. Change the code,
-  never the tests.
+- The spec tests: `tests/spec/p5/presets_test.cpp`, `render_test.cpp`, `demos_test.cpp`, `install_test.cpp`,
+  `filter_test.cpp` (core preset) and `programs_test.cpp` (plugin preset). `tests/spec/support/spec_wav.h` reads
+  WAVs. Change the code, never the tests.
 - Given tools: `tools/pluginval.sh 10 <report>` (strictness 10, keeping its log; it skips the GUI tests, which open
   windows, unless given `--gui`, which only the person's step below uses) and `tools/auval.sh` (auval on the installed
   AU, keeping its log; used by hand after a real install, never by a task).
@@ -175,6 +175,10 @@ Checks that share a command are one verify step: the table repeats the command o
 
 ## Notes for the planner
 
+- This spec is `docs/specs/phase-5-ship.md`. Put it first among the files every task reads: What to build holds the
+  rules and API the exact declarations. The tests and the PRD do not state the rules (the presets' order and how to
+  set each one's level, the bool restore pluginval needs, the renderer's arguments and frame count, the install
+  paths, and a resonance curve that keeps the earlier checks).
 - Six tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
   1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
