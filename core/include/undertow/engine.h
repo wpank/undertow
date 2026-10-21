@@ -1,5 +1,6 @@
 #pragma once
 #include "undertow/params.h"
+#include "undertow/sequencer.h"
 #include <cstdint>
 #include <memory>
 
@@ -44,6 +45,9 @@ public:
     void process(float* left, float* right, int numSamples,
                  const MidiEvent* events, int numEvents, const Transport& transport);
     Meters meters() const;                              // safe from another thread
+
+    void setPattern(const Pattern& pattern);            // any thread, lock-free; used from the next block on
+    Pattern pattern() const;                            // any thread; the newest pattern (set, or in use)
 
 private:
     struct Impl;

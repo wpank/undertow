@@ -10,6 +10,32 @@
 
 namespace undertow {
 
+// --- Seqlock helpers for lock-free pattern handoff ---
+// Writer: store odd version, release fence, copy pattern, store even version with release.
+// Reader: load version with acquire, copy, acquire fence, reload version, retry on odd or changed.
+
+static void seqlockWrite(Pattern& slot, std::atomic<int>& version, const Pattern& p) {
+    int v = version.load(std::memory_order_relaxed);
+    // Ensure we start from an even (stable) version
+    v = v - (v & 1);
+    version.store(v + 1, std::memory_order_relaxed);      // odd = write in progress
+    std::atomic_thread_fence(std::memory_order_release);
+    slot = p;
+    std::atomic_thread_fence(std::memory_order_release);
+    version.store(v + 2, std::memory_order_release);       // even = stable
+}
+
+static Pattern seqlockRead(const Pattern& slot, const std::atomic<int>& version) {
+    while (true) {
+        int v1 = version.load(std::memory_order_acquire);
+        if (v1 & 1) continue;                             // odd: write in progress, retry
+        Pattern p = slot;
+        std::atomic_thread_fence(std::memory_order_acquire);
+        int v2 = version.load(std::memory_order_acquire);
+        if (v1 == v2) return p;                           // consistent read
+    }
+}
+
 struct Engine::Impl {
     double sampleRate = 48000.0;
     int maxBlockSize = 512;
@@ -23,6 +49,23 @@ struct Engine::Impl {
     Rumble rumble;
     OutputStage output;
 
+    // Sequencer
+    Sequencer sequencer;
+    bool prevSeqOn = false;
+    int seqTranspose = 0;
+
+    // Pattern handoff: seqlock for pending pattern (writer: setPattern from any thread)
+    Pattern pendingPattern;
+    std::atomic<int> pendingVersion{0};
+
+    // Active pattern: seqlock (writer: audio thread at end of each block)
+    Pattern activePattern;
+    std::atomic<int> activeVersion{0};
+
+    // Tracks the pending version the audio thread has consumed
+    std::atomic<int> consumedPending{0};
+
+    // Meters (atomic for cross-thread reads)
     std::atomic<float> peak{0.0f};
     std::atomic<float> rms{0.0f};
     std::atomic<double> meterPpq{0.0};
@@ -30,10 +73,12 @@ struct Engine::Impl {
     std::atomic<float> meterNoteHz{0.0f};
     std::atomic<float> meterRumble{0.0f};
     std::atomic<bool> meterClipping{false};
+    std::atomic<int> meterStep{-1};
 
     Impl() {
         for (int i = 0; i < kNumParams; ++i)
             params[i] = paramSpec(i).def;
+        activePattern = defaultPattern();
     }
 };
 
@@ -45,6 +90,7 @@ void Engine::prepare(double sampleRate, int maxBlockSize) {
     impl_->sampleRate = sampleRate;
     impl_->maxBlockSize = maxBlockSize;
     impl_->voice.prepare(sampleRate);
+    impl_->sequencer.prepare(sampleRate);
     impl_->rumble.prepare(sampleRate);
     impl_->output.prepare(sampleRate);
     reset();
@@ -59,6 +105,8 @@ void Engine::reset() {
     impl_->meterPpq.store(0.0, std::memory_order_relaxed);
     impl_->voice.reset();
     impl_->voice.setParams(impl_->params);
+    impl_->sequencer.reset();
+    impl_->sequencer.setPattern(defaultPattern());
     impl_->rumble.setParams(impl_->params);
     impl_->rumble.reset();
     impl_->output.setParams(impl_->params);
@@ -67,6 +115,17 @@ void Engine::reset() {
     impl_->meterNoteHz.store(0.0f, std::memory_order_relaxed);
     impl_->meterRumble.store(0.0f, std::memory_order_relaxed);
     impl_->meterClipping.store(false, std::memory_order_relaxed);
+    impl_->meterStep.store(-1, std::memory_order_relaxed);
+    impl_->prevSeqOn = false;
+    impl_->seqTranspose = 0;
+
+    // Reset pattern handoff state
+    Pattern defP = defaultPattern();
+    seqlockWrite(impl_->pendingPattern, impl_->pendingVersion, defP);
+    // Audio thread has consumed this initial version
+    int pv = impl_->pendingVersion.load(std::memory_order_acquire);
+    impl_->consumedPending.store(pv, std::memory_order_release);
+    seqlockWrite(impl_->activePattern, impl_->activeVersion, defP);
 }
 
 void Engine::setParam(int index, float value) {
@@ -87,6 +146,21 @@ float Engine::getParam(int index) const {
     return impl_->params[index];
 }
 
+void Engine::setPattern(const Pattern& pattern) {
+    seqlockWrite(impl_->pendingPattern, impl_->pendingVersion, pattern);
+}
+
+Pattern Engine::pattern() const {
+    // Return the newest pattern: the pending one if the audio thread hasn't consumed it,
+    // else the active one (the sequencer's current pattern including evolve mutations).
+    int pv = impl_->pendingVersion.load(std::memory_order_acquire);
+    int cv = impl_->consumedPending.load(std::memory_order_acquire);
+    if (pv > cv) {
+        return seqlockRead(impl_->pendingPattern, impl_->pendingVersion);
+    }
+    return seqlockRead(impl_->activePattern, impl_->activeVersion);
+}
+
 void Engine::process(float* left, float* right, int numSamples,
                      const MidiEvent* events, int numEvents,
                      const Transport& transport) {
@@ -95,12 +169,47 @@ void Engine::process(float* left, float* right, int numSamples,
 
     const auto& p = impl_->params;
 
-    // Apply parameters to voice, rumble, output stage
+    // --- Pattern handoff: take any pending pattern at the start of the block ---
+    {
+        int pv = impl_->pendingVersion.load(std::memory_order_acquire);
+        int cv = impl_->consumedPending.load(std::memory_order_relaxed);
+        if (pv > cv && !(pv & 1)) {
+            Pattern newPat = seqlockRead(impl_->pendingPattern, impl_->pendingVersion);
+            impl_->sequencer.setPattern(newPat);
+            impl_->consumedPending.store(pv, std::memory_order_release);
+        }
+    }
+
+    // --- Transport: seq_sync selects host or internal clock ---
+    const int seqSync = static_cast<int>(p[param::SeqSync]);  // 0 = Host, 1 = Internal
+    const bool useHostClock = (seqSync == 0) && transport.valid;
+    const bool running = useHostClock ? transport.playing : true;
+    const double tempo = useHostClock ? transport.bpm : static_cast<double>(p[param::SeqBpm]);
+    const double beatsPerSample = tempo / (60.0 * impl_->sampleRate);
+
+    // Starting ppq for this block
+    double ppq;
+    if (useHostClock) {
+        ppq = transport.ppq;
+    } else {
+        ppq = impl_->internalPpq;
+    }
+
+    // --- Sequencer on/off ---
+    const bool seqOn = p[param::SeqOn] >= 0.5f;
+
+    // Handle seq_on transition: turning off ends the sequencer's note
+    if (!seqOn && impl_->prevSeqOn) {
+        impl_->voice.allNotesOff();
+    }
+    impl_->prevSeqOn = seqOn;
+
+    // --- Apply parameters to voice, rumble, output stage ---
     impl_->voice.setParams(p);
     impl_->rumble.setParams(p);
     impl_->output.setParams(p);
 
-    // Configure LFOs (stateless — read params once per block)
+    // --- Configure LFOs (stateless — read params once per block) ---
     impl_->lfo1.setRate(static_cast<int>(p[param::Lfo1Rate]));
     impl_->lfo1.setShape(static_cast<LfoShape>(static_cast<int>(p[param::Lfo1Shape])));
     impl_->lfo1.setPhaseOffset(static_cast<double>(p[param::Lfo1Phase]));
@@ -111,17 +220,26 @@ void Engine::process(float* left, float* right, int numSamples,
     impl_->lfo2.setPhaseOffset(static_cast<double>(p[param::Lfo2Phase]));
     impl_->lfo2.setSeed(static_cast<std::uint32_t>(2 * static_cast<int>(p[param::SeqSeed]) + 2));
 
-    // Transport-derived values
-    const bool running = transport.valid ? transport.playing : true;
-    const double tempo = transport.valid ? transport.bpm : static_cast<double>(p[param::SeqBpm]);
-    const double beatsPerSample = tempo / (60.0 * impl_->sampleRate);
+    // --- Sequencer: when seq_on, run the sequencer for this block ---
+    SeqEvent seqEvents[64];
+    int numSeqEvents = 0;
 
-    // Starting ppq for this block
-    double ppq;
-    if (transport.valid) {
-        ppq = transport.ppq;
-    } else {
-        ppq = impl_->internalPpq;
+    if (seqOn) {
+        // Pre-scan MIDI events for note-ons to set transpose (latched)
+        for (int i = 0; i < numEvents; ++i) {
+            const auto& ev = events[i];
+            const int status = ev.status & 0xF0;
+            if (status == 0x90 && ev.data2 > 0) {
+                impl_->seqTranspose = static_cast<int>(ev.data1) - static_cast<int>(p[param::SeqRoot]);
+            }
+        }
+
+        // Set up sequencer parameters and transpose
+        impl_->sequencer.setParams(p);
+        impl_->sequencer.setTranspose(impl_->seqTranspose);
+
+        // Run sequencer for the block
+        numSeqEvents = impl_->sequencer.process(ppq, tempo, running, numSamples, seqEvents, 64);
     }
 
     // LFO depth / destination (constant for the block)
@@ -130,44 +248,70 @@ void Engine::process(float* left, float* right, int numSamples,
     const int lfo2Dest = static_cast<int>(p[param::Lfo2Dest]);
     const double rumbleSendBase = static_cast<double>(p[param::RumbleSend]);
 
-    // Process sample by sample
-    int eventIdx = 0;
+    // --- Process sample by sample ---
+    int midiIdx = 0;
+    int seqIdx = 0;
     float blockPeak = 0.0f;
     double blockSumSq = 0.0;
     double rumbleSumSq = 0.0;
 
     for (int i = 0; i < numSamples; ++i) {
         // Apply MIDI events at this sample
-        while (eventIdx < numEvents && events[eventIdx].sampleOffset == i) {
-            const auto& ev = events[eventIdx];
+        while (midiIdx < numEvents && events[midiIdx].sampleOffset == i) {
+            const auto& ev = events[midiIdx];
             const int status = ev.status & 0xF0;
 
-            if (status == 0x90 && ev.data2 > 0) {
-                // Note on (any channel)
-                impl_->voice.noteOn(static_cast<int>(ev.data1),
-                                    static_cast<float>(ev.data2) / 127.0f);
-            } else if (status == 0x80 || (status == 0x90 && ev.data2 == 0)) {
-                // Note off (any channel, including velocity-0 note-on)
-                impl_->voice.noteOff(static_cast<int>(ev.data1));
-            } else if (status == 0xE0) {
-                // Pitch bend (any channel): 14-bit value, centre 8192
-                const int value = (static_cast<int>(ev.data2) << 7) | static_cast<int>(ev.data1);
-                const float bend = static_cast<float>(value - 8192) / 8192.0f;
-                impl_->voice.setPitchBend(bend);
-            } else if (status == 0xB0) {
-                // Controller (any channel)
-                if (ev.data1 == 123) {
-                    // All notes off
-                    impl_->voice.allNotesOff();
-                } else if (ev.data1 == 120) {
-                    // All sound off — silence at once
-                    impl_->voice.reset();
-                    impl_->voice.setParams(p);
-                    impl_->rumble.reset();
-                    impl_->output.reset();
+            if (seqOn) {
+                // When seq_on: note-ons set transpose (already done above), note-offs ignored.
+                // Pitch bend and controllers still apply.
+                if (status == 0xE0) {
+                    const int value = (static_cast<int>(ev.data2) << 7) | static_cast<int>(ev.data1);
+                    const float bend = static_cast<float>(value - 8192) / 8192.0f;
+                    impl_->voice.setPitchBend(bend);
+                } else if (status == 0xB0) {
+                    if (ev.data1 == 123) {
+                        impl_->voice.allNotesOff();
+                    } else if (ev.data1 == 120) {
+                        impl_->voice.reset();
+                        impl_->voice.setParams(p);
+                        impl_->rumble.reset();
+                        impl_->output.reset();
+                    }
+                }
+            } else {
+                // Normal MIDI handling (phase 1 behavior)
+                if (status == 0x90 && ev.data2 > 0) {
+                    impl_->voice.noteOn(static_cast<int>(ev.data1),
+                                        static_cast<float>(ev.data2) / 127.0f);
+                } else if (status == 0x80 || (status == 0x90 && ev.data2 == 0)) {
+                    impl_->voice.noteOff(static_cast<int>(ev.data1));
+                } else if (status == 0xE0) {
+                    const int value = (static_cast<int>(ev.data2) << 7) | static_cast<int>(ev.data1);
+                    const float bend = static_cast<float>(value - 8192) / 8192.0f;
+                    impl_->voice.setPitchBend(bend);
+                } else if (status == 0xB0) {
+                    if (ev.data1 == 123) {
+                        impl_->voice.allNotesOff();
+                    } else if (ev.data1 == 120) {
+                        impl_->voice.reset();
+                        impl_->voice.setParams(p);
+                        impl_->rumble.reset();
+                        impl_->output.reset();
+                    }
                 }
             }
-            ++eventIdx;
+            ++midiIdx;
+        }
+
+        // Apply sequencer events at this sample
+        while (seqIdx < numSeqEvents && seqEvents[seqIdx].sampleOffset == i) {
+            if (seqEvents[seqIdx].type == SeqEvent::Type::NoteOn) {
+                const float vel = seqEvents[seqIdx].accent ? 1.0f : (90.0f / 127.0f);
+                impl_->voice.noteOn(seqEvents[seqIdx].note, vel);
+            } else {
+                impl_->voice.noteOff(seqEvents[seqIdx].note);
+            }
+            ++seqIdx;
         }
 
         // Compute LFO values at current beat position
@@ -238,12 +382,12 @@ void Engine::process(float* left, float* right, int numSamples,
         }
     }
 
-    // Update internal clock
-    if (!transport.valid) {
+    // --- Update internal clock ---
+    if (!useHostClock) {
         impl_->internalPpq = ppq;
     }
 
-    // Meters
+    // --- Meters ---
     const double blockMeanSq = blockSumSq / static_cast<double>(numSamples);
     const double blockDur = static_cast<double>(numSamples) / impl_->sampleRate;
     const double alpha = 1.0 - std::exp(-blockDur / 0.05);
@@ -263,8 +407,12 @@ void Engine::process(float* left, float* right, int numSamples,
     impl_->meterNoteHz.store(impl_->voice.isActive() ? static_cast<float>(impl_->voice.currentHz()) : 0.0f,
                              std::memory_order_relaxed);
 
+    // Sequencer step meter
+    impl_->meterStep.store(seqOn ? impl_->sequencer.currentStep() : -1,
+                           std::memory_order_relaxed);
+
     // Beat clock
-    if (transport.valid) {
+    if (useHostClock) {
         if (transport.playing) {
             impl_->meterPpq.store(ppq, std::memory_order_relaxed);
         } else {
@@ -273,6 +421,9 @@ void Engine::process(float* left, float* right, int numSamples,
     } else {
         impl_->meterPpq.store(impl_->internalPpq, std::memory_order_relaxed);
     }
+
+    // --- Update active pattern seqlock (audio thread writes) ---
+    seqlockWrite(impl_->activePattern, impl_->activeVersion, impl_->sequencer.pattern());
 }
 
 Meters Engine::meters() const {
@@ -284,6 +435,7 @@ Meters Engine::meters() const {
     m.noteHz = impl_->meterNoteHz.load(std::memory_order_relaxed);
     m.clipping = impl_->meterClipping.load(std::memory_order_relaxed);
     m.rumble = impl_->meterRumble.load(std::memory_order_relaxed);
+    m.step = impl_->meterStep.load(std::memory_order_relaxed);
     return m;
 }
 
