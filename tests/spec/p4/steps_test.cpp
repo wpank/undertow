@@ -58,6 +58,7 @@ TEST_CASE("P4.10 the unit array: 16 cells, hit-testing, the playing step lit, an
     f.processor->prepareToPlay(48000.0, 512);
     f.processor->processBlock(buffer, midi);
     const auto after = processor->pattern();
+    INFO("the edits came before prepareToPlay, as an editor's can, so prepare must keep the pattern");
     CHECK_MESSAGE(after.steps[2].gate != before.steps[2].gate, "a click (ToggleGate) must toggle the step's gate");
     CHECK_MESSAGE(after.steps[4].accent != before.steps[4].accent, "a shift-click (ToggleAccent) must toggle the accent");
     CHECK_MESSAGE(after.steps[6].slide != before.steps[6].slide, "an alt-click (ToggleSlide) must toggle the slide");
