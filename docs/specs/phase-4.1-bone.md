@@ -7,14 +7,15 @@ that `docs/design/ui-spec.md` gives them.
 **Depends on**: phase 4's seven tasks (`roko/plan/p4-undertow-phosphor-editor`, a16b906), whose plan check failed
 only P4.06.
 
-**Size**: S, 1 task, about 5 lines.
+**Size**: S, 1 task, about 5 lines and the three review images.
 
 ---
 
 ## Scope
 
-In scope: colours in `plugin/ui/Look.cpp` and `plugin/ui/Status.cpp`. No new files, no new parameters, no change to
-any header, layout, size, font or behaviour.
+In scope: colours in `plugin/ui/Look.cpp` and `plugin/ui/Status.cpp`, and the review images phase 4 committed
+(`artifacts/ui/editor-idle.png`, `editor-playing.png` and `editor-clipping.png`), made again. No new files, no new
+parameters, no change to any header, layout, size, font or behaviour.
 
 Out of scope: the bone number itself (`plugin/ui/Displays.cpp`) and every other part of the editor.
 
@@ -43,6 +44,9 @@ Out of scope: the bone number itself (`plugin/ui/Displays.cpp`) and every other 
    - The HEAD's clock readout (the BPM): `text_primary` (4.9).
    - The pump field's `RUMBLE` label: `rose_dim`, the colour of labels and corner stamps.
    - Nothing else changes. Bone and bone_dim stay in `plugin/ui/Displays.cpp`'s bone number alone.
+   - The review images: phase 4's three `artifacts/ui` PNGs show the bone, and they are what people see first. Run
+     `tools/spec.sh 4 budget` after the change and commit the three 1x images it writes there; the 2x copies it writes
+     to `build/previews/` stay uncommitted.
 
 ## API
 
@@ -57,6 +61,7 @@ Checks that share a command are one verify step: the table repeats the command o
 | P4.06 | `tools/spec.sh 4 display 'P4.06*,P4.08*,P4.09*'` | No bone before any note; while a note plays, bone only in the CHEST, in one place. The tunnel, scope and AT field checks (P4.08, P4.09) still pass |
 | P4.05 | `tools/spec.sh 4 display 'P4.05*'` | The panel stays at least half void, without white, rose dominant (its knob panels too), bone rare, and its CHEST calm at rest. A regression check: it passes on the base too |
 | P4.07 | `tools/spec.sh 4 display 'P4.07*'` | The hazard stripes show while the output clips, and only then: without clipping the top band stays quiet. A regression check: it passes on the base too |
+| P4.11-P4.12 | `tools/spec.sh 4 budget` | A full repaint still keeps 60 Hz with headroom, and the three review images are written again: artifacts/ui at 1x under 2 MB, build/previews at 2x. It passes on the base too; on this task it also remakes the images the task commits |
 
 ## Rules every task keeps
 
@@ -73,9 +78,10 @@ Checks that share a command are one verify step: the table repeats the command o
 
 - This spec is `docs/specs/phase-4.1-bone.md`. Put it first among the files the task reads: What to fix names each bone
   use and the token it becomes. The tests and `docs/design/ui-spec.md` do not say where the bone is.
-- One task, about 5 lines: **Bone only for the one number** (`plugin/ui/Look.cpp`, `plugin/ui/Status.cpp`). Its verify
-  steps are exactly the three checks above, with their commands unchanged: P4.06 (it fails on the base), then P4.05
-  and P4.07 (`expect = "pass_on_base"`).
+- One task, about 5 lines: **Bone only for the one number** (`plugin/ui/Look.cpp`, `plugin/ui/Status.cpp` and the
+  three images `artifacts/ui/editor-idle.png`, `artifacts/ui/editor-playing.png`, `artifacts/ui/editor-clipping.png`).
+  Its verify steps are exactly the four checks above, with their commands unchanged: P4.06 (it fails on the base),
+  then P4.05, P4.07 and P4.11-P4.12 (`expect = "pass_on_base"`). It commits the three images its budget step writes.
 - The task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` checks
   before it hands off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep`
   and `glob`.
