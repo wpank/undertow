@@ -6,6 +6,8 @@
 
 namespace undertow {
 
+constexpr int kScopeSamples = 4096;
+
 struct MidiEvent {
     int sampleOffset;      // 0 .. numSamples - 1, sorted
     std::uint8_t status;   // raw MIDI status byte, any channel
@@ -29,6 +31,8 @@ struct Meters {
     int step = -1;         // phase 3: the sequencer step playing, -1 when stopped
     float rumble = 0;      // phase 2: the rumble bus RMS
     double ppq = 0;        // the beat clock at the end of the last block
+    bool hostClock = false;   // the host's transport drives the clock
+    double bpm = 120.0;       // the tempo in use
 };
 
 class Engine {
@@ -45,6 +49,7 @@ public:
     void process(float* left, float* right, int numSamples,
                  const MidiEvent* events, int numEvents, const Transport& transport);
     Meters meters() const;                              // safe from another thread
+    int copyScope(float* destination, int count) const;  // latest samples, oldest first; any thread; no allocation
 
     void setPattern(const Pattern& pattern);            // any thread, lock-free; used from the next block on
     Pattern pattern() const;                            // any thread; the newest pattern (set, or in use)

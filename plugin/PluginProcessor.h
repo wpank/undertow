@@ -10,6 +10,8 @@ public:
 
     undertow::Engine& engine();
     juce::AudioProcessorValueTreeState& parameters();
+    void setPattern(const undertow::Pattern& pattern);
+    undertow::Pattern pattern() const;
 
     const juce::String getName() const override;
     bool acceptsMidi() const override;
