@@ -7,7 +7,7 @@ a test folder; installing for the person is their step, at the end).
 
 **Depends on**: phase 4.
 
-**Size**: M, 6 tasks, about 710 lines (most of it preset values).
+**Size**: M, 7 tasks, about 715 lines (most of it preset values).
 
 ---
 
@@ -15,8 +15,8 @@ a test folder; installing for the person is their step, at the end).
 
 In scope: `undertow/presets.h` with `core/src/presets.cpp`; the presets as the plugin's programs; `tools/render/`
 (the `undertow_render` program, plain C++ on the core); `tools/render-demos.sh`; `tools/install.sh`; the review
-artifacts under `artifacts/audio/` and `artifacts/reports/`; and the top of the filter's resonance knob
-(`core/src/filter.cpp`).
+artifacts under `artifacts/audio/` and `artifacts/reports/`; the top of the filter's resonance knob
+(`core/src/filter.cpp`); and the sequencer's random draws (`core/src/sequencer.cpp`).
 
 Out of scope: a preset browser in the editor, user preset files, Developer ID signing and notarization (ad hoc
 signing only), an installer package.
@@ -26,8 +26,8 @@ signing only), an installer package.
 - Sound-design goals: `docs/PRD.md` section 1. The renders are what people will hear first: make the presets sound
   like hypnotic techno at 128 BPM.
 - The spec tests: `tests/spec/p5/presets_test.cpp`, `render_test.cpp`, `demos_test.cpp`, `install_test.cpp`,
-  `filter_test.cpp` (core preset) and `programs_test.cpp` (plugin preset). `tests/spec/support/spec_wav.h` reads
-  WAVs. Change the code, never the tests.
+  `filter_test.cpp`, `sequencer_test.cpp` (core preset) and `programs_test.cpp` (plugin preset).
+  `tests/spec/support/spec_wav.h` reads WAVs. Change the code, never the tests.
 - Given tools: `tools/pluginval.sh 10 <report>` (strictness 10, keeping its log; it skips the GUI tests, which open
   windows, unless given `--gui`, which only the person's step below uses) and `tools/auval.sh` (auval on the installed
   AU, keeping its log; used by hand after a real install, never by a task).
@@ -59,13 +59,16 @@ signing only), an installer package.
      (`bass-hypnotic-roller`). `findFactoryPreset` takes a name or a slug.
    - Character (checked): SUB presets keep 80% of their energy below 80 Hz; BASS presets have at least 5% above
      300 Hz; RUMBLE presets have `rumble_level` 0.4 or more and 60% of their energy below 200 Hz; SEQ presets and
-     BASS Hypnotic Roller have `seq_on` 1. Every preset, rendered at 128 BPM (holding A2, note 45, when the
-     sequencer is off, so a `-1 oct` sub sounds at 55 Hz), is finite, under -0.3 dBFS and at least -30 dBFS RMS (the
-     checks render 2 bars).
+     BASS Hypnotic Roller have `seq_on` 1. Every preset, rendered at 128 BPM (holding A2, note 45, at velocity 100
+     when the sequencer is off, so a `-1 oct` sub sounds at 55 Hz), is finite, under -0.3 dBFS and at least -30 dBFS
+     RMS (the checks render 2 bars).
    - Level (checked): the presets are loudness-matched. Each preset's render, as above, has an RMS over both channels
-     within 3 dB of -18 dBFS, the level the init patch renders at with the -14 dB master default. Set each preset's
-     `master_gain` to land it there: a render X dB off needs `master_gain` X dB the other way, and the check prints
-     X. The default suits few presets.
+     within 3 dB of -18 dBFS, the level the init patch renders at holding A2 at velocity 100 with the -14 dB master
+     default (-18.2). Velocity 100 is an accented note (phase 1 accents 100/127 and up, at `1 + accent` times the
+     level): at a plain velocity the init patch renders 3.2 dB lower (-21.5), and with its sequencer on, whose plain
+     steps play at 90/127, at -21.0. So a SEQ preset built on the defaults needs about +3 dB of `master_gain`. Set
+     each preset's `master_gain` to land it there: a render X dB off needs `master_gain` X dB the other way, and the
+     check prints X. The default suits few presets.
 
 2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`)
    - `getNumPrograms()` is the number of factory presets; `getProgramName(i)` its name; `setCurrentProgram(i)` sets
@@ -81,8 +84,9 @@ signing only), an installer package.
      add `tools/render` to the top-level `CMakeLists.txt` before `tests/spec`.
    - `undertow_render --preset <slug|name|index|init> [--bars 4] [--bpm 128] [--note 45] [--sample-rate 48000] --out <file.wav>`:
      loads the preset (`init` is the default parameters and pattern), runs the engine with a host transport from
-     beat 0 at `--bpm` (holding `--note` when the preset's sequencer is off) for exactly
-     `bars * 4 * 60 / bpm * sample-rate` frames (rounded to the nearest frame), and writes a 24-bit PCM stereo WAV.
+     beat 0 at `--bpm` (holding `--note` at velocity 100 when the preset's sequencer is off, as the checks render)
+     for exactly `bars * 4 * 60 / bpm * sample-rate` frames (rounded to the nearest frame), and writes a 24-bit PCM
+     stereo WAV.
    - Prints one line: `wrote <path>: <frames> frames, peak <x.x> dBFS, rms <x.x> dBFS`. The same arguments give the
      same file, byte for byte. Unknown presets and bad arguments print a message and exit non-zero.
 
@@ -116,6 +120,15 @@ signing only), an installer package.
      `12.5 + 80.75 (r - 0.8)`, with the resonant stage's damping `k = 0.5412 * 10^(-g / 20)` (+20.6 dB at 0.9 and
      +28.6 at 1, the same Q 50 phase 1 reached).
 
+7. **Random draws below 1** (`core/src/sequencer.cpp`)
+   - Phase 3's rule: a step plays when `random(seq_seed, k) < probability`, with `random` in [0, 1), so probability 1
+     always plays. Phase 3's sequencer turns its 32-bit hash into a float with `static_cast<float>(h) / 2^32`. A float
+     holds 24 bits, so the top 128 hash values round up to exactly 1.0, and a probability-1 step at one of those step
+     numbers never plays: seed 1089 drops step 3692 (beat 923, about 7 minutes in at 128 BPM), seed 2443 step 3787,
+     and about one seed in a thousand drops a note within an hour. `mutate`'s draws round the same way.
+   - Keep every draw below 1: take the hash's top 24 bits (`(h >> 8) * 2^-24`), or divide in double. The same seed
+     and step still decide the same way, and phase 3's checks keep passing (P5.14).
+
 ## API
 
 ```cpp
@@ -146,10 +159,12 @@ Checks that share a command are one verify step: the table repeats the command o
 | P5.06 | `tools/render-demos.sh && tools/spec.sh 5 demos` | The four showcase renders are in artifacts/audio (48 kHz, 24-bit stereo, 8 bars, under 5 MB) and every preset has a render in build/demos |
 | P5.07 | `tools/install.sh --dest build/install-test && tools/spec.sh 5 install` | In a test folder, never the user's own: the three bundles in VST3, Components and Applications, whole, signed, with the Metakosmia ids and the AU's component entry |
 | P5.08 | `tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt` | pluginval passes at strictness 10 (without its GUI tests, so no windows open), and its log is kept for review |
-| P5.09 | `tools/spec.sh 5 presets` | The presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level, so none sounds weak or hot next to another |
+| P5.09 | `tools/spec.sh 5 presets` | The presets are loudness-matched: each renders (holding A2 at velocity 100 when its sequencer is off) within 3 dB of -18 dBFS RMS, the init patch's level there, so none sounds weak or hot next to another |
 | P5.10 | `tools/spec.sh 5 filter` | At the cutoff a quiet tone gains at least +17 dB at resonance 0.9 and +20 dB at 1: the top of the knob rings |
 | P5.11 | `tools/spec.sh 2_2 filter` | Phase 2.2's filter checks still pass: drive keeps its level, the middle of the knob, a held tone within 4. A regression check: it passes on the base too |
 | P5.12 | `tools/spec.sh 2_1 filter` | Phase 2.1's filter checks still pass: the resonance holds at full level, and drive 0 stays linear. A regression check |
+| P5.13 | `tools/spec.sh 5 sequencer` | A step at probability 1 always plays: seed 1089 plays step 3692 and seed 2443 step 3787, which phase 3's float division dropped |
+| P5.14 | `tools/spec.sh 3 sequencer` | Phase 3's sequencer checks still pass: the grid, rests, accents, slides, probability and its repeatability, mutate and evolve. A regression check: it passes on the base too |
 
 ## Rules every task keeps
 
@@ -178,8 +193,8 @@ Checks that share a command are one verify step: the table repeats the command o
 - This spec is `docs/specs/phase-5-ship.md`. Put it first among the files every task reads: What to build holds the
   rules and API the exact declarations. The tests and the PRD do not state the rules (the presets' order and how to
   set each one's level, the bool restore pluginval needs, the renderer's arguments and frame count, the install
-  paths, and a resonance curve that keeps the earlier checks).
-- Six tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
+  paths, a resonance curve that keeps the earlier checks, and why a probability-1 step could drop).
+- Seven tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
   1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
      verify step: `tools/spec.sh 5 presets` runs all four.
@@ -193,6 +208,9 @@ Checks that share a command are one verify step: the table repeats the command o
   6. **The top of the resonance knob** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): P5.10, and the
      regression checks P5.11 and P5.12 (`expect = "pass_on_base"`). About 10 lines. It shares no file with the other
      tasks, so it runs in parallel with them.
+  7. **Random draws below 1** (`core/src/sequencer.cpp`): P5.13, and the regression check P5.14
+     (`expect = "pass_on_base"`). About 5 lines. It shares no file with the other tasks, so it runs in parallel with
+     them.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `presets.cpp` joins it as
   a new file, and no task lists or edits `core/CMakeLists.txt`. Only task 3 edits the top-level `CMakeLists.txt`.
 - `tools/check.sh --plugin` is the plan's final check, not any one task's: every present spec test of phases 0 to 5,
