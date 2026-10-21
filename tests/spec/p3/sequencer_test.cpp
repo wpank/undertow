@@ -114,7 +114,8 @@ TEST_CASE("P3.02 seq_rate, seq_length and seq_swing") {
     spec::set(p, "seq_rate", 0); // 1/8
     auto eighth = make(p, flat());
     const auto e8 = only(run(eighth, static_cast<long long>(16 * kStep)), Type::NoteOn);
-    REQUIRE(e8.size() == 8);
+    REQUIRE_MESSAGE(e8.size() == 8, "seq_rate 0 is 1/8: a step is half a beat (11250 samples at 128 BPM), so 4 "
+                                    "beats hold 8 steps whatever seq_length is; got " << e8.size());
     CHECK_MESSAGE(std::llabs(e8[3].at - std::llround(3 * 2 * kStep)) <= 1, "at 1/8 steps are 11250 samples apart");
 
     auto lengthPatch = seqPatch();
@@ -124,7 +125,8 @@ TEST_CASE("P3.02 seq_rate, seq_length and seq_swing") {
         ramp.steps[static_cast<std::size_t>(i)].semitones = i;
     auto five = make(lengthPatch, ramp);
     const auto e5 = only(run(five, static_cast<long long>(12 * kStep)), Type::NoteOn);
-    REQUIRE(e5.size() == 12);
+    REQUIRE_MESSAGE(e5.size() == 12, "seq_length 5 changes which pattern step plays, not the step length: 12 "
+                                     "steps of 1/16 hold 12 note-ons; got " << e5.size());
     const int want[] = {33, 34, 35, 36, 37, 33, 34, 35, 36, 37, 33, 34};
     for (int k = 0; k < 12; ++k)
         CHECK_MESSAGE(e5[static_cast<std::size_t>(k)].note == want[k],
@@ -135,7 +137,8 @@ TEST_CASE("P3.02 seq_rate, seq_length and seq_swing") {
     spec::set(swingPatch, "seq_swing", 1);
     auto swung = make(swingPatch, flat());
     const auto es = only(run(swung, static_cast<long long>(8 * kStep)), Type::NoteOn);
-    REQUIRE(es.size() == 8);
+    REQUIRE_MESSAGE(es.size() == 8, "swing moves odd steps later and keeps every step: 8 steps of 1/16 hold 8 "
+                                    "note-ons; got " << es.size());
     CHECK_MESSAGE(std::llabs(es[2].at - std::llround(2 * kStep)) <= 1, "swing leaves even steps on the grid");
     CHECK_MESSAGE(std::llabs(es[3].at - std::llround(3 * kStep + kStep / 3.0)) <= 1,
                   "swing 1 delays odd steps by a third of a step (1875 samples at 1/16, 128 BPM): step 3 started at "
