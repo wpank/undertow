@@ -1,13 +1,16 @@
 # Phase 5: ship
 
-**Goal**: Undertow is ready to use and to show. Twelve factory presets in four categories, as the plugin's
-programs; an offline renderer and demo renders anyone can listen to; strict validation (pluginval at strictness
-10); and an install script that puts signed bundles where FL Studio and the Finder find them (the checks install into
-a test folder; installing for the person is their step, at the end).
+**Goal**: Undertow is ready to use and to show:
+- twelve factory presets in four categories, as the plugin's programs;
+- an offline renderer and demo renders anyone can listen to;
+- strict validation (pluginval at strictness 10);
+- the editor's one number drawn whole, at its full size;
+- an install script that puts signed bundles where FL Studio and the Finder find them. The checks install into a test
+  folder; installing for the person is their step, at the end.
 
 **Depends on**: phase 4.3 (merged): the editor's finish, on phases 4, 4.1 and 4.2.
 
-**Size**: M, 7 tasks, about 715 lines (most of it preset values).
+**Size**: M, 8 tasks, about 735 lines (most of it preset values).
 
 ---
 
@@ -16,7 +19,8 @@ a test folder; installing for the person is their step, at the end).
 In scope: `undertow/presets.h` with `core/src/presets.cpp`; the presets as the plugin's programs; `tools/render/`
 (the `undertow_render` program, plain C++ on the core); `tools/render-demos.sh`; `tools/install.sh`; the review
 artifacts under `artifacts/audio/` and `artifacts/reports/`; the top of the filter's resonance knob
-(`core/src/filter.cpp`); and the sequencer's random draws (`core/src/sequencer.cpp`).
+(`core/src/filter.cpp`); the sequencer's random draws (`core/src/sequencer.cpp`); and the editor's bone number
+(`plugin/ui/Displays.h`, `plugin/ui/Displays.cpp`), with phase 4's review images made again.
 
 Out of scope: a preset browser in the editor, user preset files, Developer ID signing and notarization (ad hoc
 signing only), an installer package.
@@ -26,8 +30,17 @@ signing only), an installer package.
 - Sound-design goals: `docs/PRD.md` section 1. The renders are what people will hear first: make the presets sound
   like hypnotic techno at 128 BPM.
 - The spec tests: `tests/spec/p5/presets_test.cpp`, `render_test.cpp`, `demos_test.cpp`, `install_test.cpp`,
-  `filter_test.cpp`, `sequencer_test.cpp` (core preset) and `programs_test.cpp` (plugin preset).
+  `filter_test.cpp`, `sequencer_test.cpp` (core preset), `programs_test.cpp` and `number_test.cpp` (plugin preset).
   `tests/spec/support/spec_wav.h` reads WAVs. Change the code, never the tests.
+- Phase 4.3's review images (`artifacts/ui/*.png` at 7b5ce09) show the number as `55.0`, not `55.00`, and small:
+  - `Displays::paintBone` sizes the digits' box to exactly the string's width
+    (`roundToInt(getStringWidthFloat(...))`). `texts::draw` calls `Graphics::drawText(..., false)`, which drops a
+    glyph that doesn't fit its box. `drawnTexts()` still records `55.00`, so phase 4.2's and 4.3's checks passed.
+  - The digits are 38 px bold. The design (`docs/design/ui-spec.md` 4.2) gives 56 px, as phase 4.2 drew them.
+  - While the number fades after a note, it shows `55.00` whatever the last pitch was. It formats the frame's pitch,
+    which the meters report as 0 Hz once the note ends, and a stand-in replaces 0.
+  - `number_test.cpp` reads the snapshot's pixels, not the record: the number's ink, its height, and the pitch while
+    it fades.
 - Given tools: `tools/pluginval.sh 10 <report>` (strictness 10, keeping its log; it skips the GUI tests, which open
   windows, unless given `--gui`, which only the person's step below uses) and `tools/auval.sh` (auval on the installed
   AU, keeping its log; used by hand after a real install, never by a task).
@@ -73,6 +86,8 @@ signing only), an installer package.
 2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`)
    - `getNumPrograms()` is the number of factory presets; `getProgramName(i)` its name; `setCurrentProgram(i)` sets
      every parameter (through the APVTS, so the host sees it) and the pattern; `getCurrentProgram()` reports it.
+   - A new instance keeps the parameter defaults and the default pattern, which it plays and saves (phase 4.2's
+     P4.2.14 to P4.2.16, P5.22). Only `setCurrentProgram` loads a preset.
    - Strict validation (P5.08): at strictness 10 pluginval also fuzzes the parameters and then checks that
      `setStateInformation` restores every one, bools included. A host can leave a bool parameter at a fractional raw
      value, and `AudioProcessorValueTreeState::replaceState` skips a parameter whose value already matches the state,
@@ -128,6 +143,23 @@ signing only), an installer package.
      and about one seed in a thousand drops a note within an hour. `mutate`'s draws round the same way.
    - Keep every draw below 1: take the hash's top 24 bits (`(h >> 8) * 2^-24`), or divide in double. The same seed
      and step still decide the same way, and phase 3's checks keep passing (P5.14).
+8. **The number at full size** (`plugin/ui/Displays.h`, `plugin/ui/Displays.cpp`)
+   - The pitch as `55.00` in bone 56 px mono, bold as phases 4 to 4.3 drew it, with every glyph drawn.
+     - `texts::draw` goes through `Graphics::drawText`, which drops a glyph that doesn't fit its box. So size the box
+       from `juce::GlyphArrangement::getStringWidth(font, text)` rounded up, with a few pixels to spare. Never use
+       `roundToInt` of the width, which can round it down.
+     - Phase 4.3's placement stays: `Hz` 8 px after the digits on their baseline (P4.3.07), and the note name under
+       them.
+     - The taller digits stay below the scope's bottom edge (y 388) and in the CHEST's lower third. 56 px digits are
+       about 36 px of ink, so a baseline near y 446 does both.
+   - The last pitch while the number fades:
+     - While a note plays, keep its pitch (`frame.noteHz` above 0) in `Displays`, beside `displayedNote_`, and draw
+       that.
+     - Then the fade after the note (`docs/design/ui-spec.md` 4.2: the last pitch fades over 600 ms) shows the pitch
+       that played, with its note name, even though the meters report 0 Hz once the note ends.
+     - No stand-in value: a pitch at or below 0 draws no number.
+   - The review images: run `tools/spec.sh 4 budget` and commit the three 1x images it writes to `artifacts/ui/`.
+     The 2x copies in `build/previews/` stay uncommitted.
 
 ## API
 
@@ -165,6 +197,14 @@ Checks that share a command are one verify step: the table repeats the command o
 | P5.12 | `tools/spec.sh 2_1 filter` | Phase 2.1's filter checks still pass: the resonance holds at full level, and drive 0 stays linear. A regression check |
 | P5.13 | `tools/spec.sh 5 sequencer` | A step at probability 1 always plays: seed 1089 plays step 3692 and seed 2443 step 3787, which phase 3's float division dropped |
 | P5.14 | `tools/spec.sh 3 sequencer` | Phase 3's sequencer checks still pass: the grid, rests, accents, slides, probability and its repeatability, mutate and evolve. A regression check: it passes on the base too |
+| P5.15 | `tools/spec.sh 5 number` | Every glyph of the number is drawn: its bone ink spans the whole string, 55.00 and 110.00, never 55.0 |
+| P5.16 | `tools/spec.sh 5 number` | The number stands at the design's 56 px: its digits as tall as 55.00 in 56 px mono |
+| P5.17 | `tools/spec.sh 5 number` | While the number fades after a note, it shows the last pitch (110.00 after A2), not a stand-in |
+| P5.18 | `tools/spec.sh 4_2 head` | Phase 4.2's HEAD and number checks still pass (P4.2.06, P4.2.07). A regression check: it passes on the base too |
+| P5.19 | `tools/spec.sh 4_3 finish` | Phase 4.3's checks still pass: the words, the clip bands, Hz on the number's baseline below the scope, the pump field. A regression check: it passes on the base too |
+| P5.20 | `tools/spec.sh 4 display 'P4.06*,P4.08*,P4.09*'` | Bone only for the number, the tunnel and the scope still pass. A regression check: it passes on the base too |
+| P5.21 | `tools/spec.sh 4 budget` | The frame budget holds, and the three review images are written again (P4.11, P4.12). A regression check: it passes on the base too |
+| P5.22 | `tools/spec.sh 4_2 pattern` | A new instance still plays, reads back and saves the default pattern (P4.2.14 to P4.2.16): the programs leave it alone. A regression check: it passes on the base too |
 
 ## Rules every task keeps
 
@@ -172,8 +212,9 @@ Checks that share a command are one verify step: the table repeats the command o
   and `tools/render/` stay plain C++17; nothing the audio thread calls allocates, locks, does I/O or logs.
 - The committed artifacts are exactly: `artifacts/audio/init.wav`, `artifacts/audio/sub-pure-foundation.wav`,
   `artifacts/audio/bass-hypnotic-roller.wav`, `artifacts/audio/rumble-dark-room.wav` and
-  `artifacts/reports/pluginval-strict.txt`, plus phase 4's `artifacts/ui/*.png` (and `artifacts/reports/auval.txt`
-  once the person has installed, below). Everything else a check writes stays in `build/`.
+  `artifacts/reports/pluginval-strict.txt`, plus phase 4's `artifacts/ui/*.png`, which task 8 makes again (and
+  `artifacts/reports/auval.txt` once the person has installed, below). Everything else a check writes stays in
+  `build/`.
 - No task installs into the user's own folders (`~/Library/Audio/Plug-Ins`, `~/Applications`) or runs `auval`: the
   checks install into `build/install-test`.
 
@@ -194,14 +235,15 @@ Checks that share a command are one verify step: the table repeats the command o
   rules and API the exact declarations. The tests and the PRD do not state the rules (the presets' order and how to
   set each one's level, the bool restore pluginval needs, the renderer's arguments and frame count, the install
   paths, a resonance curve that keeps the earlier checks, and why a probability-1 step could drop).
-- Seven tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
+- Eight tasks. Each task's verify steps are exactly the checks named for it, with their commands unchanged, and each
   passes once that task (and the ones it needs) is done:
   1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
      verify step: `tools/spec.sh 5 presets` runs all four.
-  2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`): P5.04 and P5.08.
-     Needs task 1. It commits `artifacts/reports/pluginval-strict.txt`. P5.08 already passes on the base:
-     phase 4's processor restores every parameter, bools included, at strictness 10. So P5.08 is
-     `expect = "pass_on_base"`; it must still pass once task 2 is done.
+  2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`): P5.04 and P5.08,
+     then the regression check P5.22 (`expect = "pass_on_base"`). Needs task 1. It commits
+     `artifacts/reports/pluginval-strict.txt`. P5.08 already passes on the base: phase 4's processor restores every
+     parameter, bools included, at strictness 10. So P5.08 is `expect = "pass_on_base"`; it must still pass once task
+     2 is done.
   3. **The offline renderer** (`tools/render/main.cpp`, `tools/render/CMakeLists.txt`, the top-level `CMakeLists.txt`):
      P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
@@ -212,10 +254,16 @@ Checks that share a command are one verify step: the table repeats the command o
   7. **Random draws below 1** (`core/src/sequencer.cpp`): P5.13, and the regression check P5.14
      (`expect = "pass_on_base"`). About 5 lines. It shares no file with the other tasks, so it runs in parallel with
      them.
+  8. **The number at full size** (`plugin/ui/Displays.h`, `plugin/ui/Displays.cpp` and the three `artifacts/ui/*.png`):
+     P5.15-P5.17 in one step, then P5.18-P5.21 (`expect = "pass_on_base"`).
+     - Needs task 2, so its images show the processor phase 5 leaves: the editor's knobs and unit array read it.
+     - About 20 lines. It commits the three images its budget step writes.
+     - List the header with the source in every task that owns `Displays.cpp`. Phase 4.3's task 2 had to edit
+       `Displays.h` outside its declared files for the pump field's state.
 - The core library's sources are registered by the glob in `core/CMakeLists.txt` (phase 2): `presets.cpp` joins it as
   a new file, and no task lists or edits `core/CMakeLists.txt`. Only task 3 edits the top-level `CMakeLists.txt`.
 - `tools/check.sh --plugin` is the plan's final check, not any one task's: every present spec test of phases 0 to 5,
-  both presets, and pluginval at strictness 5.
+  4.3's included, both presets, and pluginval at strictness 5.
 - A test file is one executable, so a task owns a whole file's checks.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own check before it hands
   off. Leave `allowed_tools` out, or include `bash`, `edit_file`, `read_file`, `write_file`, `grep` and `glob`.
