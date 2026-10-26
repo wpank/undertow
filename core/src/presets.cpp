@@ -43,12 +43,12 @@ constexpr Pattern makePattern(const std::array<int, kSteps>& semi,
 static const PresetDef kPresets[] = {
     {"SUB Pure Foundation", "sub-pure-foundation", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 0; v[param::OscLevel] = 1.00f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
+        v[param::OscWave] = 0; v[param::OscLevel] = 0.0f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
         v[param::FilterCutoff] = 5200.0f; v[param::FilterRes] = 0.00f; v[param::FilterDrive] = 0.0f; v[param::FilterEnv] = 0.0f;
         v[param::AmpAttack] = 1.0f; v[param::AmpDecay] = 60.0f; v[param::AmpSustain] = 1.0f; v[param::AmpRelease] = 50.0f;
         v[param::FiltAttack] = 1.0f; v[param::FiltDecay] = 60.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 50.0f;
         v[param::GlideMs] = 0.0f; v[param::GlideMode] = 0; v[param::Accent] = 0.00f; v[param::Width] = 0.0f; v[param::MonoFreq] = 250.0f;
-        v[param::MasterGain] = -14.5f; v[param::SeqOn] = 0; v[param::RumbleLevel] = 0.0f; v[param::RumbleSend] = 0.0f; v[param::RumbleDrive] = 0.0f; v[param::RumbleDuck] = 0.0f;
+        v[param::MasterGain] = -14.5f; v[param::SeqOn] = 0; v[param::RumbleLevel] = 0.0f; v[param::RumbleSend] = 0.0f; v[param::RumbleDrive] = 0.0f; v[param::RumbleDuck] = 0.0f; v[param::SatDrive] = 0.0f;
         return v;
     }(), makePattern(
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -59,12 +59,12 @@ static const PresetDef kPresets[] = {
     )},
     {"SUB Low Pressure", "sub-low-pressure", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 0; v[param::OscLevel] = 0.90f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
+        v[param::OscWave] = 0; v[param::OscLevel] = 0.0f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
         v[param::FilterCutoff] = 5200.0f; v[param::FilterRes] = 0.01f; v[param::FilterDrive] = 0.0f; v[param::FilterEnv] = 0.0f;
         v[param::AmpAttack] = 3.0f; v[param::AmpDecay] = 150.0f; v[param::AmpSustain] = 1.0f; v[param::AmpRelease] = 70.0f;
         v[param::FiltAttack] = 3.0f; v[param::FiltDecay] = 90.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 70.0f;
         v[param::GlideMs] = 14.0f; v[param::GlideMode] = 1; v[param::Accent] = 0.00f; v[param::Width] = 0.0f; v[param::MonoFreq] = 220.0f;
-        v[param::MasterGain] = -17.0f; v[param::SeqOn] = 0; v[param::SatDrive] = 0.00f;
+        v[param::MasterGain] = -15.0f; v[param::SeqOn] = 0; v[param::SatDrive] = 0.00f;
         return v;
     }(), makePattern(
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -75,7 +75,7 @@ static const PresetDef kPresets[] = {
     )},
     {"SUB Kick Companion", "sub-kick-companion", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 0; v[param::OscLevel] = 0.90f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
+        v[param::OscWave] = 0; v[param::OscLevel] = 0.0f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
         v[param::FilterCutoff] = 2600.0f; v[param::FilterRes] = 0.00f; v[param::FilterDrive] = 0.0f; v[param::FilterEnv] = 0.0f;
         v[param::AmpAttack] = 1.0f; v[param::AmpDecay] = 80.0f; v[param::AmpSustain] = 0.90f; v[param::AmpRelease] = 50.0f;
         v[param::FiltAttack] = 1.0f; v[param::FiltDecay] = 80.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 50.0f;
@@ -100,7 +100,7 @@ static const PresetDef kPresets[] = {
     }(), defaultPattern()},
     {"BASS Acid Undertow", "bass-acid-undertow", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 1; v[param::OscLevel] = 0.68f; v[param::OscOctave] = 0; v[param::SubLevel] = 0.32f;
+        v[param::OscWave] = 1; v[param::OscLevel] = 0.68f; v[param::OscOctave] = 0; v[param::SubLevel] = 0.0f;
         v[param::FilterCutoff] = 950.0f; v[param::FilterRes] = 0.82f; v[param::FilterDrive] = 0.38f; v[param::FilterEnv] = 2.2f;
         v[param::AmpAttack] = 1.0f; v[param::AmpDecay] = 170.0f; v[param::AmpSustain] = 0.68f; v[param::AmpRelease] = 130.0f;
         v[param::FiltAttack] = 1.0f; v[param::FiltDecay] = 260.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 120.0f;
@@ -136,7 +136,7 @@ static const PresetDef kPresets[] = {
     }()},
 {"BASS Warehouse Drone", "bass-warehouse-drone", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 0; v[param::OscLevel] = 0.54f; v[param::OscOctave] = 0; v[param::SubLevel] = 0.34f;
+        v[param::OscWave] = 0; v[param::OscLevel] = 0.54f; v[param::OscOctave] = 0; v[param::SubLevel] = 0.2f;
         v[param::FilterCutoff] = 700.0f; v[param::FilterRes] = 0.56f; v[param::FilterDrive] = 0.14f; v[param::FilterEnv] = 1.0f;
         v[param::AmpAttack] = 15.0f; v[param::AmpDecay] = 340.0f; v[param::AmpSustain] = 0.72f; v[param::AmpRelease] = 260.0f;
         v[param::FiltAttack] = 12.0f; v[param::FiltDecay] = 420.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 220.0f;
@@ -183,8 +183,8 @@ static const PresetDef kPresets[] = {
     {"RUMBLE Sidechain Fog", "rumble-sidechain-fog", [] {
         auto v = makeDefaults();
         v[param::OscWave] = 0; v[param::OscLevel] = 0.72f; v[param::OscOctave] = -1; v[param::SubLevel] = 0.30f;
-        v[param::RumbleLevel] = 0.96f; v[param::RumbleSend] = 0.34f; v[param::RumbleKick] = 0.8f; v[param::RumbleRate] = 1; v[param::RumbleDecay] = 5.0f; v[param::RumbleTone] = 88.0f; v[param::RumbleDrive] = 0.50f; v[param::RumbleDuck] = 0.92f;
-        v[param::MasterGain] = -11.0f; v[param::SeqOn] = 1; v[param::SeqScale] = 1; v[param::SeqRate] = 1; v[param::SeqEvolve] = 2; v[param::SeqMutate] = 0.22f;
+        v[param::RumbleLevel] = 0.96f; v[param::RumbleSend] = 0.20f; v[param::RumbleKick] = 0.8f; v[param::RumbleRate] = 1; v[param::RumbleDecay] = 5.0f; v[param::RumbleTone] = 120.0f; v[param::RumbleDrive] = 0.50f; v[param::RumbleDuck] = 0.92f;
+        v[param::MasterGain] = -11.0f; v[param::SeqOn] = 1; v[param::SeqScale] = 1; v[param::SeqRate] = 1; v[param::SeqRoot] = 45; v[param::SeqEvolve] = 2; v[param::SeqMutate] = 0.22f;
         return v;
     }(), [] {
         Pattern p = defaultPattern();
