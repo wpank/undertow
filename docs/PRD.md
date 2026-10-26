@@ -242,14 +242,15 @@ host parameters (phase 3).
 | 4.3 | `specs/phase-4.3-finish.md` | The editor's finish: the limbs' knobs where the mock puts them, MOD/05's nine fitting it; the HEAD's words in Unicode on one line; 16 px clip bands with their legend, the clock and the values readable while clipping; `Hz` on the number's baseline below the scope; the rumble pump field back; the review images made again | 4.2 | S: 2 tasks, about 150 lines and three images |
 | 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand), the top of the resonance knob, probability 1 that always plays, the one number drawn whole at full size | 4.3 | M: 8 tasks, about 735 lines |
 | 5.1 | `specs/phase-5.1-renders.md` | Phase 5's finish: RUMBLE Dark Room retuned on the final resonance curve; the offline renderer holds the note and plays the whole pattern, and the demo renders are its files as written (no rescaling, no made-up audio); texts::draw never cuts a word (Hz drew as H) | 5 | S: 3 tasks, about 40 lines changed, about 70 removed, four renders and three images |
+| 5.2 | `specs/phase-5.2-presets.md` | The presets as named: SUB Pure Foundation the clean sine sub alone and every SUB preset the sub (F17), no preset's energy below 20 Hz (F18), by retuning six presets, not the engine | 5.1 | S: 1 task, about 10 lines and one showcase render |
 
 ```text
- phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1
+ phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1 ──► phase 5.2
                     └──► phase 3 ──────────────────────────────┘
 ```
 
-Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1. Phases 2 and 3 are independent in their DSP
-and could run in parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so
+Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2. Phases 2 and 3 are independent in their
+DSP and could run in parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so
 in parallel they end in a merge there.
 
 ## 6. How the checks work
