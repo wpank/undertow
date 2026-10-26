@@ -71,6 +71,7 @@ struct Engine::Impl {
     Impl() {
         for (int i = 0; i < kNumParams; ++i)
             params[i] = paramSpec(i).def;
+        sequencer.setPattern(defaultPattern());
         activePattern = defaultPattern();
     }
 };
