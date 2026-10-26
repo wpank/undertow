@@ -199,8 +199,9 @@ Checks that share a command are one verify step: the table repeats the command o
   1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
      verify step: `tools/spec.sh 5 presets` runs all four.
   2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`): P5.04 and P5.08.
-     Needs task 1. It commits `artifacts/reports/pluginval-strict.txt`. P5.08 may already pass on the base, if phase 4's
-     processor restores bool parameters from a saved state; that is fine: it must pass once task 2 is done.
+     Needs task 1. It commits `artifacts/reports/pluginval-strict.txt`. P5.08 already passes on phase 4.2's base:
+     phase 4's processor restores every parameter, bools included, at strictness 10. So P5.08 is
+     `expect = "pass_on_base"`; it must still pass once task 2 is done.
   3. **The offline renderer** (`tools/render/main.cpp`, `tools/render/CMakeLists.txt`, the top-level `CMakeLists.txt`):
      P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
