@@ -25,6 +25,8 @@ public:
     const juce::String getProgramName(int) override;
     void changeProgramName(int, const juce::String&) override;
 
+    void updateParametersFromState(const juce::ValueTree& state);
+
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;

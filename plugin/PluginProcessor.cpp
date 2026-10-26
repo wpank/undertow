@@ -2,6 +2,7 @@
 #include "PluginEditor.h"
 
 #include <undertow/params.h>
+#include <undertow/presets.h>
 
 namespace {
 
@@ -86,15 +87,47 @@ juce::AudioProcessorValueTreeState& UndertowProcessor::parameters() { return apv
 void UndertowProcessor::setPattern(const undertow::Pattern& pattern) { engine_.setPattern(pattern); }
 undertow::Pattern UndertowProcessor::pattern() const { return engine_.pattern(); }
 
+void UndertowProcessor::updateParametersFromState(const juce::ValueTree& state) {
+    for (int i = 0; i < undertow::kNumParams; ++i) {
+        const auto& spec = undertow::paramSpec(i);
+        if (auto* param = apvts_.getParameter(spec.id)) {
+            if (auto* property = state.getPropertyPointer(spec.id))
+                param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(property->isBool() ? (bool) *property : (double) *property)));
+            else if (auto* value = apvts_.getRawParameterValue(spec.id))
+                param->setValueNotifyingHost(param->convertTo0to1(value->load()));
+        }
+    }
+}
 const juce::String UndertowProcessor::getName() const { return JucePlugin_Name; }
 bool UndertowProcessor::acceptsMidi() const { return true; }
 bool UndertowProcessor::producesMidi() const { return false; }
 bool UndertowProcessor::isMidiEffect() const { return false; }
 double UndertowProcessor::getTailLengthSeconds() const { return 8.0; }
-int UndertowProcessor::getNumPrograms() { return 1; }
-int UndertowProcessor::getCurrentProgram() { return 0; }
-void UndertowProcessor::setCurrentProgram(int) {}
-const juce::String UndertowProcessor::getProgramName(int) { return {}; }
+int UndertowProcessor::getNumPrograms() { return undertow::numFactoryPresets(); }
+int UndertowProcessor::getCurrentProgram() { return static_cast<int>(apvts_.state.getProperty("currentProgram", 0)); }
+void UndertowProcessor::setCurrentProgram(int index) {
+    const auto programCount = getNumPrograms();
+    if (index < 0 || index >= programCount)
+        return;
+
+    float values[undertow::kNumParams]{};
+    undertow::Pattern presetPattern = undertow::defaultPattern();
+    if (!undertow::factoryPreset(index, values, &presetPattern))
+        return;
+
+    for (int i = 0; i < undertow::kNumParams; ++i) {
+        auto* param = apvts_.getParameter(undertow::paramSpec(i).id);
+        if (param != nullptr)
+            param->setValueNotifyingHost(param->convertTo0to1(values[static_cast<std::size_t>(i)]));
+    }
+    engine_.setPattern(presetPattern);
+    apvts_.state.setProperty("currentProgram", index, nullptr);
+}
+const juce::String UndertowProcessor::getProgramName(int index) {
+    if (index < 0 || index >= getNumPrograms())
+        return {};
+    return juce::String(undertow::factoryPresetName(index));
+}
 void UndertowProcessor::changeProgramName(int, const juce::String&) {}
 
 void UndertowProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
@@ -153,6 +186,7 @@ void UndertowProcessor::setStateInformation(const void* data, int sizeInBytes) {
     if (auto xml = getXmlFromBinary(data, sizeInBytes)) {
         auto state = juce::ValueTree::fromXml(*xml);
         apvts_.replaceState(state);
+        updateParametersFromState(apvts_.state);
         undertow::Pattern pattern = undertow::defaultPattern();
         if (!readPatternFromXml(*xml, pattern))
             pattern = undertow::defaultPattern();
