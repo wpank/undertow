@@ -41,7 +41,7 @@ juce::Colour heatColour(float amount) {
 
 juce::String formatFrequency(float hz) {
     if (!(hz > 0.0f))
-        return "55.00";
+        return {};
     return juce::String(hz, 2);
 }
 
@@ -72,10 +72,13 @@ void Displays::advance(const UiFrame& frame, double seconds) {
     const float idleTarget = frame.note >= 0 ? 0.0f : 1.0f;
     noteFade_ += (noteTarget - noteFade_) * juce::jlimit(0.0f, 1.0f, dt * (frame.note >= 0 ? 10.0f : 4.0f));
     idleFade_ += (idleTarget - idleFade_) * juce::jlimit(0.0f, 1.0f, dt * 3.0f);
-    if (frame.note >= 0)
+    if (frame.note >= 0) {
         displayedNote_ = frame.note;
-    else if (noteFade_ < 0.02f)
+        displayedNoteHz_ = frame.noteHz;
+    } else if (noteFade_ < 0.02f) {
         displayedNote_ = -1;
+        displayedNoteHz_ = 0.0f;
+    }
 
     const auto beat = juce::jlimit(0, kPumpBeats - 1, static_cast<int>(std::floor(std::max(0.0, frame.ppq))) % kPumpBeats);
     const auto slice = juce::jlimit(0, kPumpSlices - 1, static_cast<int>(std::floor(std::max(0.0, frame.ppq * kPumpSlices))) % kPumpSlices);
@@ -279,11 +282,11 @@ void Displays::paintBone(juce::Graphics& g) const {
     g.setColour(undertow::ui::theme::bgVoid.withAlpha(0.18f * fade));
     g.fillRoundedRectangle(area.expanded(10.0f, 8.0f), 8.0f);
 
-    const auto numberFont = undertow::ui::theme::monoFont(38.0f, juce::Font::bold);
+    const auto numberFont = undertow::ui::theme::monoFont(56.0f, juce::Font::bold);
     const auto hzFont = undertow::ui::theme::monoFont(18.0f);
-    const auto readout = formatFrequency(frame_.noteHz);
-    const auto readoutWidth = juce::roundToInt(numberFont.getStringWidthFloat(readout));
-    const auto hzWidth = juce::roundToInt(hzFont.getStringWidthFloat("Hz"));
+    const auto readout = formatFrequency(displayedNoteHz_);
+    const auto readoutWidth = juce::GlyphArrangement::getStringWidth(numberFont, readout) + 6;
+    const auto hzWidth = juce::GlyphArrangement::getStringWidth(hzFont, "Hz");
     const auto baselineY = 418;
     const auto totalWidth = readoutWidth + 8 + hzWidth;
     const auto digitsLeft = static_cast<int>(std::round(area.getCentreX() - totalWidth * 0.5f));

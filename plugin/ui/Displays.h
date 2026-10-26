@@ -49,5 +49,6 @@ private:
     float noteFade_ = 0.0f;
     float idleFade_ = 1.0f;
     int displayedNote_ = -1;
+    float displayedNoteHz_ = 0.0f;
     std::array<std::array<float, 24>, 32> pumpHistory_{};
 };
