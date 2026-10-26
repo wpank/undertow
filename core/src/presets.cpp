@@ -154,9 +154,9 @@ static const PresetDef kPresets[] = {
     }()},
     {"RUMBLE Dark Room", "rumble-dark-room", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 0; v[param::OscLevel] = 0.82f; v[param::OscOctave] = -1; v[param::SubLevel] = 0.40f;
-        v[param::RumbleLevel] = 0.98f; v[param::RumbleSend] = 0.16f; v[param::RumbleKick] = 0.0f; v[param::RumbleDecay] = 4.0f; v[param::RumbleTone] = 82.0f; v[param::RumbleDrive] = 0.28f; v[param::RumbleDuck] = 0.10f;
-        v[param::MasterGain] = -6.5f; v[param::SeqOn] = 0; v[param::SatDrive] = 0.08f; v[param::Width] = 0.0f;
+        v[param::OscWave] = 0; v[param::OscLevel] = 0.82f; v[param::OscOctave] = -2; v[param::SubLevel] = 0.56f;
+        v[param::RumbleLevel] = 0.98f; v[param::RumbleSend] = 0.16f; v[param::RumbleKick] = 0.0f; v[param::RumbleDecay] = 4.0f; v[param::RumbleTone] = 68.0f; v[param::RumbleDrive] = 0.10f; v[param::RumbleDuck] = 0.10f;
+        v[param::MasterGain] = -11.4f; v[param::SeqOn] = 0; v[param::SatDrive] = 0.08f; v[param::Width] = 0.0f;
         return v;
     }(), makePattern(
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
