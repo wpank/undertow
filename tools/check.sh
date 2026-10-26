@@ -5,7 +5,8 @@
 #   tools/check.sh --plugin  also the plugin preset, its tests, and pluginval
 #
 # Once tools/render-demos.sh and tools/install.sh exist (phase 5), the core tests run after them: the demo and install
-# checks read what they write into build/demos and build/install-test.
+# checks read what they write into build/demos and build/install-test. install.sh builds the plugin preset's
+# Undertow_All, so even without --plugin the plugin preset is configured before it runs.
 #
 # Stops at the first failure with its exit code.
 set -euo pipefail
@@ -21,6 +22,7 @@ if [ -x tools/render-demos.sh ]; then
     tools/render-demos.sh
 fi
 if [ -x tools/install.sh ]; then
+    cmake --preset plugin
     tools/install.sh --dest build/install-test
 fi
 ctest --preset core
