@@ -286,7 +286,7 @@ void Displays::paintBone(juce::Graphics& g) const {
     const auto hzFont = undertow::ui::theme::monoFont(18.0f);
     const auto readout = formatFrequency(displayedNoteHz_);
     const auto readoutWidth = juce::GlyphArrangement::getStringWidth(numberFont, readout) + 6;
-    const auto hzWidth = juce::GlyphArrangement::getStringWidth(hzFont, "Hz");
+    const auto hzWidth = juce::GlyphArrangement::getStringWidth(hzFont, "Hz") + 6;
     const auto baselineY = 418;
     const auto totalWidth = readoutWidth + 8 + hzWidth;
     const auto digitsLeft = static_cast<int>(std::round(area.getCentreX() - totalWidth * 0.5f));
