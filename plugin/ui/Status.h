@@ -13,6 +13,8 @@ public:
     void paintOver(juce::Graphics& g);
 
 private:
+    void paintHeadText(juce::Graphics& g) const;
+
     UiFrame frame_{};
     double clockPhase_ = 0.0;
     double borderFlash_ = 0.0;

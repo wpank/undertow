@@ -225,6 +225,7 @@ std::vector<DrawnText> UndertowEditor::drawnTexts() {
     displays_.paint(g);
     status_.paint(g);
     paintControlText(g);
+    status_.paintOver(g);
     activeRecord = nullptr;
     return result;
 }

@@ -29,8 +29,16 @@ juce::Colour meterColour(float value) {
     return roseDeep.interpolatedWith(roseBright, clamp01(value));
 }
 
-void drawText(juce::Graphics& g, const juce::String& text, juce::Rectangle<int> box, juce::Justification justification) {
-    texts::draw(g, text, box, justification);
+juce::String liveText(bool active) {
+    return juce::String::fromUTF8(active ? u8"◉ LIVE" : u8"○ LIVE");
+}
+
+juce::String markText() {
+    return juce::String::fromUTF8(u8"⌈ U N D E R T O W ⌋");
+}
+
+juce::String clipLegend() {
+    return juce::String::fromUTF8(u8"⌈ CLIP ⌋  OUTPUT -0.3 dBFS");
 }
 
 } // namespace
@@ -47,6 +55,26 @@ void Status::advance(const UiFrame& frame, double seconds) {
     rumbleNeedle_ += (clamp01(frame.rumble) - rumbleNeedle_) * juce::jlimit(0.0f, 1.0f, dt * 8.0f);
 }
 
+void Status::paintHeadText(juce::Graphics& g) const {
+    using namespace undertow::ui::theme;
+
+    g.setFont(monoFont(11.0f));
+    g.setColour(roseDim);
+    texts::draw(g, juce::String::fromUTF8(u8"METAKOSMIA"), juce::Rectangle<int>(22, 17, 118, 12), juce::Justification::centredLeft);
+
+    g.setColour(rose);
+    texts::draw(g, markText(), juce::Rectangle<int>(142, 17, 192, 12), juce::Justification::centredLeft);
+
+    g.setFont(monoFont(13.0f, juce::Font::bold));
+    g.setColour(textPrimary);
+    texts::draw(g, formatTempo(frame_.bpm), juce::Rectangle<int>(360, 12, 96, 18), juce::Justification::centredLeft);
+    texts::draw(g, formatBeat(frame_.ppq), juce::Rectangle<int>(456, 12, 126, 18), juce::Justification::centred);
+
+    g.setColour(frame_.hostClock ? rose : dream);
+    texts::draw(g, frame_.hostClock ? "HOST" : "INT", juce::Rectangle<int>(582, 12, 56, 18), juce::Justification::centredLeft);
+    texts::draw(g, liveText(frame_.energy > 0.001f), juce::Rectangle<int>(960, 12, 96, 18), juce::Justification::centredLeft);
+}
+
 void Status::paint(juce::Graphics& g) {
     using namespace undertow::ui::theme;
     const auto head = headBounds;
@@ -54,23 +82,7 @@ void Status::paint(juce::Graphics& g) {
     g.setColour(bgVoid);
     g.fillRect(head);
 
-    const auto leftMark = juce::Rectangle<int>(22, 8, 156, 22);
-    g.setColour(roseDim);
-    g.setFont(monoFont(11.0f));
-    drawText(g, "METAKOSMIA", leftMark, juce::Justification::centredLeft);
-    g.setColour(rose);
-    drawText(g, "⌈ U N D E R T O W ⌋", leftMark.translated(0, 18), juce::Justification::centredLeft);
-
-    juce::Rectangle<int> clockArea(360, 6, 360, 30);
-    g.setColour(textPrimary);
-    g.setFont(monoFont(13.0f, juce::Font::bold));
-    auto tempoBox = clockArea.removeFromLeft(104);
-    auto beatBox = clockArea.removeFromLeft(128);
-    auto badgeBox = clockArea.removeFromLeft(48);
-    drawText(g, formatTempo(frame_.bpm), tempoBox, juce::Justification::centredLeft);
-    drawText(g, formatBeat(frame_.ppq), beatBox, juce::Justification::centred);
-    g.setColour(frame_.hostClock ? rose : dream);
-    drawText(g, frame_.hostClock ? "HOST" : "INT", badgeBox, juce::Justification::centredLeft);
+    paintHeadText(g);
 
     const auto meter = juce::Rectangle<int>(1002, 10, 10, 20);
     g.setColour(bgVoid);
@@ -78,12 +90,8 @@ void Status::paint(juce::Graphics& g) {
     g.setColour(roseDim);
     g.fillRect(juce::Rectangle<int>(1004, 12, 2, 16));
     g.setColour(meterColour(meterNeedle_));
-    g.fillRect(juce::Rectangle<int>(1004, 12, 2, juce::roundToInt(16.0f * meterNeedle_)));
-
-    const auto liveLamp = juce::Rectangle<int>(1040, 8, 126, 22);
-    g.setColour(textPrimary);
-    g.setFont(monoFont(13.0f, juce::Font::bold));
-    drawText(g, (frame_.energy > 0.002f ? "◉ LIVE" : "○ LIVE"), liveLamp, juce::Justification::centredLeft);
+    const auto meterHeight = juce::roundToInt(16.0f * meterNeedle_);
+    g.fillRect(juce::Rectangle<int>(1004, 28 - meterHeight, 2, meterHeight));
 }
 
 void Status::paintOver(juce::Graphics& g) {
@@ -92,9 +100,12 @@ void Status::paintOver(juce::Graphics& g) {
 
     using namespace undertow::ui::theme;
     const auto flash = 0.32f + 0.68f * static_cast<float>(borderFlash_);
-    g.setColour(roseBright.withAlpha(0.32f * flash));
-    g.fillRect(topHazardBounds);
-    g.fillRect(bottomHazardBounds);
+    const auto topBand = topHazardBounds;
+    const auto bottomBand = bottomHazardBounds;
+
+    g.setColour(roseBright.withAlpha(0.20f * flash));
+    g.fillRect(topBand);
+    g.fillRect(bottomBand);
 
     const auto drawStripes = [&](const juce::Rectangle<int>& area) {
         g.saveState();
@@ -102,19 +113,25 @@ void Status::paintOver(juce::Graphics& g) {
         g.setColour(roseBright.withAlpha(0.92f));
         for (int x = area.getX() - 40; x < area.getRight() + 40; x += 24) {
             juce::Path stripe;
-            stripe.startNewSubPath(static_cast<float>(x), static_cast<float>(area.getBottom()));
-            stripe.lineTo(static_cast<float>(x + 14), static_cast<float>(area.getBottom()));
-            stripe.lineTo(static_cast<float>(x + 38), static_cast<float>(area.getY()));
-            stripe.lineTo(static_cast<float>(x + 24), static_cast<float>(area.getY()));
+            const auto offset = static_cast<int>(std::fmod(stripeOffset_, 24.0));
+            const auto sx = x + offset;
+            stripe.startNewSubPath(static_cast<float>(sx), static_cast<float>(area.getBottom()));
+            stripe.lineTo(static_cast<float>(sx + 14), static_cast<float>(area.getBottom()));
+            stripe.lineTo(static_cast<float>(sx + 38), static_cast<float>(area.getY()));
+            stripe.lineTo(static_cast<float>(sx + 24), static_cast<float>(area.getY()));
             stripe.closeSubPath();
             g.fillPath(stripe);
         }
         g.restoreState();
     };
 
-    drawStripes(topHazardBounds.expanded(0, 8));
-    drawStripes(bottomHazardBounds.expanded(0, 8));
+    drawStripes(topBand);
+    drawStripes(bottomBand);
 
-    g.setColour(roseBright.withAlpha(0.18f + 0.18f * flash));
-    g.drawRect(juce::Rectangle<int>(0, 0, headBounds.getWidth(), headBounds.getHeight()), 2);
+    const auto legendPlate = juce::Rectangle<int>(430, 0, 340, 16).reduced(12, 0);
+    g.setColour(bgVoid);
+    g.fillRect(legendPlate);
+    g.setFont(monoFont(10.0f));
+    g.setColour(roseBright);
+    texts::draw(g, clipLegend(), juce::Rectangle<int>(430, 0, 340, 16), juce::Justification::centred);
 }

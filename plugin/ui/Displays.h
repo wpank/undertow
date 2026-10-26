@@ -33,6 +33,7 @@ private:
     void paintTunnel(juce::Graphics&) const;
     void paintAtField(juce::Graphics&) const;
     void paintScope(juce::Graphics&) const;
+    void paintPumpField(juce::Graphics&) const;
     void paintBone(juce::Graphics&) const;
 
     std::vector<TunnelSample> tunnelTable_;
@@ -48,4 +49,5 @@ private:
     float noteFade_ = 0.0f;
     float idleFade_ = 1.0f;
     int displayedNote_ = -1;
+    std::array<std::array<float, 24>, 32> pumpHistory_{};
 };
