@@ -111,6 +111,7 @@ signing only), an installer package.
      `artifacts/audio/`: `init.wav`, `sub-pure-foundation.wav`, `bass-hypnotic-roller.wav` and `rumble-dark-room.wav`
      (48 kHz, 24-bit stereo, about 4.3 MB each, under 5 MB). Exits non-zero if any render fails. The task commits the
      four `artifacts/audio` files.
+   - The script is committed executable (`chmod +x`; git mode 100755), since the checks run it directly.
 
 5. **The install script** (`tools/install.sh`)
    - Builds the plugin preset's `Undertow_All` target, then copies `Metakosmia Undertow.vst3` to
@@ -121,6 +122,7 @@ signing only), an installer package.
      `<dir>/Components` and `<dir>/Applications` instead (for tests) and leaves the system alone (no rescan);
      `--uninstall` removes the installed copies. The checks run it only with `--dest`; installing for real is the
      person's step (below).
+   - The script is committed executable (`chmod +x`; git mode 100755), since the checks run it directly.
 
 6. **The top of the resonance knob** (`core/include/undertow/filter.h`, `core/src/filter.cpp`)
    - Phase 2.2's resonance curve stops at Q 10 in its resonant stage (damping floored at 0.1): a quiet tone at the
@@ -247,7 +249,9 @@ Checks that share a command are one verify step: the table repeats the command o
   3. **The offline renderer** (`tools/render/main.cpp`, `tools/render/CMakeLists.txt`, the top-level `CMakeLists.txt`):
      P5.05. Needs task 1.
   4. **The demo renders** (`tools/render-demos.sh`): P5.06. Needs task 3. It commits the four `artifacts/audio` WAVs.
-  5. **The install script** (`tools/install.sh`): P5.07. Needs tasks 2 to 4.
+     The script is committed executable (`chmod +x`; git mode 100755), since the checks run it directly.
+  5. **The install script** (`tools/install.sh`): P5.07. Needs tasks 2 to 4. The script is committed executable
+     (`chmod +x`; git mode 100755), since the checks run it directly.
   6. **The top of the resonance knob** (`core/include/undertow/filter.h`, `core/src/filter.cpp`): P5.10, and the
      regression checks P5.11 and P5.12 (`expect = "pass_on_base"`). About 10 lines. It shares no file with the other
      tasks, so it runs in parallel with them.
