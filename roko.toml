@@ -643,15 +643,18 @@ cost_input_per_m = 0.35
 cost_output_per_m = 0.75
 cost_cache_read_per_m = 0.35
 
-[models.glm-4-7]
-provider = "zai"
-slug = "glm-4.7"
-context_window = 128000
-max_output = 32768
-tool_format = "openai_json"
-cost_input_per_m = 0.6
-cost_output_per_m = 2.2
-cost_cache_read_per_m = 0.11
+# z.ai has no balance (1113) until Will recharges; restore then. While configured, glm-4-7 is the cheapest model
+# roko's helper calls can pick, so each gate failure's error enrichment went there and failed Exhausted (phase 4.2
+# run 1447385e, phase 4.3 run 3752b8ff). With it out, the helper uses gpt-5-4-mini.
+# [models.glm-4-7]
+# provider = "zai"
+# slug = "glm-4.7"
+# context_window = 128000
+# max_output = 32768
+# tool_format = "openai_json"
+# cost_input_per_m = 0.6
+# cost_output_per_m = 2.2
+# cost_cache_read_per_m = 0.11
 
 [models.gpt-5-4-mini]
 provider = "openai"
