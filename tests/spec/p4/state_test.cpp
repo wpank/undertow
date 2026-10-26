@@ -64,4 +64,10 @@ TEST_CASE("P4.02 the engine keeps its pattern through reset and prepare") {
     std::vector<float> left(256), right(256);
     engine.process(left.data(), right.data(), 256, nullptr, 0, {});
     CHECK_MESSAGE(engine.pattern() == pattern, "after prepare and one block the engine must still be using the pattern");
+    // The audio thread has taken the pattern now: a new prepare must keep it too (a sample-rate change mid-session),
+    // so the default belongs in a new engine, never in reset().
+    engine.prepare(48000.0, 256);
+    engine.process(left.data(), right.data(), 256, nullptr, 0, {});
+    CHECK_MESSAGE(engine.pattern() == pattern, "the pattern in use must survive a later prepare and play on; after prepare and a "
+                                               "block the engine went back to another (is the default set in reset()?)");
 }
