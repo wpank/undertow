@@ -77,7 +77,8 @@ static float hashRandom(int seed, int k) {
     h ^= h >> 15;
     h *= 0x27d4eb2du;
     h ^= h >> 15;
-    return static_cast<float>(h) / 4294967296.0f;
+    // Keep the draw strictly below 1.0 while preserving the same ordering of hashes.
+    return static_cast<float>(h >> 8) * (1.0f / 16777216.0f);
 }
 
 // Deterministic hash for mutate: depends on seed, mutation count, and step.
@@ -90,7 +91,7 @@ static std::uint32_t mutateHash(int seed, int mc, int step) {
 }
 
 static float mutateRandom(int seed, int mc, int step) {
-    return static_cast<float>(mutateHash(seed, mc, step)) / 4294967296.0f;
+    return static_cast<float>(mutateHash(seed, mc, step) >> 8) * (1.0f / 16777216.0f);
 }
 
 // Emit an event if there is room.
