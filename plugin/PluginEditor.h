@@ -5,12 +5,14 @@
 #include "ui/Displays.h"
 #include "ui/Look.h"
 #include "ui/Status.h"
+#include "ui/Texts.h"
 #include "ui/Theme.h"
 #include "ui/UiFrame.h"
 #include "ui/UnitArray.h"
 
 #include <array>
 #include <memory>
+#include <vector>
 
 class UndertowProcessor;
 
@@ -28,6 +30,7 @@ public:
     int stepAt(juce::Point<int> point) const;
     void editStep(int index, StepEdit edit);
     juce::Component* controlFor(const juce::String& parameterId) const;
+    std::vector<DrawnText> drawnTexts();
 
     void paint(juce::Graphics&) override;
     void paintOverChildren(juce::Graphics&) override;
@@ -38,6 +41,7 @@ private:
 
     void timerCallback() override;
     void initialiseControls();
+    void paintControlText(juce::Graphics&);
 
     UndertowProcessor& processor_;
     Look look_;
