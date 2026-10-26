@@ -51,7 +51,7 @@ void Status::paint(juce::Graphics& g) {
     g.fillRoundedRectangle(needleBox, 8.0f);
     g.setColour(border.withAlpha(0.7f));
     g.drawRoundedRectangle(needleBox, 8.0f, 1.0f);
-    g.setColour(bone);
+    g.setColour(textPrimary);
     g.setFont(monoFont(16.0f, juce::Font::bold));
     g.drawText(juce::String(frame_.bpm, 0) + " BPM", needleBox.toNearestInt(), juce::Justification::centred, false);
 
@@ -77,7 +77,7 @@ void Status::paint(juce::Graphics& g) {
         g.setColour(roseEmber.interpolatedWith(roseBright, amp).withAlpha(0.12f + amp * 0.34f));
         g.drawVerticalLine(juce::roundToInt(x), pump.getY(), pump.getBottom());
     }
-    g.setColour(bone.withAlpha(0.88f));
+    g.setColour(roseDim);
     g.setFont(sansFont(14.0f, juce::Font::bold));
     g.drawText("RUMBLE", pump.toNearestInt(), juce::Justification::centredLeft, false);
 }

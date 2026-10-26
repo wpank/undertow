@@ -14,13 +14,13 @@ juce::Colour tinted(juce::Colour c, float alpha) { return c.withAlpha(alpha); }
 Look::Look() {
     setColour(juce::Slider::rotarySliderFillColourId, undertow::ui::theme::rose);
     setColour(juce::Slider::rotarySliderOutlineColourId, undertow::ui::theme::roseDeep);
-    setColour(juce::Slider::thumbColourId, undertow::ui::theme::boneDim);
+    setColour(juce::Slider::thumbColourId, undertow::ui::theme::rose);
     setColour(juce::Slider::textBoxTextColourId, undertow::ui::theme::textPrimary);
     setColour(juce::Slider::textBoxOutlineColourId, undertow::ui::theme::border);
     setColour(juce::Slider::textBoxBackgroundColourId, undertow::ui::theme::bgRaised);
     setColour(juce::ToggleButton::textColourId, undertow::ui::theme::textPrimary);
     setColour(juce::ToggleButton::tickColourId, undertow::ui::theme::roseBright);
-    setColour(juce::TooltipWindow::textColourId, undertow::ui::theme::boneDim);
+    setColour(juce::TooltipWindow::textColourId, undertow::ui::theme::textPrimary);
 }
 
 void Look::install(juce::Component& component) {
@@ -59,7 +59,7 @@ void Look::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int heig
     juce::Path arc;
     arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, rotaryStartAngle, angle, true);
     g.strokePath(arc, juce::PathStrokeType(2.0f));
-    g.setColour(undertow::ui::theme::boneDim);
+    g.setColour(undertow::ui::theme::rose);
     g.drawLine(centre.x, centre.y, centre.x + std::cos(angle) * (radius - 4.0f),
                centre.y + std::sin(angle) * (radius - 4.0f), 2.0f);
 }
