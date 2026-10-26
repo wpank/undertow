@@ -239,16 +239,17 @@ host parameters (phase 3).
 | 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 7 tasks, about 1000 lines |
 | 4.1 | `specs/phase-4.1-bone.md` | Bone only for the one number: phase 4's knob ticks, knob thumb, tooltips, clock readout and rumble label back to the ROSEDUST tokens, and the review images made again | 4 | S: 1 task, about 5 lines and three images |
 | 4.2 | `specs/phase-4.2-layout.md` | The editor laid out as designed: the eight panels with labelled 40 px knobs, formatted readouts on hover, the stamps, the HEAD, the pitch as the bone number in the CHEST's lower third; a hook listing every drawn word; a new instance plays the default bassline again | 4.1 | M: 3 tasks, about 400 lines |
+| 4.3 | `specs/phase-4.3-finish.md` | The editor's finish: the limbs' knobs where the mock puts them, MOD/05's nine fitting it; the HEAD's words in Unicode on one line; 16 px clip bands with their legend, the clock and the values readable while clipping; `Hz` on the number's baseline below the scope; the rumble pump field back; the review images made again | 4.2 | S: 2 tasks, about 150 lines and three images |
 | 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand), the top of the resonance knob | 4 | M: 6 tasks, about 710 lines |
 
 ```text
- phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 5
+ phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5
                     └──► phase 3 ──────────────────────────────┘
 ```
 
-Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 5. Phases 2 and 3 are independent in their DSP and could run in
-parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so in parallel they
-end in a merge there.
+Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5. Phases 2 and 3 are independent in their DSP and
+could run in parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`, so in
+parallel they end in a merge there.
 
 ## 6. How the checks work
 
