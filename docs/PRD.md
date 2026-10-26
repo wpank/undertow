@@ -238,7 +238,7 @@ host parameters (phase 3).
 | 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
 | 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 7 tasks, about 1000 lines |
 | 4.1 | `specs/phase-4.1-bone.md` | Bone only for the one number: phase 4's knob ticks, knob thumb, tooltips, clock readout and rumble label back to the ROSEDUST tokens, and the review images made again | 4 | S: 1 task, about 5 lines and three images |
-| 4.2 | `specs/phase-4.2-layout.md` | The editor laid out as designed: the eight panels with labelled 40 px knobs, formatted readouts on hover, the stamps, the HEAD, the pitch as the bone number in the CHEST's lower third; a hook listing every drawn word | 4.1 | M: 2 tasks, about 400 lines |
+| 4.2 | `specs/phase-4.2-layout.md` | The editor laid out as designed: the eight panels with labelled 40 px knobs, formatted readouts on hover, the stamps, the HEAD, the pitch as the bone number in the CHEST's lower third; a hook listing every drawn word; a new instance plays the default bassline again | 4.1 | M: 3 tasks, about 400 lines |
 | 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand), the top of the resonance knob | 4 | M: 6 tasks, about 710 lines |
 
 ```text
