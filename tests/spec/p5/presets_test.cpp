@@ -28,7 +28,8 @@ std::string categoryOf(const std::string& name) {
     return "";
 }
 
-// Render a preset for 2 bars at 128 BPM from beat 0, holding A2 (45) when its sequencer is off.
+// Render a preset for 2 bars at 128 BPM from beat 0, holding A2 (45) at velocity 100, an accented note, when its
+// sequencer is off.
 spec::Stereo renderPreset(int index) {
     spec::Params values{};
     undertow::Pattern pattern;
@@ -146,7 +147,8 @@ TEST_CASE("P5.03 each category sounds like itself") {
 
 TEST_CASE("P5.09 the presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level") {
     // Browsing from one preset to the next, none should sound weak or hot. -18 dBFS RMS is where the init patch
-    // renders (at the -14 dB master default), and it keeps most peaks under the clipper's knee.
+    // renders holding A2 at velocity 100, accented (at the -14 dB master default; 3.2 dB lower at a plain velocity),
+    // and it keeps most peaks under the clipper's knee.
     for (int i = 0; i < undertow::numFactoryPresets(); ++i) {
         const std::string name = undertow::factoryPresetName(i);
         INFO("preset \"" << name << "\"");
