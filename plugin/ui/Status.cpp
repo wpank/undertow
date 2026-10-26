@@ -1,6 +1,7 @@
 #include "Status.h"
 
 #include "Theme.h"
+#include "Texts.h"
 
 #include <algorithm>
 #include <cmath>
@@ -11,9 +12,25 @@ float clamp01(float value) {
     return juce::jlimit(0.0f, 1.0f, value);
 }
 
+juce::String formatTempo(float bpm) {
+    return juce::String(bpm, 1) + " BPM";
+}
+
+juce::String formatBeat(double ppq) {
+    const auto beats = std::max(0.0, ppq);
+    const auto bar = static_cast<int>(std::floor(beats / 4.0)) + 1;
+    const auto beat = static_cast<int>(std::floor(std::fmod(beats, 4.0))) + 1;
+    const auto sixteenth = static_cast<int>(std::floor(std::fmod(beats * 4.0, 4.0))) + 1;
+    return juce::String::formatted("%03d.%d.%d", bar, beat, sixteenth);
+}
+
 juce::Colour meterColour(float value) {
     using namespace undertow::ui::theme;
-    return roseDeep.interpolatedWith(rose, clamp01(value));
+    return roseDeep.interpolatedWith(roseBright, clamp01(value));
+}
+
+void drawText(juce::Graphics& g, const juce::String& text, juce::Rectangle<int> box, juce::Justification justification) {
+    texts::draw(g, text, box, justification);
 }
 
 } // namespace
@@ -37,49 +54,36 @@ void Status::paint(juce::Graphics& g) {
     g.setColour(bgVoid);
     g.fillRect(head);
 
-    auto clock = juce::Rectangle<float>(36.0f, 8.0f, 136.0f, 28.0f);
-    g.setColour(bgRaised.withAlpha(0.92f));
-    g.fillRoundedRectangle(clock, 8.0f);
-    g.setColour(border.withAlpha(0.7f));
-    g.drawRoundedRectangle(clock, 8.0f, 1.0f);
-    g.setColour(rose.withAlpha(0.9f));
-    g.setFont(sansFont(16.0f, juce::Font::bold));
-    g.drawText(frame_.hostClock ? "HEAD / HOST" : "HEAD / FREE", clock.toNearestInt(), juce::Justification::centredLeft, false);
+    const auto leftMark = juce::Rectangle<int>(22, 8, 156, 22);
+    g.setColour(roseDim);
+    g.setFont(monoFont(11.0f));
+    drawText(g, "METAKOSMIA", leftMark, juce::Justification::centredLeft);
+    g.setColour(rose);
+    drawText(g, "⌈ U N D E R T O W ⌋", leftMark.translated(0, 18), juce::Justification::centredLeft);
 
-    const auto needleBox = juce::Rectangle<float>(196.0f, 8.0f, 84.0f, 28.0f);
-    g.setColour(bgRaised.withAlpha(0.92f));
-    g.fillRoundedRectangle(needleBox, 8.0f);
-    g.setColour(border.withAlpha(0.7f));
-    g.drawRoundedRectangle(needleBox, 8.0f, 1.0f);
+    juce::Rectangle<int> clockArea(360, 6, 360, 30);
     g.setColour(textPrimary);
-    g.setFont(monoFont(16.0f, juce::Font::bold));
-    g.drawText(juce::String(frame_.bpm, 0) + " BPM", needleBox.toNearestInt(), juce::Justification::centred, false);
+    g.setFont(monoFont(13.0f, juce::Font::bold));
+    auto tempoBox = clockArea.removeFromLeft(104);
+    auto beatBox = clockArea.removeFromLeft(128);
+    auto badgeBox = clockArea.removeFromLeft(48);
+    drawText(g, formatTempo(frame_.bpm), tempoBox, juce::Justification::centredLeft);
+    drawText(g, formatBeat(frame_.ppq), beatBox, juce::Justification::centred);
+    g.setColour(frame_.hostClock ? rose : dream);
+    drawText(g, frame_.hostClock ? "HOST" : "INT", badgeBox, juce::Justification::centredLeft);
 
-    const auto meter = juce::Rectangle<float>(304.0f, 8.0f, 184.0f, 28.0f);
-    g.setColour(bgRaised.withAlpha(0.92f));
-    g.fillRoundedRectangle(meter, 8.0f);
-    g.setColour(border.withAlpha(0.7f));
-    g.drawRoundedRectangle(meter, 8.0f, 1.0f);
+    const auto meter = juce::Rectangle<int>(1002, 10, 10, 20);
+    g.setColour(bgVoid);
+    g.fillRect(meter);
     g.setColour(roseDim);
-    g.fillRect(meter.reduced(10.0f, 10.0f));
+    g.fillRect(juce::Rectangle<int>(1004, 12, 2, 16));
     g.setColour(meterColour(meterNeedle_));
-    g.fillRect(meter.withWidth(meter.getWidth() * meterNeedle_).reduced(10.0f, 10.0f));
+    g.fillRect(juce::Rectangle<int>(1004, 12, 2, juce::roundToInt(16.0f * meterNeedle_)));
 
-    const auto pump = juce::Rectangle<float>(520.0f, 8.0f, 420.0f, 28.0f);
-    g.setColour(bgRaised.withAlpha(0.92f));
-    g.fillRoundedRectangle(pump, 8.0f);
-    g.setColour(border.withAlpha(0.7f));
-    g.drawRoundedRectangle(pump, 8.0f, 1.0f);
-    for (int i = 0; i < 28; ++i) {
-        const float phase = std::fmod(static_cast<float>(stripeOffset_) + i * 8.0f + static_cast<float>(frame_.ppq) * 6.0f, 40.0f) / 40.0f;
-        const float x = pump.getX() + phase * pump.getWidth();
-        const float amp = 0.35f + 0.65f * rumbleNeedle_;
-        g.setColour(roseEmber.interpolatedWith(roseBright, amp).withAlpha(0.12f + amp * 0.34f));
-        g.drawVerticalLine(juce::roundToInt(x), pump.getY(), pump.getBottom());
-    }
-    g.setColour(roseDim);
-    g.setFont(sansFont(14.0f, juce::Font::bold));
-    g.drawText("RUMBLE", pump.toNearestInt(), juce::Justification::centredLeft, false);
+    const auto liveLamp = juce::Rectangle<int>(1040, 8, 126, 22);
+    g.setColour(textPrimary);
+    g.setFont(monoFont(13.0f, juce::Font::bold));
+    drawText(g, (frame_.energy > 0.002f ? "◉ LIVE" : "○ LIVE"), liveLamp, juce::Justification::centredLeft);
 }
 
 void Status::paintOver(juce::Graphics& g) {

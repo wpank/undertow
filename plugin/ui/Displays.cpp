@@ -1,5 +1,7 @@
 #include "Displays.h"
 
+#include "Texts.h"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -36,10 +38,18 @@ juce::Colour heatColour(float amount) {
     return roseEmber.interpolatedWith(rose, (clamped - 0.66f) / 0.34f);
 }
 
-juce::String noteLabel(int midiNote) {
+juce::String formatFrequency(float hz) {
+    if (!(hz > 0.0f))
+        return "0.00";
+    return juce::String(hz, 2);
+}
+
+juce::String noteName(int midiNote) {
+    static constexpr std::array<const char*, 12> kNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     if (midiNote < 0)
         return {};
-    return juce::String(midiNote);
+    const int octave = midiNote / 12 - 1;
+    return juce::String(kNames[static_cast<std::size_t>(midiNote % 12)]) + juce::String(octave);
 }
 
 } // namespace
@@ -224,18 +234,21 @@ void Displays::paintBone(juce::Graphics& g) const {
         return;
 
     const auto chest = undertow::ui::theme::chestBounds;
-    auto area = juce::Rectangle<float>(chest.getX() + 170.0f, chest.getY() + 54.0f, 236.0f, 92.0f);
+    const auto pitchY = chest.getY() + chest.getHeight() * 0.72f;
+    auto area = juce::Rectangle<float>(chest.getX() + 166.0f, pitchY - 34.0f, 244.0f, 102.0f);
+
+
     const float fade = easeOut(noteFade_);
     g.setColour(undertow::ui::theme::bgVoid.withAlpha(0.18f * fade));
     g.fillRoundedRectangle(area.expanded(10.0f, 8.0f), 8.0f);
 
     g.setColour(undertow::ui::theme::bone.withAlpha(0.96f * fade));
-    g.setFont(undertow::ui::theme::monoFont(72.0f, juce::Font::bold));
-    g.drawFittedText(noteLabel(displayedNote_), area.toNearestInt(), juce::Justification::centred, 1);
+    g.setFont(undertow::ui::theme::monoFont(56.0f, juce::Font::bold));
+    texts::draw(g, formatFrequency(frame_.noteHz), area.withHeight(38.0f).toNearestInt(), juce::Justification::centred);
 
-    if (frame_.noteHz > 0.0f) {
-        g.setColour(undertow::ui::theme::boneDim.withAlpha(0.8f * fade));
-        g.setFont(undertow::ui::theme::monoFont(18.0f));
-        g.drawFittedText(juce::String(frame_.noteHz, 1) + " HZ", area.withTrimmedTop(58.0f).toNearestInt(), juce::Justification::centredBottom, 1);
-    }
+    g.setColour(undertow::ui::theme::boneDim.withAlpha(0.88f * fade));
+    g.setFont(undertow::ui::theme::monoFont(18.0f));
+    texts::draw(g, "Hz", area.withY(area.getY() + 34.0f).withHeight(20.0f).toNearestInt(), juce::Justification::centredLeft);
+    texts::draw(g, noteName(displayedNote_), area.withY(area.getBottom() - 24.0f).withHeight(20.0f).toNearestInt(), juce::Justification::centred);
+
 }
