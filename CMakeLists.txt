@@ -19,6 +19,8 @@ if(UNDERTOW_BUILD_PLUGIN)
     add_subdirectory(plugin)
 endif()
 
+add_subdirectory(tools/render)
+
 if(BUILD_TESTING)
     add_subdirectory(tests/spec)
 endif()
