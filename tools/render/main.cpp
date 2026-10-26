@@ -18,7 +18,7 @@
 namespace {
 
 using undertow::Engine;
-using undertow::Meters;
+using undertow::MidiEvent;
 using undertow::Pattern;
 using undertow::Transport;
 
@@ -118,11 +118,12 @@ int presetIndexFromOption(std::string_view preset) {
     return undertow::findFactoryPreset(preset);
 }
 
-bool loadPreset(const Options& options, Engine& engine, Pattern& pattern, std::string& error) {
+bool loadPreset(const Options& options, Engine& engine, Pattern& pattern, bool& sequenced, std::string& error) {
     const int index = presetIndexFromOption(options.preset);
     if (index == -2) {
         for (int i = 0; i < undertow::kNumParams; ++i) engine.setParam(i, undertow::paramSpec(i).def);
         pattern = undertow::defaultPattern();
+        sequenced = undertow::paramSpec(undertow::findParam("seq_on")).def >= 0.5f;
         engine.setPattern(pattern);
         return true;
     }
@@ -136,6 +137,7 @@ bool loadPreset(const Options& options, Engine& engine, Pattern& pattern, std::s
         return false;
     }
     for (int i = 0; i < undertow::kNumParams; ++i) engine.setParam(i, values[static_cast<std::size_t>(i)]);
+    sequenced = values[static_cast<std::size_t>(undertow::findParam("seq_on"))] >= 0.5f;
     engine.setPattern(pattern);
     return true;
 }
@@ -197,11 +199,15 @@ int main(int argc, char** argv) {
     Engine engine;
     engine.prepare(options.sampleRate, 512);
     Pattern pattern;
-    if (!loadPreset(options, engine, pattern, error)) {
+    bool sequenced = false;
+    if (!loadPreset(options, engine, pattern, sequenced, error)) {
         std::cerr << "error: " << error << '\n';
         return 1;
     }
+    engine.reset();
 
+    constexpr int kPrepareBlock = 512;
+    const bool holdNote = !sequenced;
     const int framesPerBar = static_cast<int>(std::llround(options.sampleRate * 4.0 * 60.0 / options.bpm));
     const int totalFrames = framesPerBar * options.bars;
     std::vector<float> left(static_cast<std::size_t>(totalFrames));
@@ -212,9 +218,30 @@ int main(int argc, char** argv) {
     transport.playing = true;
     transport.bpm = options.bpm;
     transport.ppq = 0.0;
-    engine.process(left.data(), right.data(), totalFrames, nullptr, 0, transport);
 
-    Meters meters = engine.meters();
+    std::vector<MidiEvent> events;
+    if (holdNote) events.push_back({0, 0x90, static_cast<std::uint8_t>(options.note), 100});
+
+    int remaining = totalFrames;
+    int offset = 0;
+    std::size_t nextEvent = 0;
+    while (remaining > 0) {
+        const int block = std::min(remaining, kPrepareBlock);
+        std::vector<MidiEvent> blockEvents;
+        while (nextEvent < events.size() && events[nextEvent].sampleOffset < offset + block) {
+            MidiEvent event = events[nextEvent++];
+            event.sampleOffset -= offset;
+            blockEvents.push_back(event);
+        }
+        engine.process(left.data() + offset, right.data() + offset, block, blockEvents.data(), static_cast<int>(blockEvents.size()), transport);
+        if (transport.valid && transport.playing) transport.ppq += static_cast<double>(block) / options.sampleRate * options.bpm / 60.0;
+        offset += block;
+        remaining -= block;
+        if (nextEvent == events.size() && blockEvents.empty()) {
+            // Hold the initial note for the full render when the sequencer is off.
+        }
+    }
+
     double peakDb = -std::numeric_limits<double>::infinity();
     double rmsDb = -std::numeric_limits<double>::infinity();
     double peak = 0.0;
@@ -235,6 +262,5 @@ int main(int argc, char** argv) {
     std::cout << std::fixed << std::setprecision(1)
               << "wrote " << options.out << ": " << totalFrames
               << " frames, peak " << peakDb << " dBFS, rms " << rmsDb << " dBFS\n";
-    (void)meters;
     return 0;
 }
