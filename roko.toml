@@ -28,7 +28,9 @@ mode = "ephemeral"
 [agent.defaults]
 
 [authoring]
-planner_model = ""
+# Plans are written on gpt-5.4-mini from phase 4.3 on (the plan writing's distiller follows it). Phase 4.2's writing
+# made 3 gpt-5.4 calls, two of them regenerations, for $0.42 of its $0.47; phase 3's re-plan on mini was 1 call, $0.07.
+planner_model = "gpt-5-4-mini"
 max_generation_usd = 2.0
 
 [spec_quality]
@@ -524,7 +526,9 @@ sandbox_level = "restrict"
 dispatch_max_retries = 5
 warm_pool_size = 2
 warm_pool_idle_timeout_secs = 300
-log_prompts = false
+# Each task attempt's system and user prompt goes to .roko/prompt-logs/ (ignored by git; the newest 100 stay), so
+# a retry's feedback can be read as its agent got it (roko bug-3e3d08). Plan writing keeps no prompt log.
+log_prompts = true
 prompt_log_retention = 100
 delete_attempt_branches = false
 worktree_per_task = true
