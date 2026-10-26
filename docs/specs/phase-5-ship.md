@@ -5,7 +5,7 @@ programs; an offline renderer and demo renders anyone can listen to; strict vali
 10); and an install script that puts signed bundles where FL Studio and the Finder find them (the checks install into
 a test folder; installing for the person is their step, at the end).
 
-**Depends on**: phase 4.
+**Depends on**: phase 4.2 (merged): phase 4's editor laid out as designed, on phase 4 and 4.1.
 
 **Size**: M, 7 tasks, about 715 lines (most of it preset values).
 
