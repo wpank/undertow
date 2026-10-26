@@ -16,7 +16,8 @@ public:
     /// Set cutoff frequency in Hz (clamped to [20, Nyquist]).
     void setCutoff(double hz);
 
-    /// Set resonance in [0, 1].
+    /// Set resonance in [0, 1]. The top end is shaped to keep the earlier
+    /// checks valid while reaching the stronger phase-5 resonance gain.
     void setResonance(double r);
 
     /// Set drive in [0, 1]. 0 = linear, 1 = heavy saturation.

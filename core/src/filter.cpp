@@ -79,14 +79,15 @@ float LowpassFilter::process(float input) {
     }
 
     // ---- Resonance → per-stage damping ----
-    // At resonance=0 both stages have Butterworth damping: k1=0.7654, k2=1.8478.
-    // The curve is reshaped upward through the middle of the knob so the peak
-    // develops musically before the top end, while preserving the same stable
-    // endpoint and keeping stage 2 at Butterworth.
+    // Preserve the phase-2.2 middle-of-knob response, but let the top end
+    // continue increasing so phase 5 reaches the stronger resonance gain.
+    // The curve is piecewise linear in dB: the early segment stays aligned with
+    // the earlier checks, and the upper segment steepens toward the endpoint.
     const float resonance = static_cast<float>(resonance_);
-    const float mid = resonance * resonance * (3.0f - 2.0f * resonance);
-    const float peak = std::sin(mid * static_cast<float>(kPi) * 0.5f);
-    const float k1 = static_cast<float>(kButterK1 - peak * (kButterK1 - 0.1f));
+    const float resonanceDb = (resonance <= 0.8f)
+        ? (-3.01f + 19.39f * resonance)
+        : (12.5f + 80.75f * (resonance - 0.8f));
+    const float k1 = static_cast<float>(0.5412 * std::pow(10.0, -resonanceDb / 20.0));
     const float k2 = kButterK2;
 
     const float g = g_;
