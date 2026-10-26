@@ -45,38 +45,56 @@ void Look::paint(juce::Graphics& g) {
         g.drawImageAt(cachedLayer_, 0, 0);
 }
 
+void Look::dropCache() {
+    cachedLayer_ = {};
+    cachedSize_ = {};
+    cachedScale_ = 0.0f;
+}
+
 void Look::drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
                             float sliderPosProportional, float rotaryStartAngle, float rotaryEndAngle,
                             juce::Slider&) {
     const auto bounds = juce::Rectangle<float>(static_cast<float>(x), static_cast<float>(y),
                                                static_cast<float>(width), static_cast<float>(height));
-    const auto centre = bounds.getCentre();
-    const auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) * 0.5f - 4.0f;
+    const auto dialBounds = bounds.withSizeKeepingCentre(40.0f, 40.0f).reduced(1.0f);
+    const auto centre = dialBounds.getCentre();
+    const auto radius = dialBounds.getWidth() * 0.5f - 3.0f;
     const auto angle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
+
+    g.setColour(undertow::ui::theme::bgMid);
+    g.fillEllipse(dialBounds);
     g.setColour(undertow::ui::theme::roseDeep);
-    g.drawEllipse(bounds.reduced(4.0f), 1.0f);
+    g.drawEllipse(dialBounds, 1.0f);
+
     g.setColour(undertow::ui::theme::rose.withAlpha(0.9f));
     juce::Path arc;
     arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, rotaryStartAngle, angle, true);
     g.strokePath(arc, juce::PathStrokeType(2.0f));
-    g.setColour(undertow::ui::theme::rose);
-    g.drawLine(centre.x, centre.y, centre.x + std::cos(angle) * (radius - 4.0f),
-               centre.y + std::sin(angle) * (radius - 4.0f), 2.0f);
+
+    g.setColour(undertow::ui::theme::roseBright);
+    const auto pointerLength = radius - 5.0f;
+    g.drawLine(centre.x, centre.y,
+               centre.x + std::cos(angle) * pointerLength,
+               centre.y + std::sin(angle) * pointerLength,
+               2.0f);
 }
 
 void Look::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
-                            bool, bool) {
-    auto area = button.getLocalBounds().toFloat();
-    auto tick = area.removeFromLeft(std::min(18.0f, area.getWidth()));
-    g.setColour(undertow::ui::theme::bgRaised);
-    g.fillRoundedRectangle(tick.reduced(1.0f), 4.0f);
-    g.setColour(button.getToggleState() ? undertow::ui::theme::roseBright : undertow::ui::theme::roseDim);
-    g.drawRoundedRectangle(tick.reduced(1.0f), 4.0f, 1.2f);
-    if (button.getToggleState())
-        g.fillRoundedRectangle(tick.reduced(4.5f), 2.0f);
-    g.setColour(findColour(juce::ToggleButton::textColourId));
-    g.setFont(undertow::ui::theme::sansFont(12.0f));
-    g.drawFittedText(button.getButtonText(), button.getLocalBounds().reduced(22, 0), juce::Justification::centredLeft, 1);
+                            bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) {
+    juce::ignoreUnused(shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+
+    const auto area = button.getLocalBounds().toFloat();
+    auto lampBounds = area.withSizeKeepingCentre(34.0f, 18.0f);
+    const auto on = button.getToggleState();
+
+    g.setColour(undertow::ui::theme::roseDeep);
+    g.fillRoundedRectangle(lampBounds, 9.0f);
+    g.setColour(on ? undertow::ui::theme::roseBright : undertow::ui::theme::roseDim);
+    g.drawRoundedRectangle(lampBounds, 9.0f, 1.2f);
+
+    const auto lamp = lampBounds.removeFromLeft(16.0f).reduced(3.0f);
+    g.setColour(on ? undertow::ui::theme::roseBright : undertow::ui::theme::bgMid.brighter(0.2f));
+    g.fillEllipse(lamp);
 }
 
 juce::Font Look::getLabelFont(juce::Label&) { return undertow::ui::theme::sansFont(12.0f); }
@@ -102,18 +120,22 @@ void Look::drawStaticLayer(juce::Graphics& g, float) {
     g.fillAll(undertow::ui::theme::bgVoid);
     g.setColour(undertow::ui::theme::bgVoid);
     g.fillRect(area);
-    g.setColour(undertow::ui::theme::bgVoid);
+
     for (const auto& panel : undertow::ui::theme::controlPanels) {
-        g.setColour(undertow::ui::theme::bgRaised);
-        g.fillRoundedRectangle(panel.area.toFloat().reduced(18.0f), 6.0f);
-        g.setColour(undertow::ui::theme::border);
-        g.drawRoundedRectangle(panel.area.toFloat().reduced(18.0f), 6.0f, 1.0f);
+        if (panel.area != undertow::ui::theme::groundBounds) {
+            g.setColour(undertow::ui::theme::bgRaised);
+            g.fillRoundedRectangle(panel.area.toFloat(), 6.0f);
+            g.setColour(undertow::ui::theme::border);
+            g.drawRoundedRectangle(panel.area.toFloat(), 6.0f, 1.0f);
+            g.setColour(undertow::ui::theme::borderActive);
+            g.drawHorizontalLine(panel.area.getBottom() - 1, static_cast<float>(panel.area.getX()), static_cast<float>(panel.area.getRight()));
+        }
+
         g.setColour(undertow::ui::theme::roseDim);
-        g.setFont(undertow::ui::theme::monoFont(11.0f, juce::Font::bold));
-        g.drawText(panel.stamp, panel.area.reduced(10, 10), juce::Justification::topLeft, false);
-        g.setColour(undertow::ui::theme::borderActive);
-        g.drawHorizontalLine(panel.area.getBottom() - 18, panel.area.getX() + 10.0f, panel.area.getRight() - 10.0f);
+        g.setFont(undertow::ui::theme::monoFont(10.0f));
+        texts::draw(g, panel.stamp, panel.stampBounds, juce::Justification::topLeft);
     }
+
     g.setColour(tinted(undertow::ui::theme::roseDeep, 0.25f));
     for (int x = 0; x < 1200; x += 48)
         g.drawVerticalLine(x, 56.0f, 656.0f);

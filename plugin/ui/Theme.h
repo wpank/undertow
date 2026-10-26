@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <array>
+#include <cstddef>
 
 #include <undertow/params.h>
 
@@ -46,188 +47,213 @@ inline const juce::Rectangle<int> groundBounds{0, 672, 1200, 88};
 inline const juce::Rectangle<int> topHazardBounds{0, 0, 1200, 16};
 inline const juce::Rectangle<int> bottomHazardBounds{0, 744, 1200, 16};
 inline const juce::Rectangle<int> scopeBounds{360, 188, 480, 200};
+inline const juce::Rectangle<int> pumpFieldBounds{912, 80, 264, 96};
 inline const juce::Colour heatRamp[4] = {bgVoid, roseDeep, roseEmber, rose};
+
+inline constexpr int cellSize = 64;
+inline constexpr int limbCellSpacing = 68;
+inline constexpr int groundCellSpacing = 56;
+inline constexpr int labelHeight = 10;
+inline constexpr int readoutHeight = 12;
+inline constexpr int labelGap = 0;
+inline constexpr int controlSize = 40;
+inline constexpr int stampHeight = 14;
+inline constexpr int stampWidth = 84;
 
 struct ControlCell {
     juce::Rectangle<int> bounds;
     juce::Rectangle<int> controlBounds;
+    juce::Rectangle<int> labelBounds() const {
+        return {bounds.getX(), controlBounds.getBottom() + labelGap - 4, bounds.getWidth(), labelHeight};
+    }
+    juce::Rectangle<int> readoutBounds() const {
+        return {bounds.getX(), controlBounds.getBottom() + labelGap + labelHeight, bounds.getWidth(), readoutHeight};
+    }
+};
+
+struct ControlSlot {
+    int parameter = -1;
+    const char* label = "";
+    ControlCell cell{};
+    bool isLamp = false;
 };
 
 struct ControlPanel {
     juce::String stamp;
     juce::Rectangle<int> area;
-    std::array<int, 4> parameters{};
-    int parameterCount = 0;
-    std::array<ControlCell, 4> cells{};
+    juce::Rectangle<int> stampBounds;
+    std::array<ControlSlot, 12> controls{};
+    int controlCount = 0;
 };
 
-inline const ControlPanel leftPanel{
-    "OSC",
-    leftLimbBounds,
-    {undertow::param::OscWave, undertow::param::OscPw, undertow::param::OscLevel, undertow::param::OscOctave},
-    4,
-    {{{{16, 72, 120, 88}, {24, 80, 104, 72}},
-      {{152, 72, 120, 88}, {160, 80, 104, 72}},
-      {{16, 176, 120, 88}, {24, 184, 104, 72}},
-      {{152, 176, 120, 88}, {160, 184, 104, 72}}}}
+inline ControlCell makeCell(int x, int y, int controlW = controlSize, int controlH = controlSize) {
+    const juce::Rectangle<int> bounds{x, y, cellSize, cellSize};
+    const juce::Rectangle<int> controlBounds{x + (cellSize - controlW) / 2, y + (cellSize - controlH) / 2, controlW, controlH};
+    return {bounds, controlBounds};
+}
+
+inline constexpr int limbColumnX(int panelX, int column) { return panelX + 4 + column * limbCellSpacing; }
+inline constexpr int groundColumnX(int column) { return 40 + column * groundCellSpacing; }
+
+inline const ControlPanel oscPanel{
+    "OSC/01",
+    {16, 56, 280, 160},
+    {24, 64, stampWidth, stampHeight},
+    {{
+        {undertow::param::OscWave, "WAVE", makeCell(limbColumnX(16, 0), 100)},
+        {undertow::param::OscPw, "PW", makeCell(limbColumnX(16, 1), 100)},
+        {undertow::param::OscLevel, "LEVEL", makeCell(limbColumnX(16, 2), 100)},
+        {undertow::param::OscOctave, "OCT", makeCell(limbColumnX(16, 3), 100)},
+        {undertow::param::OscFine, "FINE", makeCell(limbColumnX(16, 0), 152)},
+        {undertow::param::SubLevel, "SUB", makeCell(limbColumnX(16, 1), 152)},
+        {undertow::param::SubOctave, "SUB OCT", makeCell(limbColumnX(16, 2), 152)},
+    }},
+    7
 };
 
-inline const ControlPanel leftLowerPanel{
-    "FLT",
-    leftLimbBounds,
-    {undertow::param::OscFine, undertow::param::SubLevel, undertow::param::SubOctave, undertow::param::FilterCutoff},
-    4,
-    {{{{16, 280, 120, 88}, {24, 288, 104, 72}},
-      {{152, 280, 120, 88}, {160, 288, 104, 72}},
-      {{16, 384, 120, 88}, {24, 392, 104, 72}},
-      {{152, 384, 120, 88}, {160, 392, 104, 72}}}}
+inline const ControlPanel filterPanel{
+    "FILTER/02",
+    {16, 216, 280, 144},
+    {24, 224, stampWidth, stampHeight},
+    {{
+        {undertow::param::FilterCutoff, "CUTOFF", makeCell(limbColumnX(16, 0), 244)},
+        {undertow::param::FilterRes, "RES", makeCell(limbColumnX(16, 1), 244)},
+        {undertow::param::FilterDrive, "DRIVE", makeCell(limbColumnX(16, 2), 244)},
+        {undertow::param::FilterEnv, "ENV", makeCell(limbColumnX(16, 3), 244)},
+        {undertow::param::FilterTrack, "TRACK", makeCell(limbColumnX(16, 0), 292)},
+    }},
+    5
 };
 
-inline const ControlPanel chestLeftPanel{
-    "ENV",
-    chestBounds,
-    {undertow::param::FilterRes, undertow::param::FilterDrive, undertow::param::FilterEnv, undertow::param::FilterTrack},
-    4,
-    {{{{16, 72, 120, 88}, {24, 80, 104, 72}},
-      {{152, 72, 120, 88}, {160, 80, 104, 72}},
-      {{16, 176, 120, 88}, {24, 184, 104, 72}},
-      {{152, 176, 120, 88}, {160, 184, 104, 72}}}}
+inline const ControlPanel envPanel{
+    "ENV/03",
+    {16, 360, 280, 160},
+    {24, 368, stampWidth, stampHeight},
+    {{
+        {undertow::param::AmpAttack, "A", makeCell(limbColumnX(16, 0), 404)},
+        {undertow::param::AmpDecay, "D", makeCell(limbColumnX(16, 1), 404)},
+        {undertow::param::AmpSustain, "S", makeCell(limbColumnX(16, 2), 404)},
+        {undertow::param::AmpRelease, "R", makeCell(limbColumnX(16, 3), 404)},
+        {undertow::param::FiltAttack, "F A", makeCell(limbColumnX(16, 0), 460)},
+        {undertow::param::FiltDecay, "F D", makeCell(limbColumnX(16, 1), 460)},
+        {undertow::param::FiltSustain, "F S", makeCell(limbColumnX(16, 2), 460)},
+        {undertow::param::FiltRelease, "F R", makeCell(limbColumnX(16, 3), 460)},
+    }},
+    8
 };
 
-inline const ControlPanel chestRightPanel{
-    "AMP",
-    chestBounds,
-    {undertow::param::FiltAttack, undertow::param::FiltDecay, undertow::param::FiltSustain, undertow::param::FiltRelease},
-    4,
-    {{{{312, 72, 120, 88}, {320, 80, 104, 72}},
-      {{448, 72, 120, 88}, {456, 80, 104, 72}},
-      {{312, 176, 120, 88}, {320, 184, 104, 72}},
-      {{448, 176, 120, 88}, {456, 184, 104, 72}}}}
+inline const ControlPanel rumblePanel{
+    "RUMBLE/04",
+    {904, 56, 280, 264},
+    {912, 64, stampWidth, stampHeight},
+    {{
+        {undertow::param::RumbleLevel, "LEVEL", makeCell(limbColumnX(904, 0), 180)},
+        {undertow::param::RumbleSend, "SEND", makeCell(limbColumnX(904, 1), 180)},
+        {undertow::param::RumbleKick, "KICK", makeCell(limbColumnX(904, 2), 180)},
+        {undertow::param::RumbleRate, "RATE", makeCell(limbColumnX(904, 3), 180)},
+        {undertow::param::RumbleDecay, "DECAY", makeCell(limbColumnX(904, 0), 248)},
+        {undertow::param::RumbleTone, "TONE", makeCell(limbColumnX(904, 1), 248)},
+        {undertow::param::RumbleDrive, "DRIVE", makeCell(limbColumnX(904, 2), 248)},
+        {undertow::param::RumbleDuck, "DUCK", makeCell(limbColumnX(904, 3), 248)},
+    }},
+    8
 };
 
-inline const ControlPanel rightTopPanel{
-    "LFO",
-    rightLimbBounds,
-    {undertow::param::AmpAttack, undertow::param::AmpDecay, undertow::param::AmpSustain, undertow::param::AmpRelease},
-    4,
-    {{{{904, 72, 120, 88}, {912, 80, 104, 72}},
-      {{1040, 72, 120, 88}, {1048, 80, 104, 72}},
-      {{904, 176, 120, 88}, {912, 184, 104, 72}},
-      {{1040, 176, 120, 88}, {1048, 184, 104, 72}}}}
+inline const ControlPanel modPanel{
+    "MOD/05",
+    {904, 320, 280, 200},
+    {912, 328, stampWidth, stampHeight},
+    {{
+        {undertow::param::Lfo1Rate, "1 RATE", makeCell(limbColumnX(904, 0), 356)},
+        {undertow::param::Lfo1Shape, "1 SHAPE", makeCell(limbColumnX(904, 1), 356)},
+        {undertow::param::Lfo1Cutoff, "1 CUT", makeCell(limbColumnX(904, 2), 356)},
+        {undertow::param::Lfo1Phase, "1 PHASE", makeCell(limbColumnX(904, 3), 356)},
+        {undertow::param::Lfo2Rate, "2 RATE", makeCell(limbColumnX(904, 0), 424)},
+        {undertow::param::Lfo2Shape, "2 SHAPE", makeCell(limbColumnX(904, 1), 412)},
+        {undertow::param::Lfo2Dest, "2 DEST", makeCell(limbColumnX(904, 2), 412)},
+        {undertow::param::Lfo2Depth, "2 DEPTH", makeCell(limbColumnX(904, 3), 412)},
+        {undertow::param::Lfo2Phase, "2 PHASE", makeCell(limbColumnX(904, 3), 456, 32, 32)},
+    }},
+    9
 };
 
-inline const ControlPanel rightBottomPanel{
-    "RMB",
-    rightLimbBounds,
-    {undertow::param::Lfo1Rate, undertow::param::Lfo1Shape, undertow::param::Lfo1Cutoff, undertow::param::Lfo1Phase},
-    4,
-    {{{{904, 280, 120, 88}, {912, 288, 104, 72}},
-      {{1040, 280, 120, 88}, {1048, 288, 104, 72}},
-      {{904, 384, 120, 88}, {912, 392, 104, 72}},
-      {{1040, 384, 120, 88}, {1048, 392, 104, 72}}}}
+inline const ControlPanel groundSeqPanel{
+    "SEQ/06",
+    groundBounds,
+    {24, 536, stampWidth, stampHeight},
+    {{
+        {undertow::param::SeqOn, "SEQ", makeCell(groundColumnX(8), 684, 40, 24), true},
+        {undertow::param::SeqSync, "SYNC", makeCell(groundColumnX(9), 684)},
+        {undertow::param::SeqBpm, "BPM", makeCell(groundColumnX(10), 684)},
+        {undertow::param::SeqRate, "RATE", makeCell(groundColumnX(11), 684)},
+        {undertow::param::SeqLength, "LEN", makeCell(groundColumnX(12), 684)},
+        {undertow::param::SeqGate, "GATE", makeCell(groundColumnX(13), 684)},
+        {undertow::param::SeqSwing, "SWING", makeCell(groundColumnX(14), 684)},
+        {undertow::param::SeqRoot, "ROOT", makeCell(groundColumnX(15), 684)},
+        {undertow::param::SeqScale, "SCALE", makeCell(groundColumnX(16), 684)},
+        {undertow::param::SeqMutate, "MUTATE", makeCell(groundColumnX(17), 684)},
+        {undertow::param::SeqEvolve, "EVOLVE", makeCell(groundColumnX(18), 684)},
+        {undertow::param::SeqSeed, "SEED", makeCell(groundColumnX(19), 684)},
+    }},
+    12
 };
 
-inline const ControlPanel lowerRightPanel{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::Lfo2Rate, undertow::param::Lfo2Shape, undertow::param::Lfo2Dest, undertow::param::Lfo2Depth},
-    4,
-    {{{{904, 488, 120, 88}, {912, 496, 104, 72}},
-      {{1040, 488, 120, 88}, {1048, 496, 104, 72}},
-      {{904, 592, 120, 88}, {912, 600, 104, 72}},
-      {{1040, 592, 120, 88}, {1048, 600, 104, 72}}}}
+inline const ControlPanel voicePanel{
+    "VOICE/07",
+    groundBounds,
+    {40, 680, stampWidth, stampHeight},
+    {{
+        {undertow::param::GlideMs, "GLIDE", makeCell(groundColumnX(0), 684)},
+        {undertow::param::GlideMode, "MODE", makeCell(groundColumnX(1), 684)},
+        {undertow::param::Accent, "ACCENT", makeCell(groundColumnX(2), 684)},
+        {undertow::param::BendRange, "BEND", makeCell(groundColumnX(3), 684)},
+    }},
+    4
 };
 
-inline const ControlPanel extraPanel{
-    "MOD",
-    rightLimbBounds,
-    {undertow::param::GlideMs, undertow::param::GlideMode, undertow::param::Accent, undertow::param::BendRange},
-    4,
-    {{{{904, 696, 120, 88}, {912, 704, 104, 72}},
-      {{1040, 696, 120, 88}, {1048, 704, 104, 72}},
-      {{904, 800, 120, 88}, {912, 808, 104, 72}},
-      {{1040, 800, 120, 88}, {1048, 808, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel2{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::Lfo2Phase, undertow::param::RumbleLevel, undertow::param::RumbleSend, undertow::param::RumbleKick},
-    4,
-    {{{{904, 904, 120, 88}, {912, 912, 104, 72}},
-      {{1040, 904, 120, 88}, {1048, 912, 104, 72}},
-      {{904, 1008, 120, 88}, {912, 1016, 104, 72}},
-      {{1040, 1008, 120, 88}, {1048, 1016, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel3{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::RumbleRate, undertow::param::RumbleDecay, undertow::param::RumbleTone, undertow::param::RumbleDrive},
-    4,
-    {{{{904, 1112, 120, 88}, {912, 1120, 104, 72}},
-      {{1040, 1112, 120, 88}, {1048, 1120, 104, 72}},
-      {{904, 1216, 120, 88}, {912, 1224, 104, 72}},
-      {{1040, 1216, 120, 88}, {1048, 1224, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel4{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::RumbleDuck, undertow::param::SatDrive, undertow::param::Width, undertow::param::MonoFreq},
-    4,
-    {{{{904, 1320, 120, 88}, {912, 1328, 104, 72}},
-      {{1040, 1320, 120, 88}, {1048, 1328, 104, 72}},
-      {{904, 1424, 120, 88}, {912, 1432, 104, 72}},
-      {{1040, 1424, 120, 88}, {1048, 1432, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel5{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::MasterGain, undertow::param::SeqOn, undertow::param::SeqSync, undertow::param::SeqBpm},
-    4,
-    {{{{904, 1528, 120, 88}, {912, 1536, 104, 72}},
-      {{1040, 1528, 120, 88}, {1048, 1536, 104, 72}},
-      {{904, 1632, 120, 88}, {912, 1640, 104, 72}},
-      {{1040, 1632, 120, 88}, {1048, 1640, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel6{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::SeqRate, undertow::param::SeqLength, undertow::param::SeqGate, undertow::param::SeqSwing},
-    4,
-    {{{{904, 1736, 120, 88}, {912, 1744, 104, 72}},
-      {{1040, 1736, 120, 88}, {1048, 1744, 104, 72}},
-      {{904, 1840, 120, 88}, {912, 1848, 104, 72}},
-      {{1040, 1840, 120, 88}, {1048, 1848, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel7{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::SeqRoot, undertow::param::SeqScale, undertow::param::SeqMutate, undertow::param::SeqEvolve},
-    4,
-    {{{{904, 1944, 120, 88}, {912, 1952, 104, 72}},
-      {{1040, 1944, 120, 88}, {1048, 1952, 104, 72}},
-      {{904, 2048, 120, 88}, {912, 2056, 104, 72}},
-      {{1040, 2048, 120, 88}, {1048, 2056, 104, 72}}}}
-};
-
-inline const ControlPanel extraPanel8{
-    "SEQ",
-    rightLimbBounds,
-    {undertow::param::SeqSeed, undertow::param::Lfo2Phase, undertow::param::RumbleLevel, undertow::param::RumbleSend},
-    4,
-    {{{{904, 2152, 120, 88}, {912, 2160, 104, 72}},
-      {{1040, 2152, 120, 88}, {1048, 2160, 104, 72}},
-      {{904, 2256, 120, 88}, {912, 2264, 104, 72}},
-      {{1040, 2256, 120, 88}, {1048, 2264, 104, 72}}}}
+inline const ControlPanel outPanel{
+    "OUT/08",
+    groundBounds,
+    {264, 680, stampWidth, stampHeight},
+    {{
+        {undertow::param::SatDrive, "SAT", makeCell(groundColumnX(4), 684)},
+        {undertow::param::Width, "WIDTH", makeCell(groundColumnX(5), 684)},
+        {undertow::param::MonoFreq, "MONO", makeCell(groundColumnX(6), 684)},
+        {undertow::param::MasterGain, "MASTER", makeCell(groundColumnX(7), 684)},
+    }},
+    4
 };
 
 inline const ControlPanel controlPanels[] = {
-    leftPanel, leftLowerPanel, chestLeftPanel, chestRightPanel, rightTopPanel, rightBottomPanel, lowerRightPanel, extraPanel, extraPanel2, extraPanel3, extraPanel4, extraPanel5, extraPanel6, extraPanel7, extraPanel8
+    oscPanel,
+    filterPanel,
+    envPanel,
+    rumblePanel,
+    modPanel,
+    voicePanel,
+    outPanel,
+    groundSeqPanel,
 };
+
+inline const ControlPanel* findPanelForParameter(int parameter) {
+    for (const auto& panel : controlPanels) {
+        for (int i = 0; i < panel.controlCount; ++i) {
+            if (panel.controls[static_cast<std::size_t>(i)].parameter == parameter)
+                return &panel;
+        }
+    }
+    return nullptr;
+}
+
+inline const ControlSlot* findSlotForParameter(int parameter) {
+    for (const auto& panel : controlPanels) {
+        for (int i = 0; i < panel.controlCount; ++i) {
+            const auto& slot = panel.controls[static_cast<std::size_t>(i)];
+            if (slot.parameter == parameter)
+                return &slot;
+        }
+    }
+    return nullptr;
+}
 
 } // namespace undertow::ui::theme

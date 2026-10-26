@@ -2,6 +2,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "Texts.h"
+
 class Look final : private juce::LookAndFeel_V4 {
 public:
     Look();
@@ -9,6 +11,8 @@ public:
     void install(juce::Component&);
     void uninstall(juce::Component&);
     void paint(juce::Graphics&);
+    void drawStaticLayer(juce::Graphics&, float physicalScale);
+    void dropCache();
 
 private:
     void drawRotarySlider(juce::Graphics&, int x, int y, int width, int height,
@@ -20,7 +24,6 @@ private:
     juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override;
 
     void ensureCache(juce::Graphics&);
-    void drawStaticLayer(juce::Graphics&, float physicalScale);
 
     juce::LookAndFeel_V4 baseLook_;
     juce::Image cachedLayer_;
