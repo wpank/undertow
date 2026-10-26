@@ -5,7 +5,7 @@ programs; an offline renderer and demo renders anyone can listen to; strict vali
 10); and an install script that puts signed bundles where FL Studio and the Finder find them (the checks install into
 a test folder; installing for the person is their step, at the end).
 
-**Depends on**: phase 4.2 (merged): phase 4's editor laid out as designed, on phase 4 and 4.1.
+**Depends on**: phase 4.3 (merged): the editor's finish, on phases 4, 4.1 and 4.2.
 
 **Size**: M, 7 tasks, about 715 lines (most of it preset values).
 
@@ -199,7 +199,7 @@ Checks that share a command are one verify step: the table repeats the command o
   1. **The factory presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`): P5.01-P5.03 and P5.09, in one
      verify step: `tools/spec.sh 5 presets` runs all four.
   2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`): P5.04 and P5.08.
-     Needs task 1. It commits `artifacts/reports/pluginval-strict.txt`. P5.08 already passes on phase 4.2's base:
+     Needs task 1. It commits `artifacts/reports/pluginval-strict.txt`. P5.08 already passes on the base:
      phase 4's processor restores every parameter, bools included, at strictness 10. So P5.08 is
      `expect = "pass_on_base"`; it must still pass once task 2 is done.
   3. **The offline renderer** (`tools/render/main.cpp`, `tools/render/CMakeLists.txt`, the top-level `CMakeLists.txt`):
