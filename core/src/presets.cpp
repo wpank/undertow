@@ -59,12 +59,12 @@ static const PresetDef kPresets[] = {
     )},
     {"SUB Low Pressure", "sub-low-pressure", [] {
         auto v = makeDefaults();
-        v[param::OscWave] = 0; v[param::OscLevel] = 0.0f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
+        v[param::OscWave] = 0; v[param::OscLevel] = 0.0f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f; v[param::SubOctave] = 1;
         v[param::FilterCutoff] = 5200.0f; v[param::FilterRes] = 0.01f; v[param::FilterDrive] = 0.0f; v[param::FilterEnv] = 0.0f;
-        v[param::AmpAttack] = 3.0f; v[param::AmpDecay] = 150.0f; v[param::AmpSustain] = 1.0f; v[param::AmpRelease] = 70.0f;
+        v[param::AmpAttack] = 150.0f; v[param::AmpDecay] = 150.0f; v[param::AmpSustain] = 1.0f; v[param::AmpRelease] = 70.0f;
         v[param::FiltAttack] = 3.0f; v[param::FiltDecay] = 90.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 70.0f;
         v[param::GlideMs] = 14.0f; v[param::GlideMode] = 1; v[param::Accent] = 0.00f; v[param::Width] = 0.0f; v[param::MonoFreq] = 220.0f;
-        v[param::MasterGain] = -15.0f; v[param::SeqOn] = 0; v[param::SatDrive] = 0.00f;
+        v[param::MasterGain] = -14.0f; v[param::SeqOn] = 0; v[param::SatDrive] = 0.20f;
         return v;
     }(), makePattern(
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
@@ -95,7 +95,7 @@ static const PresetDef kPresets[] = {
         v[param::AmpAttack] = 1.0f; v[param::AmpDecay] = 180.0f; v[param::AmpSustain] = 0.72f; v[param::AmpRelease] = 120.0f;
         v[param::FiltAttack] = 1.0f; v[param::FiltDecay] = 220.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 120.0f;
         v[param::GlideMs] = 18.0f; v[param::GlideMode] = 1; v[param::Accent] = 0.38f; v[param::Lfo1Rate] = 5; v[param::Lfo1Shape] = 0; v[param::Lfo1Cutoff] = 0.35f;
-        v[param::RumbleLevel] = 0.18f; v[param::RumbleSend] = 0.12f; v[param::MasterGain] = -10.5f; v[param::SeqOn] = 1; v[param::SeqScale] = 1; v[param::SeqEvolve] = 0;
+        v[param::RumbleLevel] = 0.18f; v[param::RumbleSend] = 0.12f; v[param::MasterGain] = -8.5f; v[param::SeqOn] = 1; v[param::SeqScale] = 1; v[param::SeqEvolve] = 0;
         return v;
     }(), defaultPattern()},
     {"BASS Acid Undertow", "bass-acid-undertow", [] {
