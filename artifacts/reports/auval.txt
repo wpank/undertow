@@ -15,12 +15,12 @@ Component Version: 0.1.0 (0x100)
 --------------------------------------------------
 TESTING OPEN TIMES:
 COLD:
-Time to open AudioUnit:         341.760 ms
+Time to open AudioUnit:         476.422 ms
 WARM:
-Time to open AudioUnit:         0.433  ms
+Time to open AudioUnit:         0.703  ms
 This AudioUnit is a version 2 implementation.
 FIRST TIME:
-Time for initialization:        0.006 ms
+Time for initialization:        0.010 ms
 
 * * PASS
 --------------------------------------------------
@@ -60,7 +60,7 @@ VERIFYING SPECIAL PROPERTIES:
 
 VERIFYING CUSTOM UI
 Cocoa Views Available: 1
-  JUCE_AUCocoaViewClass_2269adaca1b556af
+  JUCE_AUCocoaViewClass_390dc5a7532342c
     PASS
 
 HAS FACTORY PRESETS
@@ -385,9 +385,8 @@ Value: 2,  String: Always
 Parameter ID:1329278123
 Name: Seq Gate
 Parameter Type: Generic
-Values: Minimum = 0.0500000, Default = 0.5000000, Maximum = 1.0000000
+Values: Minimum = 0.050, Default = 0.500, Maximum = 1.000
 Flags: Values Have Strings, High Resolution, Can Ramp, Readable, Writable 
-WARNING: retrievedValue = 0.473684 (was 0.473684), Parameter did not retain default value when set
   -parameter PASS
 
 Parameter ID:1329605824
