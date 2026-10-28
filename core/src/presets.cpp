@@ -77,9 +77,9 @@ static const PresetDef kPresets[] = {
         auto v = makeDefaults();
         v[param::OscWave] = 0; v[param::OscLevel] = 0.0f; v[param::OscOctave] = -2; v[param::SubLevel] = 1.00f;
         v[param::FilterCutoff] = 2600.0f; v[param::FilterRes] = 0.00f; v[param::FilterDrive] = 0.0f; v[param::FilterEnv] = 0.0f;
-        v[param::AmpAttack] = 1.0f; v[param::AmpDecay] = 80.0f; v[param::AmpSustain] = 0.90f; v[param::AmpRelease] = 50.0f;
+        v[param::AmpAttack] = 1.0f; v[param::AmpDecay] = 400.0f; v[param::AmpSustain] = 0.0f; v[param::AmpRelease] = 50.0f;
         v[param::FiltAttack] = 1.0f; v[param::FiltDecay] = 80.0f; v[param::FiltSustain] = 0.0f; v[param::FiltRelease] = 50.0f;
-        v[param::Accent] = 0.00f; v[param::MasterGain] = -13.0f;
+        v[param::Accent] = 0.00f; v[param::MasterGain] = -6.0f; v[param::RumbleLevel] = 0.0f; v[param::SatDrive] = 0.10f;
         return v;
     }(), makePattern(
         {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
