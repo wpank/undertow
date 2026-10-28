@@ -18,6 +18,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
             auto range = juce::NormalisableRange<float>(spec.min, spec.max);
             if (spec.centre != 0.0f)
                 range.setSkewForCentre(spec.centre);
+            // Snap Seq Gate to 0.001 so a host setting its default reads the default back exactly.
+            if (i == undertow::param::SeqGate)
+                range.interval = 0.001f;
             layout.add(std::make_unique<juce::AudioParameterFloat>(pid, spec.name, range, spec.def, spec.unit));
             break;
         }
