@@ -17,7 +17,7 @@
 In scope: SUB Kick Companion's values in `core/src/presets.cpp`.
 
 No new files, no API change, no other preset, no engine change, and no committed render: Kick Companion isn't one of
-the four showcases.
+the four showcases, so every showcase WAV in `artifacts/audio/` stays byte for byte.
 
 The spec, not the task, changes four earlier checks for a short SUB note:
 - **P5.09** reads a SUB preset's level over its loudest 300 ms in the first second, instead of the 2 bars
@@ -126,7 +126,8 @@ channels. Its envelope is its RMS over one cycle of 55 Hz (18 ms), every 1 ms.
        at `master_gain` -3 reads -19.7 dBFS over its loudest 300 ms and still fails.
      - "Level" doesn't mean louder: P5.09 holds the loudest 300 ms to 3 dB either side of -18.
      - The other SUB presets keep holding their note (P5.4.06), and a quiet one still fails P5.09.
-   - **Nothing else changes:** the task changes no other preset, no pattern's steps and no committed render.
+   - **Nothing else changes:** the task changes no other preset and no pattern's steps. It leaves every showcase WAV
+     in `artifacts/audio/` byte for byte: the demos steps' `tools/render-demos.sh` writes them again, unchanged.
 
 ## API
 
@@ -156,13 +157,24 @@ Checks that share a command are one verify step: the table repeats the command o
 - The rules of phases 0 to 5.3 still hold.
 - Only SUB Kick Companion changes. No engine change.
 - No new files.
-- The person's own install is in place: `tools/install.sh` runs only with `--dest`, and no task runs `tools/auval.sh`,
-  which validates the installed AU.
+- The person's own install is in place (`~/Library/Audio/Plug-Ins`, `~/Applications`). No task installs, runs `auval`
+  or `tools/auval.sh` (which validates the installed AU), or calls `tools/install.sh` without `--dest`.
 
 ## Also required, not checked automatically
 
 - Listening, in FL Studio at 128 BPM: Kick Companion is a short, round thump that sits after a kick and is gone before
   the next. It doesn't click.
+- **A known auval warning**, from the person's install of main `88391a5` (`artifacts/reports/auval.txt`). The AU
+  validation succeeded, with one WARNING, on Seq Gate (0.05 to 1, default 0.5): "retrievedValue = 0.473684 (was
+  0.473684), Parameter did not retain default value when set".
+  - JUCE's AU wrapper hands the host every continuous parameter as 0 to 1. auval prints each one's range through the
+    parameter's own text: Seq Gate's 0.05 to 1, default 0.5; Cutoff's default 600.0000610.
+  - So 0.473684 is Seq Gate's default, 0.5, as its normalised position in 0.05 to 1.
+  - Only Seq Gate warns. Each parameter's default, Seq Gate's included, comes back exactly when converted to 0 to 1
+    and back in single precision, as its range does it. So the value read back differs from the one written only past
+    the six digits auval prints, for a reason not found without auval. The parameter's own test passes.
+  - No check here covers it. A fix changes the parameter's definition, which touches automation and saved state, so
+    it needs its own spec.
 
 ## Notes for the planner
 
