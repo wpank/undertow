@@ -1,5 +1,6 @@
 // Phase 5.1 spec tests: the offline renderer plays each preset as the engine plays it, the note held when the
-// sequencer is off and the whole pattern when it is on (docs/specs/phase-5.1-renders.md, P5.1.02 and P5.1.03).
+// sequencer is off and the whole pattern when it is on (docs/specs/phase-5.1-renders.md, P5.1.02 and P5.1.03, as phase
+// 5.4 changed them for a short note, docs/specs/phase-5.4-presets.md).
 // spec-needs: core/include/undertow/presets.h
 // spec-target: undertow_render
 
@@ -94,6 +95,17 @@ double levelDb(const std::vector<float>& left, const std::vector<float>& right, 
     return 10.0 * std::log10(std::max(sum / static_cast<double>(std::max<std::size_t>(1, to - from)), 1e-30));
 }
 
+// A SUB preset's level, as P5.09 reads it from phase 5.4: its loudest 300 ms in the first second, in windows every
+// 10 ms. A SUB preset may be a short note (SUB Kick Companion), whose 8 bars read mostly the silence after it.
+double loudest300Db(const std::vector<float>& left, const std::vector<float>& right) {
+    double loudest = -300.0;
+    for (std::size_t start = 0; start + 14400 <= 48000; start += 480)
+        loudest = std::max(loudest, levelDb(left, right, start, start + 14400));
+    return loudest;
+}
+
+bool isSub(int index) { return index >= 0 && std::string(undertow::factoryPresetName(index)).rfind("SUB ", 0) == 0; }
+
 // The renderer's 8 bars of the preset at 128 BPM, made once and shared by the test cases.
 const spec::Wav& rendered(int index) {
     static std::map<int, spec::Wav> renders;
@@ -122,7 +134,10 @@ TEST_CASE("P5.1.02 undertow_render plays each preset as the engine does, the not
                                                  : "A2 held at velocity 100 from the first frame";
         for (int bar = 0; bar < kBars; ++bar) {
             const auto from = static_cast<std::size_t>(bar) * kBar, to = from + kBar;
-            const double got = levelDb(wav.left, wav.right, from, to), want = levelDb(engine.left, engine.right, from, to);
+            // A bar under -120 dBFS is silence either way: the renderer's 24-bit file holds nothing under -144, where
+            // a short note's tail (SUB Kick Companion, phase 5.4) can still read -250 in the engine's floats.
+            const double got = std::max(levelDb(wav.left, wav.right, from, to), -120.0);
+            const double want = std::max(levelDb(engine.left, engine.right, from, to), -120.0);
             CHECK_MESSAGE(std::abs(got - want) <= 0.5,
                           slugOf(index) << ", bar " << bar + 1 << ": the render is " << got << " dBFS RMS; the engine playing the preset ("
                                         << how << ", a host transport from beat 0, blocks of 512) gives " << want
@@ -139,8 +154,10 @@ TEST_CASE("P5.1.03 a preset with its sequencer off renders in level: undertow_re
         if (sequenced(index))
             continue;
         const auto& wav = rendered(index);
-        const double level = levelDb(wav.left, wav.right, 0, wav.frames);
-        CHECK_MESSAGE(std::abs(level + 18.0) <= 3.0, slugOf(index) << " renders at " << level
+        const bool sub = isSub(index);
+        const double level = sub ? loudest300Db(wav.left, wav.right) : levelDb(wav.left, wav.right, 0, wav.frames);
+        const std::string what = sub ? "'s loudest 300 ms in its first second renders at " : " renders at ";
+        CHECK_MESSAGE(std::abs(level + 18.0) <= 3.0, slugOf(index) << what << level
                                                                    << " dBFS RMS; holding A2 at velocity 100 it plays within 3 dB of -18 "
                                                                       "(P5.09): the renderer must hold --note while the sequencer is off");
         ++checked;
