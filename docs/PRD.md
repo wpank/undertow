@@ -246,13 +246,14 @@ host parameters (phase 3).
 | 5.2 | `specs/phase-5.2-presets.md` | The presets as named: SUB Pure Foundation the clean sine sub alone and every SUB preset the sub (F17), no preset's energy below 20 Hz (F18), by retuning six presets, not the engine | 5.1 | S: 1 task, about 10 lines and one showcase render |
 | 5.3 | `specs/phase-5.3-presets.md` | Low Pressure as named, and the Roller at level: SUB Low Pressure as "sub at -2 oct with a little saturation, a slow swell", apart from Pure Foundation and still the clean sub; BASS Hypnotic Roller's showcase at the reel's level | 5.2 | S: 1 task, about 5 lines and one showcase render |
 | 5.4 | `specs/phase-5.4-presets.md` | Kick Companion as named: SUB Kick Companion as "a short, round sub note that sits after a kick", a decaying note apart from the two held SUB presets and still the clean sub; the level check reads a SUB preset over its loudest 300 ms | 5.3 | S: 1 task, about 5 lines |
+| 5.5 | `specs/phase-5.5-auval.md` | auval clean: a host that sets Seq Gate to its default reads it back exactly (a 0.001 grid on its range), and so does every float parameter, with every id, range and default unchanged | 5.4 | S: 1 task, about 4 lines |
 
 ```text
- phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1 ──► phase 5.2 ──► phase 5.3 ──► phase 5.4
+ phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1 ──► phase 5.2 ──► phase 5.3 ──► phase 5.4 ──► phase 5.5
                     └──► phase 3 ──────────────────────────────┘
 ```
 
-Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3, 5.4. Phases 2 and 3 are independent in
+Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3, 5.4, 5.5. Phases 2 and 3 are independent in
 their DSP and could run in parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`,
 so in parallel they end in a merge there.
 

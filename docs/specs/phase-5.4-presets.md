@@ -164,17 +164,10 @@ Checks that share a command are one verify step: the table repeats the command o
 
 - Listening, in FL Studio at 128 BPM: Kick Companion is a short, round thump that sits after a kick and is gone before
   the next. It doesn't click.
-- **A known auval warning**, from the person's install of main `88391a5` (`artifacts/reports/auval.txt`). The AU
-  validation succeeded, with one WARNING, on Seq Gate (0.05 to 1, default 0.5): "retrievedValue = 0.473684 (was
-  0.473684), Parameter did not retain default value when set".
-  - JUCE's AU wrapper hands the host every continuous parameter as 0 to 1. auval prints each one's range through the
-    parameter's own text: Seq Gate's 0.05 to 1, default 0.5; Cutoff's default 600.0000610.
-  - So 0.473684 is Seq Gate's default, 0.5, as its normalised position in 0.05 to 1.
-  - Only Seq Gate warns. Each parameter's default, Seq Gate's included, comes back exactly when converted to 0 to 1
-    and back in single precision, as its range does it. So the value read back differs from the one written only past
-    the six digits auval prints, for a reason not found without auval. The parameter's own test passes.
-  - No check here covers it. A fix changes the parameter's definition, which touches automation and saved state, so
-    it needs its own spec.
+- **A known auval warning**, from the person's install of main `88391a5` (`artifacts/reports/auval.txt`): on Seq Gate,
+  "Parameter did not retain default value when set". No check in this phase covers it. Fixed in 5.5
+  (`docs/specs/phase-5.5-auval.md`), which has its cause: JUCE's 0-1 conversion, built as a fused multiply-add, brings
+  Seq Gate's default back one unit in the last place low.
 
 ## Notes for the planner
 
