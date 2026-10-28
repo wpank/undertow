@@ -82,6 +82,9 @@ signing only), an installer package.
      steps play at 90/127, at -21.0. So a SEQ preset built on the defaults needs about +3 dB of `master_gain`. Set
      each preset's `master_gain` to land it there: a render X dB off needs `master_gain` X dB the other way, and the
      check prints X. The default suits few presets.
+   - Phase 5.4 changed the floor and the level for SUB presets, since a SUB preset may be a short note (SUB Kick
+     Companion). A SUB preset's level is its loudest 300 ms in the first second, in windows every 10 ms, and the
+     -30 dBFS floor leaves SUB presets to that level's -21 dBFS floor (`docs/specs/phase-5.4-presets.md`).
 
 2. **The programs and strict validation** (`plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`)
    - `getNumPrograms()` is the number of factory presets; `getProgramName(i)` its name; `setCurrentProgram(i)` sets
@@ -187,13 +190,13 @@ Checks that share a command are one verify step: the table repeats the command o
 
 | Check | Command | Proves |
 |---|---|---|
-| P5.01-P5.03 | `tools/spec.sh 5 presets` | At least 12 presets with unique names and slugs in four categories and valid values; each renders clean (finite, under -0.3 dBFS, at least -30 dBFS RMS) and repeatably; each category has its character |
+| P5.01-P5.03 | `tools/spec.sh 5 presets` | At least 12 presets with unique names and slugs in four categories and valid values; each renders clean (finite, under -0.3 dBFS, at least -30 dBFS RMS, which from phase 5.4 leaves SUB presets to P5.09) and repeatably; each category has its character |
 | P5.04 | `tools/spec.sh 5 programs` | The presets are the plugin's programs: names in order, and setCurrentProgram sets every parameter and the pattern |
 | P5.05 | `tools/spec.sh 5 render` | undertow_render writes a bar-exact 24-bit stereo WAV of a preset by slug, name or init, in level, byte-identical on a second run, and fails on bad input |
 | P5.06 | `tools/render-demos.sh && tools/spec.sh 5 demos` | The four showcase renders are in artifacts/audio (48 kHz, 24-bit stereo, 8 bars, under 5 MB) and every preset has a render in build/demos |
 | P5.07 | `tools/install.sh --dest build/install-test && tools/spec.sh 5 install` | In a test folder, never the user's own: the three bundles in VST3, Components and Applications, whole, signed, with the Metakosmia ids and the AU's component entry |
 | P5.08 | `tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt` | pluginval passes at strictness 10 (without its GUI tests, so no windows open), and its log is kept for review |
-| P5.09 | `tools/spec.sh 5 presets` | The presets are loudness-matched: each renders (holding A2 at velocity 100 when its sequencer is off) within 3 dB of -18 dBFS RMS, the init patch's level there, so none sounds weak or hot next to another |
+| P5.09 | `tools/spec.sh 5 presets` | The presets are loudness-matched: each renders (holding A2 at velocity 100 when its sequencer is off) within 3 dB of -18 dBFS RMS, the init patch's level there, so none sounds weak or hot next to another (a SUB preset over its loudest 300 ms in the first second, from phase 5.4) |
 | P5.10 | `tools/spec.sh 5 filter` | At the cutoff a quiet tone gains at least +17 dB at resonance 0.9 and +20 dB at 1: the top of the knob rings |
 | P5.11 | `tools/spec.sh 2_2 filter` | Phase 2.2's filter checks still pass: drive keeps its level, the middle of the knob, a held tone within 4. A regression check: it passes on the base too |
 | P5.12 | `tools/spec.sh 2_1 filter` | Phase 2.1's filter checks still pass: the resonance holds at full level, and drive 0 stays linear. A regression check |

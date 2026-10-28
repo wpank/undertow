@@ -74,7 +74,8 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
   at or under the clipper's knee. A DC blocker at the head of the output stage keeps the output centred, whatever the
   pulse width.
 - The factory presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level, so
-  stepping through them never drops or jumps in level.
+  stepping through them never drops or jumps in level. A SUB preset may be a short note, so it is read over its
+  loudest 300 ms (phase 5.4).
 - Every audio callback is realtime-safe: no allocation, lock, file or log, and no NaN, infinity or denormal out.
 
 ## 2. Signal flow
@@ -244,13 +245,14 @@ host parameters (phase 3).
 | 5.1 | `specs/phase-5.1-renders.md` | Phase 5's finish: RUMBLE Dark Room retuned on the final resonance curve; the offline renderer holds the note and plays the whole pattern, and the demo renders are its files as written (no rescaling, no made-up audio); texts::draw never cuts a word (Hz drew as H) | 5 | S: 3 tasks, about 40 lines changed, about 70 removed, four renders and three images |
 | 5.2 | `specs/phase-5.2-presets.md` | The presets as named: SUB Pure Foundation the clean sine sub alone and every SUB preset the sub (F17), no preset's energy below 20 Hz (F18), by retuning six presets, not the engine | 5.1 | S: 1 task, about 10 lines and one showcase render |
 | 5.3 | `specs/phase-5.3-presets.md` | Low Pressure as named, and the Roller at level: SUB Low Pressure as "sub at -2 oct with a little saturation, a slow swell", apart from Pure Foundation and still the clean sub; BASS Hypnotic Roller's showcase at the reel's level | 5.2 | S: 1 task, about 5 lines and one showcase render |
+| 5.4 | `specs/phase-5.4-presets.md` | Kick Companion as named: SUB Kick Companion as "a short, round sub note that sits after a kick", a decaying note apart from the two held SUB presets and still the clean sub; the level check reads a SUB preset over its loudest 300 ms | 5.3 | S: 1 task, about 5 lines |
 
 ```text
- phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1 ──► phase 5.2 ──► phase 5.3
+ phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1 ──► phase 5.2 ──► phase 5.3 ──► phase 5.4
                     └──► phase 3 ──────────────────────────────┘
 ```
 
-Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3. Phases 2 and 3 are independent in
+Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3, 5.4. Phases 2 and 3 are independent in
 their DSP and could run in parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`,
 so in parallel they end in a merge there.
 
