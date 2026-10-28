@@ -114,8 +114,8 @@ Checks that share a command are one verify step: the table repeats the command o
 | Check | Command | Proves |
 |---|---|---|
 | P5.1.01 | `tools/spec.sh 5 presets` | P5.01-P5.03 and P5.09 pass on the final filter: RUMBLE Dark Room keeps at least 60% of its energy below 200 Hz again, and every preset keeps its character and level |
-| P5.1.02 | `tools/spec.sh 5_1 render` | undertow_render plays each preset and init as the engine does, with the note held (sequencer off) or the whole pattern (sequencer on): each of the 8 bars within 0.5 dB RMS of the engine's own |
-| P5.1.03 | `tools/spec.sh 5_1 render` | Init, and a preset with its sequencer off, render within 3 dB of -18 dBFS RMS, as P5.09 holds the presets |
+| P5.1.02 | `tools/spec.sh 5_1 render` | undertow_render plays each preset and init as the engine does, with the note held (sequencer off) or the whole pattern (sequencer on): each of the 8 bars within 0.5 dB RMS of the engine's own (a bar under -120 dBFS counts as silence, from phase 5.4) |
+| P5.1.03 | `tools/spec.sh 5_1 render` | Init, and a preset with its sequencer off, render within 3 dB of -18 dBFS RMS, as P5.09 holds the presets (a SUB preset over its loudest 300 ms in the first second, from phase 5.4) |
 | P5.1.04 | `tools/render-demos.sh && tools/spec.sh 5_1 demos` | The four committed showcase renders, and every render in build/demos, are byte for byte what undertow_render writes for their preset at 8 bars and 128 BPM. artifacts/audio holds exactly those four |
 | P5.1.05 | `tools/render-demos.sh && tools/spec.sh 5_1 demos` | tools/render-demos.sh runs no interpreter or audio tool (Python, Perl, sox, ffmpeg, dd and the like) that could rewrite a render |
 | P5.1.06 | `tools/spec.sh 5_1 text` | texts::draw draws a word whole in a box 6 px narrower than it, left, centred or right justified, and records the box it drew in |

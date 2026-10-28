@@ -1,4 +1,5 @@
-// Phase 5 spec tests: the factory presets (docs/specs/phase-5-ship.md, P5.01 to P5.03 and P5.09).
+// Phase 5 spec tests: the factory presets (docs/specs/phase-5-ship.md, P5.01 to P5.03 and P5.09; P5.02 and P5.09 as
+// phase 5.4 changed them for SUB presets, docs/specs/phase-5.4-presets.md).
 // spec-needs: core/include/undertow/presets.h
 
 #include "doctest.h"
@@ -54,10 +55,20 @@ const spec::Stereo& cachedRender(int index) {
     return found->second;
 }
 
-// A render's level: the RMS of both channels together, in dBFS.
-double levelDb(const spec::Stereo& out) {
-    const double left = spec::rms(out.left), right = spec::rms(out.right);
+// A render's level over [begin, end): the RMS of both channels together, in dBFS.
+double levelDb(const spec::Stereo& out, std::size_t begin = 0, std::size_t end = spec::kEnd) {
+    const double left = spec::rms(out.left, begin, end), right = spec::rms(out.right, begin, end);
     return 10.0 * std::log10(std::max(0.5 * (left * left + right * right), 1e-30));
+}
+
+// A SUB preset's level (phase 5.4): its loudest 300 ms in the first second, in windows every 10 ms. A SUB preset may
+// be a short note (SUB Kick Companion), whose 2 bars would read mostly the silence after it; for a held note it reads
+// within 0.3 dB of the 2 bars.
+double loudest300Db(const spec::Stereo& out) {
+    double loudest = -300.0;
+    for (std::size_t start = 0; start + 14400 <= 48000; start += 480)
+        loudest = std::max(loudest, levelDb(out, start, start + 14400));
+    return loudest;
 }
 
 double share(const spec::Signal& x, double loHz, double hiHz) {
@@ -106,13 +117,17 @@ TEST_CASE("P5.01 there are at least 12 factory presets: unique names, four categ
 
 TEST_CASE("P5.02 every preset renders clean, in level, and the same every time") {
     for (int i = 0; i < undertow::numFactoryPresets(); ++i) {
-        INFO("preset \"" << std::string(undertow::factoryPresetName(i)) << "\"");
+        const std::string name = undertow::factoryPresetName(i);
+        INFO("preset \"" << name << "\"");
         const auto& out = cachedRender(i);
         CHECK_MESSAGE(spec::allFinite(out.left), "the render has non-finite samples");
         const double peak = std::max(spec::peakAbs(out.left), spec::peakAbs(out.right));
         CHECK_MESSAGE(peak <= 0.966 + 1e-6, "the render peaks at " << peak << ", over -0.3 dBFS");
+        // A SUB preset may be a short note (phase 5.4): its 2 bars read mostly the silence after it, so P5.09's floor on
+        // its loudest 300 ms is what it must be heard by.
         const double rms = spec::toDb(spec::rms(out.left));
-        CHECK_MESSAGE(rms >= -30.0, "the render's RMS is " << rms << " dBFS: a preset must be heard (-30 dBFS or louder)");
+        if (categoryOf(name) != "SUB")
+            CHECK_MESSAGE(rms >= -30.0, "the render's RMS is " << rms << " dBFS: a preset must be heard (-30 dBFS or louder)");
         const auto again = renderPreset(i);
         CHECK_MESSAGE(again.left == out.left, "rendering the same preset twice must give the same samples");
     }
@@ -148,14 +163,17 @@ TEST_CASE("P5.03 each category sounds like itself") {
 TEST_CASE("P5.09 the presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level") {
     // Browsing from one preset to the next, none should sound weak or hot. -18 dBFS RMS is where the init patch
     // renders holding A2 at velocity 100, accented (at the -14 dB master default; 3.2 dB lower at a plain velocity),
-    // and it keeps most peaks under the clipper's knee.
+    // and it keeps most peaks under the clipper's knee. A SUB preset is read over its loudest 300 ms in the first
+    // second (phase 5.4), since it may be a short note; every other preset over the 2 bars.
     for (int i = 0; i < undertow::numFactoryPresets(); ++i) {
         const std::string name = undertow::factoryPresetName(i);
         INFO("preset \"" << name << "\"");
-        const double level = levelDb(cachedRender(i));
-        CHECK_MESSAGE(level >= -21.0, "the render is " << level << " dBFS RMS, " << -18.0 - level
-                                                       << " dB under -18: raise this preset's master_gain by that much");
-        CHECK_MESSAGE(level <= -15.0, "the render is " << level << " dBFS RMS, " << level + 18.0
-                                                       << " dB over -18: lower this preset's master_gain by that much");
+        const bool sub = categoryOf(name) == "SUB";
+        const double level = sub ? loudest300Db(cachedRender(i)) : levelDb(cachedRender(i));
+        const std::string what = sub ? "the render's loudest 300 ms in its first second is " : "the render is ";
+        CHECK_MESSAGE(level >= -21.0, what << level << " dBFS RMS, " << -18.0 - level
+                                           << " dB under -18: raise this preset's master_gain by that much");
+        CHECK_MESSAGE(level <= -15.0, what << level << " dBFS RMS, " << level + 18.0
+                                           << " dB over -18: lower this preset's master_gain by that much");
     }
 }
