@@ -1,0 +1,272 @@
+[meta]
+plan = "p0-undertow-foundation"
+title = "P0 · Undertow foundation"
+iteration = 0
+total = 3
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+
+[[task]]
+id = "T1"
+title = "Build system and parameter table"
+description = "Assumption: the parameter table in docs/PRD.md section 4 is the source of truth. Create the top-level CMake configuration, JUCE discovery helper, core library CMake setup, and the full undertow parameter API/table so the core preset can configure and the spec tests can read the 57 parameters in order."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "CMakeLists.txt",
+    "CMakePresets.json",
+    "cmake/Juce.cmake",
+    "core/CMakeLists.txt",
+    "core/include/undertow/params.h",
+    "core/src/params.cpp",
+]
+allowed_tools = [
+    "read_file",
+    "grep",
+    "edit_file",
+    "write_file",
+    "bash",
+    "glob",
+]
+denied_tools = []
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 0 params 'P0.01*'` passes, proving the 57 parameter rows match docs/PRD.md section 4 exactly.",
+    "AC2: `tools/spec.sh 0 params 'P0.02*'` passes, proving `findParam` returns every table index and -1 for unknown ids.",
+]
+sequence = 0
+goal = "The core build config exists and the parameter API returns the exact 57-row table plus exact id lookup behavior."
+non_goals = [
+    "Do not implement the engine skeleton yet.",
+    "Do not create any plugin target yet.",
+    "Do not modify tests/spec/ or docs/.",
+]
+
+[task.context]
+symbols = [
+    "P0.01 — parameter-table spec check",
+    "P0.02 — findParam/id index spec check",
+]
+anti_patterns = [
+    "Do NOT edit tests/spec/, third_party/, docs/, or any tools script.",
+    "Do NOT use FetchContent for JUCE; discover it through tools/fetch-juce.sh --prefix and find_package.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-0-foundation.md"
+lines = "1-260"
+why = "Use the exact phase-0 build, parameter table, and verification requirements as the implementation contract."
+
+[[task.context.read_files]]
+path = "tests/spec/CMakeLists.txt"
+lines = "1-91"
+why = "Confirm the spec harness build expectations and where the core checks are discovered."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 params 'P0.01*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 params 'P0.02*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task]]
+id = "T2"
+title = "Implement the engine skeleton"
+description = "Assumption: phase 0 engine behavior is silence, but the clock, parameter storage, chunked processing, and thread-safe meters must be correct now so later DSP phases only extend engine.cpp. Add the public engine API and its pimpl-backed implementation, and wire the core library to compile engine.cpp."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "core/CMakeLists.txt",
+    "core/include/undertow/engine.h",
+    "core/src/engine.cpp",
+]
+allowed_tools = [
+    "read_file",
+    "grep",
+    "edit_file",
+    "write_file",
+    "bash",
+    "glob",
+]
+denied_tools = []
+depends_on = ["T1"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 0 engine 'P0.03*'` passes, proving a new Engine starts on defaults and setParam clamps/rounds/maps/ignores as specified.",
+    "AC2: `tools/spec.sh 0 engine 'P0.04*'` passes, proving process writes all requested samples for both channels and nothing beyond the block.",
+    "AC3: `tools/spec.sh 0 engine 'P0.05*'` passes, proving process, setParam, getParam, meters, and reset do not allocate on the hot path.",
+    "AC4: `tools/spec.sh 0 engine 'P0.06*'` passes, proving the beat clock follows host transport and internal seq_bpm timing.",
+    "AC5: `tools/spec.sh 0 engine 'P0.07*'` passes, proving the core preset builds without JUCE in core headers and the core tests are configured.",
+]
+sequence = 1
+goal = "The core engine builds and satisfies the default, clamping, silence, allocation, and beat-clock checks."
+non_goals = [
+    "Do not add any audible DSP or voice code.",
+    "Do not start the plugin target yet.",
+    "Do not change the parameter table semantics.",
+]
+
+[task.context]
+symbols = [
+    "P0.03 — engine defaults and parameter setting spec check",
+    "P0.04 — block-writing and silence spec check",
+    "P0.05 — no-allocation spec check",
+]
+anti_patterns = [
+    "Do NOT introduce JUCE includes or JUCE targets into core.",
+    "Do NOT allocate in setParam, getParam, meters, reset, or process.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-0-foundation.md"
+lines = "1-260"
+why = "Use the exact engine API, behavior, and acceptance commands as the implementation contract."
+
+[[task.context.read_files]]
+path = "core/include/undertow/params.h"
+lines = "1-220"
+why = "Read the parameter API the engine must consume for defaults, clamping, and seq_bpm access."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 engine 'P0.03*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 engine 'P0.04*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 engine 'P0.05*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 engine 'P0.06*'"
+timeout_ms = 900000
+covers = ["AC4"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 engine 'P0.07*'"
+timeout_ms = 900000
+covers = ["AC5"]
+expect = "fail_on_base"
+
+[[task]]
+id = "T3"
+title = "Implement the plugin skeleton and check script"
+description = "Assumption: the plugin is a thin wrapper over undertow::Engine and the phase-0 editor is only a placeholder. Add the JUCE plugin target, processor/editor skeletons, APVTS parameter wiring, state save/restore, processBlock plumbing, pluginval-ready bundle metadata, and the local check script so the plugin preset and final check both work."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "plugin/CMakeLists.txt",
+    "plugin/PluginProcessor.h",
+    "plugin/PluginProcessor.cpp",
+    "plugin/PluginEditor.h",
+    "plugin/PluginEditor.cpp",
+    "tools/check.sh",
+]
+allowed_tools = [
+    "read_file",
+    "grep",
+    "edit_file",
+    "write_file",
+    "bash",
+    "glob",
+]
+denied_tools = []
+depends_on = [
+    "T1",
+    "T2",
+]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 0 plugin` passes, proving the plugin skeleton covers identity, parameters, state restore, processBlock plumbing, editor size/paint, and bundle ids.",
+    "AC2: `tools/pluginval.sh 5` passes, proving the VST3 passes pluginval at strictness 5.",
+    "AC3: `tools/check.sh --plugin` passes, proving the core and plugin presets build, tests run, and pluginval is included in the local check.",
+]
+sequence = 2
+goal = "The plugin target builds, exposes the expected interface and placeholder editor, and the local check script runs both presets plus pluginval."
+non_goals = [
+    "Do not add any real DSP or UI controls.",
+    "Do not alter the core engine behavior.",
+    "Do not change tests/spec/ or the pluginval harness.",
+]
+
+[task.context]
+symbols = [
+    "P0.08-P0.13 — plugin skeleton spec checks",
+    "P0.14 — pluginval spec check",
+    "P0.15 — full local check script spec check",
+]
+anti_patterns = [
+    "Do NOT configure plugin builds by FetchContent-ing JUCE.",
+    "Do NOT make the plugin editor resizable or add real UI controls in phase 0.",
+    "Do NOT let processBlock allocate vectors per call; reserve upfront and drop overflow events.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-0-foundation.md"
+lines = "1-260"
+why = "Use the exact plugin and check-script requirements, plus the acceptance commands that must be satisfied."
+
+[[task.context.read_files]]
+path = "tests/spec/CMakeLists.txt"
+lines = "1-91"
+why = "Confirm how the spec harness discovers the plugin tests and the build ordering assumptions."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 0 plugin"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/pluginval.sh 5"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/check.sh --plugin"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "fail_on_base"

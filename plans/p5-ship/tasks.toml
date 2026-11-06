@@ -1,0 +1,537 @@
+[meta]
+plan = "p5-ship"
+title = "P5 · ship"
+iteration = 0
+total = 8
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+sources = ["docs/specs/phase-5-ship.md"]
+
+[[meta.verify]]
+phase = "test"
+command = "tools/check.sh --plugin"
+fail_msg = "SC21: `tools/check.sh --plugin` is the plan's final check, not any one task's: every present spec test of phases 0 to 5,"
+timeout_ms = 900000
+
+[[task]]
+id = "T1"
+title = "Define the factory presets"
+description = "Add the preset API in undertow/presets.h and implement the twelve factory presets in core/src/presets.cpp. Include names, slugs, full parameter values, and patterns so the core can look them up by index, name, or slug."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "core/include/undertow/presets.h",
+    "core/src/presets.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `numFactoryPresets()` returns 12, every preset name and slug is unique, and `findFactoryPreset()` finds each preset by both its exact name and its slug.",
+    "AC2: The twelve presets match the required category/order list, and their parameter sets and patterns are valid for rendering and program selection.",
+    "AC3: The preset renders used by the spec stay finite, under -0.3 dBFS peak, at least -30 dBFS RMS, and loudness-matched within 3 dB of -18 dBFS RMS.",
+]
+sequence = 0
+goal = "Undertow exposes twelve named factory presets with stable slugs and preset data."
+non_goals = ["Do not change the plugin processor, renderer, install script, or UI display in this task."]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "The phase-5 requirements, preset list, and API contract."
+
+[[task.context.read_files]]
+path = "core/include/undertow/sequencer.h"
+lines = "1-87"
+why = "Pattern and step types used by the preset API."
+
+[[task.context.read_files]]
+path = "core/CMakeLists.txt"
+lines = "1-15"
+why = "How core sources are registered and built."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 presets"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+    "AC3",
+]
+expect = "fail_on_base"
+
+[[task]]
+id = "T2"
+title = "Wire presets and strict state restore into the plugin"
+description = "Update plugin/PluginProcessor.h and plugin/PluginProcessor.cpp so the JUCE processor reports the factory preset count and names, loads presets through APVTS and the engine, keeps the default preset state on new instances, and reapplies every parameter value from state after replaceState for strict pluginval fuzzing."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "plugin/PluginProcessor.h",
+    "plugin/PluginProcessor.cpp",
+    "artifacts/reports/pluginval-strict.txt",
+]
+depends_on = ["T1"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: The plugin reports one program per factory preset, with names in factory order, and `setCurrentProgram()` loads both parameter values and pattern data.",
+    "AC2: A fresh instance keeps the default parameter state and default pattern until a program is explicitly selected, and state round-tripping preserves every parameter, including bools, under strict validation.",
+    "AC3: The phase-4 pattern persistence behavior still passes after the program wiring change.",
+]
+sequence = 1
+goal = "The plugin advertises all factory presets as programs and restores state safely under strict validation."
+non_goals = [
+    "Do not change the preset definitions themselves.",
+    "Do not change the renderer, UI, or install script in this task.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "the document this plan is written from: read it first, it states the rules, the interfaces and the checks this task must meet"
+
+[[task.context.read_files]]
+path = "plugin/PluginProcessor.h"
+lines = "1-46"
+why = "Current processor API and program/state hooks."
+
+[[task.context.read_files]]
+path = "plugin/PluginProcessor.cpp"
+lines = "1-163"
+why = "Current parameter layout, state restore, and program methods."
+
+[[task.context.read_files]]
+path = "core/include/undertow/presets.h"
+lines = "1-120"
+why = "Preset API that the processor must call."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 programs"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 4_2 pattern"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T3"
+title = "Add the offline renderer target and CLI"
+description = "Create tools/render/CMakeLists.txt and tools/render/main.cpp, then wire tools/render into the top-level CMakeLists.txt before tests/spec. The program must load presets by slug, name, index, or init, run the engine for the requested bar count, and write a deterministic 24-bit stereo WAV with the required status line and error handling."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "CMakeLists.txt",
+    "tools/render/CMakeLists.txt",
+    "tools/render/main.cpp",
+]
+depends_on = ["T1"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `undertow_render --preset <slug|name|index|init> --out <file.wav>` writes a 24-bit stereo WAV with the requested frame count, peak and RMS summary, and the same arguments produce byte-identical output.",
+    "AC2: Invalid preset names and bad arguments print an error and exit non-zero.",
+    "AC3: The top-level build exposes the renderer target before the spec tests that consume it.",
+]
+sequence = 2
+goal = "The build produces undertow_render, and it renders presets deterministically to WAV files from the command line."
+non_goals = [
+    "Do not add JUCE dependencies to the renderer.",
+    "Do not change preset content or the plugin in this task.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "the document this plan is written from: read it first, it states the rules, the interfaces and the checks this task must meet"
+
+[[task.context.read_files]]
+path = "CMakeLists.txt"
+lines = "1-24"
+why = "Top-level build wiring for the new renderer subdirectory."
+
+[[task.context.read_files]]
+path = "core/include/undertow/filter.h"
+lines = "1-45"
+why = "Core DSP API the renderer drives through Undertow::core."
+
+[[task.context.read_files]]
+path = "core/include/undertow/sequencer.h"
+lines = "1-87"
+why = "Pattern and transport behavior the renderer must exercise."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 render"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+    "AC3",
+]
+expect = "fail_on_base"
+
+[[task]]
+id = "T4"
+title = "Script the demo renders and commit the showcase audio"
+description = "Implement tools/render-demos.sh so it builds undertow_render, clears build/demos, renders every factory preset there, and writes the four required showcase files into artifacts/audio at the specified sample rate, bit depth, and bar length."
+role = "implementer"
+status = "ready"
+tier = "focused"
+max_loc = 50
+files = [
+    "tools/render-demos.sh",
+    "artifacts/audio/init.wav",
+    "artifacts/audio/sub-pure-foundation.wav",
+    "artifacts/audio/bass-hypnotic-roller.wav",
+    "artifacts/audio/rumble-dark-room.wav",
+]
+depends_on = ["T3"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/render-demos.sh` leaves build/demos containing exactly the current run's preset renders and writes the four showcase WAVs to artifacts/audio.",
+    "AC2: The committed showcase files are valid 48 kHz, 24-bit stereo renders under the size limit and in the expected names.",
+]
+sequence = 3
+goal = "The demo script builds the renderer, refreshes build/demos, and commits the four showcase WAVs under artifacts/audio."
+non_goals = [
+    "Do not change the renderer implementation itself.",
+    "Do not add new audio artifacts beyond the four required showcase files.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "Demo-render requirements and artifact names."
+
+[[task.context.read_files]]
+path = "tools/render/CMakeLists.txt"
+lines = "1-120"
+why = "Renderer target name and build invocation details."
+
+[[task.verify]]
+phase = "test"
+command = "tools/render-demos.sh && tools/spec.sh 5 demos"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+]
+expect = "fail_on_base"
+
+[[task]]
+id = "T5"
+title = "Implement the install script for test-folder deployment"
+description = "Implement tools/install.sh so it builds the plugin preset's Undertow_All target, copies the three bundles into a caller-provided --dest tree, signs each bundle ad hoc, leaves the live system alone in test mode, and supports uninstalling those staged copies."
+role = "implementer"
+status = "ready"
+tier = "focused"
+max_loc = 50
+files = ["tools/install.sh"]
+depends_on = [
+    "T2",
+    "T3",
+    "T4",
+]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/install.sh --dest build/install-test` installs the VST3, Component, and App bundles into the destination tree and prints the installed locations.",
+    "AC2: The staged bundles are copied whole and signed ad hoc, with the expected Metakosmia bundle ids and AU component entry preserved.",
+    "AC3: `--uninstall` removes the staged bundles from the destination tree.",
+]
+sequence = 4
+goal = "The install script stages signed VST3, AU, and app bundles into a destination folder without touching the user's system."
+non_goals = [
+    "Do not install into the user's real ~/Library or ~/Applications locations during the plan checks.",
+    "Do not add a package installer or notarization flow.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "Install-path requirements, signing behavior, and test-mode rules."
+
+[[task.context.read_files]]
+path = "plugin/CMakeLists.txt"
+lines = "1-42"
+why = "Bundle target names and build products the install script must copy."
+
+[[task.context.read_files]]
+path = "plugin/PluginProcessor.h"
+lines = "1-46"
+why = "Plugin identity that should remain unchanged while installing bundles."
+
+[[task.verify]]
+phase = "test"
+command = "tools/install.sh --dest build/install-test && tools/spec.sh 5 install"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+    "AC3",
+]
+expect = "fail_on_base"
+
+[[task]]
+id = "T6"
+title = "Raise the resonance ceiling at the top of the knob"
+description = "Adjust core/include/undertow/filter.h and core/src/filter.cpp so the resonance curve reaches the stronger top-end gain described by phase 5 while preserving the earlier phase-1 and phase-2.2 checks."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/filter.h",
+    "core/src/filter.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: A quiet tone at the cutoff gains at least +17 dB at resonance 0.9 and at least +20 dB at resonance 1.",
+    "AC2: The earlier filter behavior remains valid at the middle of the knob, at drive 0, and for the held-tone bound from phase 2.2.",
+]
+sequence = 5
+goal = "A quiet tone at the cutoff gains more resonance at the top of the filter knob without breaking earlier filter behavior."
+non_goals = [
+    "Do not change the filter's drive path or its public API.",
+    "Do not alter other DSP modules.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "the document this plan is written from: read it first, it states the rules, the interfaces and the checks this task must meet"
+
+[[task.context.read_files]]
+path = "core/include/undertow/filter.h"
+lines = "1-45"
+why = "Filter API and current resonance documentation."
+
+[[task.context.read_files]]
+path = "core/src/filter.cpp"
+lines = "1-123"
+why = "The existing resonance curve and stage damping implementation."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 filter"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_2 filter"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 filter"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T7"
+title = "Keep probability-one sequencer draws below 1"
+description = "Update core/src/sequencer.cpp so the probability hash and mutate hash stay strictly below 1.0, preserving the same deterministic step decisions and the phase-3 grid, rests, accents, slides, probability, mutate, and evolve behavior."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = ["core/src/sequencer.cpp"]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: A probability-1 step always plays for the cited seeds and step numbers that previously failed.",
+    "AC2: The phase-3 sequencer regression checks still pass after the draw fix.",
+]
+sequence = 6
+goal = "Probability-1 steps no longer drop due to float rounding, while earlier sequencer behavior stays intact."
+non_goals = [
+    "Do not change the sequencer API or pattern format.",
+    "Do not alter the preset list or renderer.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "the document this plan is written from: read it first, it states the rules, the interfaces and the checks this task must meet"
+
+[[task.context.read_files]]
+path = "core/include/undertow/sequencer.h"
+lines = "1-87"
+why = "Sequencer API and pattern types used by the random draw code."
+
+[[task.context.read_files]]
+path = "core/src/sequencer.cpp"
+lines = "1-240"
+why = "The probability hash and mutate hash implementations to update."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 sequencer"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T8"
+title = "Fix the bone number rendering and refresh review images"
+description = "Update plugin/ui/Displays.h and plugin/ui/Displays.cpp so the bone readout uses the full 56 px design size, shows every glyph, retains the last pitch during fade, and keeps the existing baseline placement. Then rerun the review-image budget path so the three artifact PNGs are regenerated."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 50
+files = [
+    "plugin/ui/Displays.h",
+    "plugin/ui/Displays.cpp",
+    "artifacts/ui/editor-idle.png",
+    "artifacts/ui/editor-playing.png",
+    "artifacts/ui/editor-clipping.png",
+]
+depends_on = ["T2"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: The bone number renders 55.00 and 110.00 with every glyph visible, instead of truncating to 55.0.",
+    "AC2: The digits match the 56 px design size and keep the last pitch visible while the readout fades after a note ends.",
+    "AC3: The phase-4 review images are regenerated into artifacts/ui as part of the budget check.",
+]
+sequence = 7
+goal = "The editor draws the bone number at full size, keeps the last pitch during fade, and regenerates the review images."
+non_goals = [
+    "Do not move the tunnel, scope, or pump-field layouts.",
+    "Do not change the review image copies in build/previews.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5-ship.md"
+why = "The bone-number requirements and review-image expectations."
+
+[[task.context.read_files]]
+path = "plugin/ui/Displays.h"
+lines = "1-53"
+why = "The display state that tracks the bone number and note fade."
+
+[[task.context.read_files]]
+path = "plugin/ui/Displays.cpp"
+lines = "1-301"
+why = "The existing bone drawing code and fade behavior."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 number"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 4_2 head"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 4_3 finish"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 4 display 'P4.06*,P4.08*,P4.09*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 4 budget"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"

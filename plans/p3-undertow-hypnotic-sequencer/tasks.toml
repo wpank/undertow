@@ -1,0 +1,188 @@
+[meta]
+plan = "p3-undertow-hypnotic-sequencer"
+title = "P3 · Undertow hypnotic sequencer"
+iteration = 0
+total = 2
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+
+[[meta.verify]]
+phase = "test"
+command = "tools/check.sh"
+fail_msg = "SC16: `tools/check.sh` (every present spec test, phases 0 to 3) is the plan's final check, not any one task's."
+timeout_ms = 900000
+
+[[task]]
+id = "T1"
+title = "Implement the sequencer core"
+description = "Add `undertow/sequencer.h` and `core/src/sequencer.cpp` with `Step`, `Pattern`, `Scale`, `SeqEvent`, `Sequencer`, `defaultPattern()`, `inScale()`, note scheduling, probability, slide handling, mutate, evolve, and no-allocation processing. Assumption: the sequencer owns its pattern state entirely inside the core library and the engine will read it later through the API defined here."
+role = "implementer"
+status = "ready"
+tier = "architectural"
+max_loc = 300
+files = [
+    "core/include/undertow/sequencer.h",
+    "core/src/sequencer.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `Step`, `Pattern`, `Scale`, `SeqEvent`, and the `Sequencer` API are declared in `core/include/undertow/sequencer.h`, and `defaultPattern()` matches the requested 16-step table.",
+    "AC2: `inScale()` recognizes Chromatic, Minor, Phrygian, Dorian, and Minor Pentatonic degrees exactly as specified.",
+    "AC3: `Sequencer::process()` schedules note-on/note-off events in time order with swing, gate, slide, probability, start/jump, and stop behavior matching the request.",
+    "AC4: `Sequencer::mutate()` and evolve behavior are deterministic from seed and mutate count, keep gates/probabilities unchanged, and never allocate during `process`, `setParams`, `setPattern`, or `mutate`.",
+]
+sequence = 0
+goal = "The project exposes a working 16-step sequencer API with default pattern, scales, processing, mutation, and evolve behavior."
+non_goals = [
+    "Do not edit engine wiring, engine headers, or any editor/state-save code.",
+    "Do not modify `core/CMakeLists.txt`.",
+    "Do not change any spec tests.",
+]
+
+[task.context]
+symbols = [
+    "Sequencer — the class to add in the new header",
+    "defaultPattern — the factory pattern the engine should start from",
+    "SeqEvent — the event type returned by process",
+]
+anti_patterns = [
+    "Do NOT guess a different slide or probability rule than the spec request states.",
+    "Do NOT add any heap allocation or locking inside sequencer processing or mutation.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "tests/spec/p3/sequencer_test.cpp"
+lines = "1-260"
+why = "The sequencer spec test shows the required API usage, event timing, and pattern semantics."
+
+[[task.context.read_files]]
+path = "tests/spec/p3/sequencer_test.cpp"
+lines = "261-365"
+why = "The remaining sequencer checks cover probability, mutation, evolve, and allocation behavior."
+
+[[task.context.read_files]]
+path = "docs/PRD.md"
+lines = "60-170"
+why = "The product requirements define the sequencer's musical scope, parameters, and timing model."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.01*,P3.02*'"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC2",
+]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.03*,P3.04*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.05*,P3.06*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.07*,P3.08*,P3.09*'"
+timeout_ms = 900000
+covers = ["AC4"]
+expect = "fail_on_base"
+
+[[task]]
+id = "T2"
+title = "Add sequencer state handoff and engine wiring"
+description = "Update `core/include/undertow/engine.h`, `core/src/engine.cpp`, and the existing core build registration path so the engine embeds a `Sequencer`, exposes `setPattern()` and `pattern()`, initializes from `defaultPattern()`, and routes sequencer output through processing. Assumption: the engine uses a lock-free pattern handoff so `pattern()` never returns a torn mix and the audio thread takes new patterns at the start of a block."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "core/include/undertow/engine.h",
+    "core/src/engine.cpp",
+]
+depends_on = ["T1"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `core/include/undertow/engine.h` declares `Engine::setPattern(const Pattern&)` and `Engine::pattern() const`, with `Pattern` coming from `undertow/sequencer.h`.",
+    "AC2: A prepared engine starts with `defaultPattern()` available through `pattern()`, and the engine can take a new pattern from another thread without producing torn reads.",
+    "AC3: When `seq_on` is enabled, engine processing uses sequencer events on the host/internal beat grid and reports the sequencer's current step through meters.",
+    "AC4: The engine keeps the sequencer and pattern handoff allocation-free during processing, and the phase-3 engine spec checks pass.",
+]
+sequence = 1
+goal = "The engine owns a sequencer, exposes pattern handoff APIs, starts from the default pattern, and drives the sequencer from the audio thread."
+non_goals = [
+    "Do not change the phase-1 voice implementation or the editor/state-save work in phase 4.",
+    "Do not edit any spec tests.",
+    "Do not add heap allocation or locking to the process path.",
+]
+
+[task.context]
+symbols = [
+    "Engine — the class that owns the sequencer",
+    "Meters::step — the meter field the sequencer must update",
+    "Transport — the beat-clock input the engine already receives",
+]
+anti_patterns = [
+    "Do NOT edit `core/CMakeLists.txt`; the core source glob already picks up new sources.",
+    "Do NOT implement the phase-4 editor state save path here.",
+    "Do NOT make pattern handoff depend on a mutex or heap allocation.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/engine.h"
+lines = "1-53"
+why = "The engine class declaration is where the new sequencer APIs must be added."
+
+[[task.context.read_files]]
+path = "core/src/engine.cpp"
+lines = "1-280"
+why = "The engine implementation shows the existing processing flow and where to wire sequencer behavior."
+
+[[task.context.read_files]]
+path = "docs/PRD.md"
+lines = "120-190"
+why = "The beat clock, sequencer scope, and thread-safety requirements are defined here."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 engine 'P3.10*,P3.11*'"
+timeout_ms = 900000
+covers = [
+    "AC1",
+    "AC3",
+]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 engine 'P3.12*,P3.13*'"
+timeout_ms = 900000
+covers = [
+    "AC2",
+    "AC4",
+]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 engine 'P3.14*,P3.15*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"

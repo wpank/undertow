@@ -1,0 +1,169 @@
+[meta]
+plan = "p3-undertow-hypnotic-sequencer-2"
+title = "P3 · Undertow hypnotic sequencer"
+iteration = 0
+total = 2
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+
+[[meta.verify]]
+phase = "test"
+command = "tools/check.sh"
+fail_msg = "SC16: `tools/check.sh` (every present spec test, phases 0 to 3) is the plan's final check, not any one task's."
+timeout_ms = 900000
+
+[[task]]
+id = "T1"
+title = "Implement the standalone sequencer"
+description = "Assumption: docs/specs/phase-3-sequencer.md is the authoritative contract for the sequencer API, timing, probabilities, mutation, evolve, and allocation-free processing. Add undertow/sequencer.h and core/src/sequencer.cpp, and rely on the existing source glob so the new file is built without editing core/CMakeLists.txt."
+role = "implementer"
+status = "ready"
+tier = "architectural"
+max_loc = 300
+files = [
+    "core/include/undertow/sequencer.h",
+    "core/src/sequencer.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: tests/spec/p3/sequencer_test.cpp builds and the P3.01/P3.02 checks pass: the sequencer starts on the 1/16 grid, seq_rate 0 makes 1/8 steps, seq_length only changes which pattern step plays, and swing delays odd steps.",
+    "AC2: tests/spec/p3/sequencer_test.cpp builds and the P3.03/P3.04 checks pass: rests stay silent, accents reach note-ons, slides form legato note ordering, stopping ends the note at offset 0, loops and relocations retrigger correctly, and mid-step starts wait for the next step.",
+    "AC3: tests/spec/p3/sequencer_test.cpp builds and the P3.05/P3.06 checks pass: probability is deterministic from seed and step number, repeated positions replay the same hits, different seeds differ, and note pitch is root plus transpose plus semitones.",
+    "AC4: tests/spec/p3/sequencer_test.cpp builds and the P3.07/P3.08/P3.09 checks pass: the declared scales are correct, mutate(0) is a no-op, mutate(0.25) changes about a quarter of steps without touching gates or leaving the scale/octave, evolve mutates only at bar boundaries, and process/setParams/mutate/setPattern perform no heap allocation.",
+]
+sequence = 0
+goal = "The core library provides a lock-free Sequencer with the documented steps, scales, default pattern, timing, mutation, and evolve behavior."
+non_goals = [
+    "Do not modify core/include/undertow/engine.h or core/src/engine.cpp in this task.",
+    "Do not edit tests/spec/ or docs/ files.",
+    "Do not change the existing audio engine voice or transport logic.",
+]
+
+[task.context]
+symbols = ["Sequencer — the new class to implement"]
+anti_patterns = [
+    "Do NOT edit core/CMakeLists.txt; the existing source glob must pick up core/src/sequencer.cpp.",
+    "Do NOT introduce heap allocations inside process, setParams, mutate, or setPattern.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-3-sequencer.md"
+lines = "1-214"
+why = "Authoritative API, timing, default pattern, mutation, evolve, and engine handoff requirements."
+
+[[task.context.read_files]]
+path = "tests/spec/p3/sequencer_test.cpp"
+lines = "1-260"
+why = "Required API usage and the exact behaviors the new sequencer must satisfy."
+
+[[task.context.read_files]]
+path = "core/include/undertow/engine.h"
+lines = "1-53"
+why = "Existing engine API and current integration points that the sequencer must fit around."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.01*,P3.02*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.03*,P3.04*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.05*,P3.06*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 sequencer 'P3.07*,P3.08*,P3.09*'"
+timeout_ms = 900000
+covers = ["AC4"]
+expect = "fail_on_base"
+
+[[task]]
+id = "T2"
+title = "Wire the sequencer into the engine and pattern handoff"
+description = "Assumption: task T1 supplies a working Sequencer and defaultPattern. Extend undertow/engine.h and core/src/engine.cpp so Engine prepares the sequencer, starts with defaultPattern(), routes seq_on behavior and transport sync, updates meters().step, and adds thread-safe setPattern(pattern) and pattern() accessors using a no-lock, no-allocation handoff."
+role = "implementer"
+status = "ready"
+tier = "integrative"
+max_loc = 150
+files = [
+    "core/include/undertow/engine.h",
+    "core/src/engine.cpp",
+]
+depends_on = ["T1"]
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: tests/spec/p3/engine_test.cpp builds and the P3.10/P3.11 checks pass: with seq_on the engine plays sequencer notes on the host grid, meters().step follows, MIDI note-ons transpose the sequencer without directly playing the voice, seq_on off returns MIDI direct-play behavior, accented steps are louder, and slides glide without retriggering.",
+    "AC2: tests/spec/p3/engine_test.cpp builds and the P3.12/P3.13 checks pass: seq_sync Internal uses seq_bpm, Host without a valid transport falls back to the internal clock, a host stop releases the note, setPattern and pattern() work from another thread without locks or tearing, and process performs no heap allocation during concurrent pattern updates.",
+    "AC3: tests/spec/p3/engine_test.cpp builds and the P3.14/P3.15 checks pass: a prepared engine starts with defaultPattern(), defaultPattern matches the documented 16-step table, and the default patch with sequencer and evolve enabled renders within the CPU budget.",
+]
+sequence = 1
+goal = "The engine owns the sequencer, drives it from transport, and exposes a lock-free pattern handoff that returns the newest pattern without tearing."
+non_goals = [
+    "Do not edit tests/spec/ or docs/ files.",
+    "Do not change the sequencer algorithm beyond what is needed to wire it into the engine.",
+    "Do not add editor-state persistence or phase-4 UI behavior.",
+]
+
+[task.context]
+symbols = ["Engine — the class to extend with sequencer ownership and pattern handoff"]
+anti_patterns = [
+    "Do NOT modify tests/spec/ files.",
+    "Do NOT use locks or allocations in the pattern handoff path.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-3-sequencer.md"
+lines = "1-214"
+why = "Engine transport, routing, meters, default pattern, and pattern handoff requirements."
+
+[[task.context.read_files]]
+path = "tests/spec/p3/engine_test.cpp"
+lines = "1-256"
+why = "The exact engine-visible behaviors and concurrency checks to satisfy."
+
+[[task.context.read_files]]
+path = "core/include/undertow/engine.h"
+lines = "1-53"
+why = "Public engine API to extend with pattern accessors and sequencer ownership hooks."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 engine 'P3.10*,P3.11*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 engine 'P3.12*,P3.13*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 3 engine 'P3.14*,P3.15*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "fail_on_base"

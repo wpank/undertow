@@ -1,0 +1,219 @@
+[meta]
+plan = "p2-2-undertow-gain-staging"
+title = "P2.2 · Undertow gain staging"
+iteration = 0
+total = 3
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+
+[[meta.verify]]
+phase = "test"
+command = "tools/check.sh"
+fail_msg = "SC14: `tools/check.sh` (every present spec test, phases 0 to 2.2) is the plan's final check, not any one task's."
+timeout_ms = 900000
+
+[[task]]
+id = "T1"
+title = "Rework output-stage width staging"
+description = "Update the output stage so the mono path stays untouched after DC blocking, saturation, and master gain, and build the width signal from a delayed, high-passed side path. Assumption: the existing public API and defaults stay unchanged."
+role = "implementer"
+status = "ready"
+tier = "focused"
+max_loc = 50
+files = [
+    "core/include/undertow/output_stage.h",
+    "core/src/output_stage.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 2_2 output 'P2.2.01*,P2.2.02*'` passes, showing width 0 keeps saw and square crest factor within 0.5 dB and both channels match.",
+    "AC2: `tools/spec.sh 2 output` still passes, preserving the phase 2 output regression checks.",
+    "AC3: `tools/spec.sh 2 engine 'P2.15*,P2.16*'` still passes, preserving the engine width regression check.",
+    "AC4: `tools/spec.sh 2 engine 'P2.17*,P2.22*'` still passes, preserving the default patch peak window regression check.",
+]
+sequence = 0
+goal = "Width preserves the mono peak shape while adding stereo decorrelation at the side."
+non_goals = [
+    "Do not change any public parameter names or defaults.",
+    "Do not add a new file or change the filter or rumble implementations.",
+]
+
+[task.context]
+symbols = [
+    "OutputStage::process",
+    "OutputStage::updateCrossover",
+]
+anti_patterns = [
+    "Do not route width through the crossover sum; the mono path must remain a direct x path after saturation and gain.",
+    "Do not introduce allocation or any new public parameter.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/output_stage.h"
+lines = "1-71"
+why = "Inspect the current private members and output-stage topology that width staging must replace."
+
+[[task.context.read_files]]
+path = "core/src/output_stage.cpp"
+lines = "1-219"
+why = "Inspect the existing processing chain, crossover, and width logic to rewrite safely."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_2 output 'P2.2.01*,P2.2.02*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2 output"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2 engine 'P2.15*,P2.16*'"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2 engine 'P2.17*,P2.22*'"
+timeout_ms = 900000
+covers = ["AC4"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T2"
+title = "Retune filter drive and resonance"
+description = "Adjust the filter drive curve so the signal keeps its level while gaining compression, reshape the resonance curve upward in the middle, and preserve the existing internal headroom safeguards. Assumption: the filter's public API, cutoff semantics, and drive=0 linearity remain unchanged."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/filter.h",
+    "core/src/filter.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*,P2.2.13*'` passes, covering drive makeup, musical resonance, and bounded high-resonance output.",
+    "AC2: `tools/spec.sh 1 filter` still passes, preserving the phase 1 filter regression checks.",
+    "AC3: `tools/spec.sh 2_1 filter` still passes, preserving the phase 2.1 resonance and linearity regression checks.",
+]
+sequence = 1
+goal = "The filter's drive adds makeup gain and the resonance curve has a stronger middle without breaking full-level linearity."
+non_goals = [
+    "Do not add any new filter parameters or change the cutoff frequency range.",
+    "Do not alter the saturation topology outside the existing drive path.",
+]
+
+[task.context]
+symbols = ["LowpassFilter::process"]
+anti_patterns = [
+    "Do not remove the existing state/output limits that preserve linearity at full level.",
+    "Do not change the public interface or the meaning of drive=0.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/filter.h"
+lines = "1-45"
+why = "Inspect the filter's state, drive parameter, and resonance fields before changing the curve."
+
+[[task.context.read_files]]
+path = "core/src/filter.cpp"
+lines = "1-116"
+why = "Inspect the current drive blend, resonance mapping, and output limiting behavior."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_2 filter 'P2.2.03*,P2.2.11*,P2.2.13*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 1 filter"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 filter"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T3"
+title = "Boost rumble makeup and output level"
+description = "Adjust the rumble saturation makeup gain and the constant post-duck output gain so rumble drive stays level-preserving and the default rumble sits beneath the bass. Assumption: the reverb, ducking, and parameter meanings remain unchanged."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/rumble.h",
+    "core/src/rumble.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'` passes, covering rumble drive level preservation, crest-factor reduction, and default bass offset.",
+    "AC2: `tools/spec.sh 2 rumble` still passes, preserving the phase 2 rumble regression checks.",
+]
+sequence = 2
+goal = "The rumble keeps its drive level while the default mix sits audibly under the bass."
+non_goals = [
+    "Do not change the rumble grid, duck shape, or any parameter default.",
+    "Do not add a new parameter or alter the reverb topology.",
+]
+
+[task.context]
+symbols = ["Rumble::process"]
+anti_patterns = [
+    "Do not change the duck timing or the reverb network.",
+    "Do not alter the default parameter values.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/rumble.h"
+lines = "1-68"
+why = "Inspect rumble state and the gain-related private members that can be adjusted."
+
+[[task.context.read_files]]
+path = "core/src/rumble.cpp"
+lines = "1-260"
+why = "Inspect the saturation, reverb, duck, and final output path to place makeup and output gain correctly."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_2 rumble 'P2.2.04*,P2.2.05*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2 rumble"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"

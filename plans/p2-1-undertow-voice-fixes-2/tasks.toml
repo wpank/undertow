@@ -1,0 +1,294 @@
+[meta]
+plan = "p2-1-undertow-voice-fixes-2"
+title = "P2.1 · Undertow voice fixes"
+iteration = 0
+total = 5
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+
+[[meta.verify]]
+phase = "test"
+command = "tools/check.sh"
+timeout_ms = 900000
+
+[[task]]
+id = "T1"
+title = "Smooth sustain changes in the envelopes"
+description = "Assumption: keep the existing public envelope API and implement the sustain smoothing only in the private envelope state. Update the amp and filter envelopes so Sustain follows a changed sustain value with a short one-pole glide, then snaps exactly to the sustain level once it is effectively there, without changing attack, decay, release, or any public interface. Verify the behavior with the phase 2.1 envelope spec test."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/envelope.h",
+    "core/src/envelope.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = ["AC1: A held envelope whose sustain is changed 1 -> 0.3 -> 1 -> 0 -> 0.6 moves by at most 0.02 per sample, is within 0.005 of the new sustain after 50 ms, reaches the exact sustain value after 100 ms, and still releases to an exact 0."]
+sequence = 0
+goal = "Held-envelope sustain changes move smoothly, settle to the new sustain level, and still release to exact zero."
+non_goals = [
+    "Do not change the envelope public API.",
+    "Do not alter attack, decay, or release timing.",
+    "Do not change any non-envelope code.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = [
+    "Do not change the attack or release coefficients while adding sustain smoothing.",
+    "Do not introduce a new envelope class or any public method.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/envelope.h"
+lines = "1-48"
+why = "Find the envelope state, thresholds, and private members available for sustain smoothing."
+
+[[task.context.read_files]]
+path = "core/src/envelope.cpp"
+lines = "1-104"
+why = "Update the stage processing logic without changing the public interface."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 envelope 'P2.1.01*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task]]
+id = "T2"
+title = "Fix legato glide state transitions"
+description = "Assumption: preserve the existing voice interface and only adjust private glide state handling. Make releasing a non-sounding held note leave the current glide untouched, and ensure glide_mode Off or glide_ms 0 forces the next note onto its own pitch immediately, including when a glide was already in progress. Verify both glide spec tests."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/voice.h",
+    "core/src/voice.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: With glide_ms 200, a legato note whose previous held note is released 50 ms into the glide still lands at 200 ms within 3 ms and stays on a straight line within 0.1 semitone at 50, 100, and 150 ms.",
+    "AC2: When glide_mode is Off or glide_ms is 0 halfway through a glide, the next legato note and the later return to the held note both play their own pitch within 1 cent immediately and 0.5 s later.",
+]
+sequence = 1
+goal = "Glide timing and pitch stay correct when held notes are released or glide is disabled mid-flight."
+non_goals = [
+    "Do not change the voice public API.",
+    "Do not change envelope behavior here.",
+    "Do not alter the sequencer or transport logic.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = [
+    "Do not add new public methods or change the voice header signature.",
+    "Do not fix this by changing the test expectations.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/voice.h"
+lines = "1-93"
+why = "Inspect the private glide state, held-note tracking, and note event methods."
+
+[[task.context.read_files]]
+path = "core/src/voice.cpp"
+lines = "1-260"
+why = "Adjust noteOn/noteOff and glide recomputation without changing the public interface."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 voice 'P2.1.02*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 voice 'P2.1.03*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task]]
+id = "T3"
+title = "Guard zero-length engine blocks and preserve existing saturation"
+description = "Assumption: keep the engine public API and add an early return for zero-sample process calls before any meter math. Preserve the current phase-2 saturation blend behavior while touching engine.cpp only as needed for the empty-block fix. Verify the zero-length-block regression and the saturation regression check."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = ["core/src/engine.cpp"]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: Zero-length process calls between moving-transport blocks leave meters finite and unchanged and produce audio identical to a render without those calls.",
+    "AC2: The phase 2 saturation regression check still passes on the base code path, confirming the blend remains unchanged.",
+]
+sequence = 2
+goal = "The engine leaves meters and audio unchanged for empty blocks, while its saturation behavior still matches the existing blend."
+non_goals = [
+    "Do not modify the engine public API.",
+    "Do not change the saturation curve implementation unless the existing behavior requires a minimal compatibility-preserving edit.",
+    "Do not alter any other meter behavior.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = [
+    "Do not add a new meter type or change the engine's public interface.",
+    "Do not move the zero-length guard after any division by numSamples.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/src/engine.cpp"
+lines = "1-220"
+why = "Locate the process path, zero-sample handling, and meter updates."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 engine 'P2.1.04*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 engine 'P2.1.09*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T4"
+title = "Restore filter resonance law and linear headroom"
+description = "Assumption: keep the filter public interface unchanged and only adjust private resonance scaling and state limiting. Replace the current resonance law with the phase-1-style damping split, then widen the internal state limiting so full-level voice signals remain linear at drive 0 while the phase-1 filter checks continue to pass. Verify the phase 2.1 filter checks and the phase 1 regression check."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/filter.h",
+    "core/src/filter.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: At resonance 0.8 and drive 0, the cutoff gain for a 1.0 sine stays within 3 dB of the 0.1 sine result and remains 6 dB above the resonance-0 gain.",
+    "AC2: At drive 0, a full-scale 110 Hz saw through cutoff 440 Hz stays within -60 dB of 100 times the same saw at 0.01 at resonance 0, 0.35, and 0.8.",
+    "AC3: The phase 1 filter regression check still passes.",
+]
+sequence = 3
+goal = "The filter stays linear at voice levels for drive 0 and keeps the phase-1 resonance behavior."
+non_goals = [
+    "Do not change the filter public API.",
+    "Do not raise every limit uniformly instead of changing the resonance law.",
+    "Do not alter the filter drive specification.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = [
+    "Do not change the public cutoff, resonance, or drive method signatures.",
+    "Do not fix the spec by weakening the tests or by only raising the state limit everywhere.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/filter.h"
+lines = "1-45"
+why = "Inspect the filter's private state and public controls before changing the resonance law."
+
+[[task.context.read_files]]
+path = "core/src/filter.cpp"
+lines = "1-116"
+why = "Update the resonance scaling and state limiting in the implementation."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 filter 'P2.1.05*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 filter 'P2.1.06*'"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 1 filter"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task]]
+id = "T5"
+title = "Clamp oscillator frequency at Nyquist"
+description = "Assumption: keep the oscillator public API unchanged and only add the Nyquist clamp inside the existing frequency setter or equivalent private state path. Ensure notes at and above sampleRate/2 are clamped to that limit so the phase-2.1 aliasing test passes for saw, square, and pulse outputs at the listed frequencies. Verify the oscillator spec test."
+role = "implementer"
+status = "ready"
+tier = "mechanical"
+max_loc = 20
+files = [
+    "core/include/undertow/oscillator.h",
+    "core/src/oscillator.cpp",
+]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = ["AC1: For the listed test frequencies, saw, square, and 10% pulse outputs remain below -60 dB from 20 Hz to 20 kHz when the oscillator is driven at and above Nyquist."]
+sequence = 4
+goal = "Oscillator outputs stay silent at and above Nyquist instead of aliasing into the audible band."
+non_goals = [
+    "Do not change the oscillator public API.",
+    "Do not add a separate aliasing filter stage.",
+    "Do not clamp to an arbitrary fixed frequency such as 20 kHz.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = [
+    "Do not change waveform generation logic beyond the frequency clamp.",
+    "Do not clamp to a hard-coded audio-band limit instead of sampleRate/2.",
+]
+prior_failures = []
+
+[[task.context.read_files]]
+path = "core/include/undertow/oscillator.h"
+lines = "1-42"
+why = "Inspect the oscillator setter and private frequency state before adding a clamp."
+
+[[task.context.read_files]]
+path = "core/src/oscillator.cpp"
+lines = "1-64"
+why = "Apply the Nyquist clamp in the implementation without changing the interface."
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 2_1 oscillator 'P2.1.07*'"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"

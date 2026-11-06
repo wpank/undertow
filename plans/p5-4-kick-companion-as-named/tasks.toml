@@ -1,0 +1,115 @@
+[meta]
+plan = "p5-4-kick-companion-as-named"
+title = "P5.4 · Kick Companion as named"
+iteration = 0
+total = 1
+done = 0
+status = "ready"
+estimated_total_minutes = 0
+skip_enrichment = false
+sources = ["docs/specs/phase-5.4-presets.md"]
+
+[[meta.verify]]
+phase = "test"
+command = "tools/check.sh --plugin"
+timeout_ms = 900000
+
+[[task]]
+id = "T1"
+title = "Retune SUB Kick Companion"
+description = "Edit only the SUB Kick Companion preset in core/src/presets.cpp so it matches the phase 5.4 short-note values: amp_sustain at 0, a shorter amp decay, rumble off, and the intended level balance, while leaving every other preset and pattern unchanged."
+role = "implementer"
+status = "ready"
+tier = "architectural"
+max_loc = 20
+files = ["core/src/presets.cpp"]
+depends_on = []
+depends_on_plan = []
+timeout_secs = 0
+max_retries = 3
+acceptance = [
+    "AC1: `tools/spec.sh 5_4 presets` exits 0 and proves P5.4.01 through P5.4.06 after the preset edit.",
+    "AC2: `tools/spec.sh 5 presets` exits 0 and proves P5.4.07 after the preset edit.",
+    "AC3: `tools/spec.sh 5_1 render` exits 0 and proves P5.4.08 after the preset edit.",
+    "AC4: `tools/spec.sh 5_3 presets` exits 0 and proves P5.4.09 after the preset edit.",
+    "AC5: `tools/spec.sh 5_2 presets` exits 0 and proves P5.4.10 after the preset edit.",
+    "AC6: `tools/render-demos.sh && tools/spec.sh 5_1 demos` exits 0 and proves P5.4.11 after the preset edit.",
+    "AC7: `tools/render-demos.sh && tools/spec.sh 5 demos` exits 0 and proves P5.4.12 after the preset edit.",
+]
+sequence = 0
+goal = "SUB Kick Companion becomes the short, clean sub note described for phase 5.4, without changing any other preset or artifact."
+non_goals = [
+    "Do not change any preset other than SUB Kick Companion.",
+    "Do not change the engine, APIs, tests, or committed audio artifacts.",
+]
+
+[task.context]
+symbols = []
+anti_patterns = []
+prior_failures = []
+
+[[task.context.read_files]]
+path = "docs/specs/phase-5.4-presets.md"
+why = "the document this plan is written from: read it first, it states the rules, the interfaces and the checks this task must meet"
+
+[[task.context.read_files]]
+path = "core/src/presets.cpp"
+lines = "68-95"
+why = "This is the only preset block that needs to be retuned, and it shows the surrounding presets for comparison."
+
+[[task.context.read_files]]
+path = "core/include/undertow/presets.h"
+why = "the header of `core/src/presets.cpp`, which this task changes: the declarations its code must match"
+
+[[task.context.read_files]]
+path = "tests/spec/p5_4/presets_test.cpp"
+why = "the test its check `tools/spec.sh 5_4 presets` runs: what this task's work must pass"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5_4 presets"
+timeout_ms = 900000
+covers = ["AC1"]
+expect = "fail_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5 presets"
+timeout_ms = 900000
+covers = ["AC2"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5_1 render"
+timeout_ms = 900000
+covers = ["AC3"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5_3 presets"
+timeout_ms = 900000
+covers = ["AC4"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/spec.sh 5_2 presets"
+timeout_ms = 900000
+covers = ["AC5"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/render-demos.sh && tools/spec.sh 5_1 demos"
+timeout_ms = 900000
+covers = ["AC6"]
+expect = "pass_on_base"
+
+[[task.verify]]
+phase = "test"
+command = "tools/render-demos.sh && tools/spec.sh 5 demos"
+timeout_ms = 900000
+covers = ["AC7"]
+expect = "pass_on_base"
