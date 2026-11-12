@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Phase 6 spec tests: the window's frame, its typefaces and its hooks (docs/specs/phase-6-window.md, checks P6.08 to
-// P6.12; docs/design/window.md sections 2, 5 and 10).
+// P6.12; docs/design/window.md sections 2, 5, 6 and 10).
 // spec-preset: plugin
 // spec-needs: plugin/ui/Frame.h
 
@@ -138,8 +138,8 @@ TEST_CASE("P6.12 the theme holds every token of the design's section 6, at its v
         {"rose_ember", {theme::roseEmber, 0xff482838}}, {"rose_deep", {theme::roseDeep, 0xff3a2030}},
         {"legend", {theme::legend, 0xff8e6474}},        {"value", {theme::value, 0xff988090}},
         {"track", {theme::track, 0xff2e1b28}},          {"pointer", {theme::pointer, 0xffa8829a}},
-        {"cap (top)", {theme::capHi, 0xff1d151c}},      {"cap (bottom)", {theme::capLo, 0xff0a070a}},
-        {"cap (rim)", {theme::capRim, 0xff2e202c}},
+        {"cap (top)", {theme::capHi, 0xff1d151c}},      {"cap (middle)", {theme::capMid, 0xff120d12}},
+        {"cap (bottom)", {theme::capLo, 0xff0a070a}},   {"cap (rim)", {theme::capRim, 0xff2e202c}},
         {"bone", {theme::bone, 0xffc8b890}},            {"bone_dim", {theme::boneDim, 0xff8a7a5a}},
         {"text_dim", {theme::textDim, 0xff584858}},     {"text_ghost", {theme::textGhost, 0xff302830}},
         {"text_phantom", {theme::textPhantom, 0xff201820}}, {"dream", {theme::dream, 0xff585878}},
