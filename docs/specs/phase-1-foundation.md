@@ -71,7 +71,8 @@ ghost kick through its reverb: that is correct.
      channels and to the scope.
    - The beat clock (PRD 3.4): with `transport.valid`, the position is the host's ppq, advanced through the block at
      the host's tempo while it plays and held while it is stopped; without it, the engine's own clock advances at
-     `seq_bpm` from 0 after `reset()` and always runs. `meters().ppq` is the position at the end of the last block,
+     `seq_bpm` from 0 after `reset()` and always runs (from phase 7.1, in Key and Notes modes only while a key is held:
+     `docs/specs/phase-7.1-silent-until-played.md`). `meters().ppq` is the position at the end of the last block,
      `meters().hostClock` whether the host drives it and `meters().bpm` the tempo in use.
    - `meters()` may be called from another thread: keep its values in `std::atomic`s. `peak` is the last block's
      output peak, `rms` a smoothed output RMS (about 50 ms), `clipping` the output stage's clip meter, `rumble` the
@@ -310,7 +311,7 @@ build the `plugin` preset (about a minute the first time in a fresh worktree, mo
 | P1.03 | `tools/spec.sh 1 engine` | A new Engine holds the defaults; setParam clamps, rounds Int and Choice, and ignores bad indices |
 | P1.04 | `tools/spec.sh 1 engine` | process writes every sample of both channels, finite and the same on each, and nothing past them, for 0 to 1536-sample blocks, with MIDI; an empty block changes nothing |
 | P1.05 | `tools/spec.sh 1 engine` | process, setParam, getParam, meters and reset make no heap allocation over 1000 blocks |
-| P1.06 | `tools/spec.sh 1 engine` | The beat clock follows a playing or stopped host transport, and runs at seq_bpm from 0 without one |
+| P1.06 | `tools/spec.sh 1 engine` | The beat clock follows a playing or stopped host transport, and runs at seq_bpm from 0 without one (in Free mode from phase 7.1) |
 | P1.07 | `tools/spec.sh 1 engine` | The core builds without JUCE, and the retired oscillator, filter, envelope and LFO files are gone |
 | P1.08 | `tools/spec.sh 1 output` | The output stage: transparent to -6 dBFS, never past -0.3 dBFS, a DC blocker that keeps 30 Hz, master_gain smoothed, the clip meter for half a second |
 | P1.09 | `tools/spec.sh 1 rumble` | The kept rumble through the engine: ghost kicks on the beat grid while the clock runs and none while the host is stopped, quietest on the beat, 90% of its energy below 200 Hz, silence at level 0 |

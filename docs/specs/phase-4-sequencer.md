@@ -118,8 +118,9 @@ its drift marks (phase 6), which read `meters().step`, `count` and `root`.
      - controller 120 (all sound off) resets the voice, the rumble and the output stage, as in phase 3, and is
        `allKeysOff()`.
    - Each sample, after its MIDI, `tick` the sequencer with the engine's clock (PRD section 3.4): the beat at this
-     sample, whether the clock runs (the host plays; the engine's own clock always runs) and its tempo (the host's,
-     or `seq_bpm`). When a step starts, `voice.hit(note, velocity)`: a rest is no hit, so a ringing note carries on.
+     sample, whether the clock runs (the host plays; the engine's own clock always runs, and from phase 7.1 in Key and
+     Notes modes only while a key is held) and its tempo (the host's, or `seq_bpm`). When a step starts,
+     `voice.hit(note, velocity)`: a rest is no hit, so a ringing note carries on.
    - `meters().step`, `meters().count` and `meters().root` are the sequencer's `step()`, `count()` and `root()` at
      the end of the block, so the window can show which steps have wandered on the pass that plays.
 
