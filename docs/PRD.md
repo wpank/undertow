@@ -87,14 +87,15 @@ and a band's **share** is its power over the total.
 - **Modes**:
   - Key (the default): the pattern plays while a MIDI key is held, rooted on the latest held key. A key pressed from
     silence sounds its step at once.
-  - Free: the pattern always plays, rooted on the last key pressed, or on `seq_root` before any.
+  - Free: the pattern plays whenever the clock runs, rooted on the last key pressed, or on `seq_root` before any.
   - Notes: no pattern. Each MIDI note is one hit, at its own pitch and velocity.
 - Each hit takes its root and its step's pitch when it starts; the pitch holds until the next hit.
 - **Drift** makes the pattern wander a little and come home, as a fixed function of the step count:
   - The pattern's passes are grouped into arcs of 16. In each arc, up to `round(3 * drift)` steps change, the count
     rising from none at the arc's start to its most in the middle and back, by at most one step per pass.
   - A changed step goes up an octave, up a fifth or down a fourth, or becomes a ghost hit at half its velocity; a rest
-    becomes a ghost hit at half velocity. Each arc picks its own steps and changes.
+    becomes a soft ghost hit, at velocity 0.25. A move that would leave the steps' range of 12 semitones either side
+    of the root takes the same note an octave the other way. Each arc picks its own steps and changes.
   - At drift 0 every pass is the home pattern; at the default (0.7) two steps wander through the middle of each arc.
 
 ### 1.6 The rumble: the room under the kick
@@ -299,7 +300,7 @@ silent, rolling or clipping; up close you read every value. `docs/design/window.
 | 1 | `specs/phase-1-foundation.md` | The parameter table, Undertow 2's identity, the engine skeleton with the kept rumble and output stage (mono), the parts it replaces retired, the plugin with a placeholder window, pluginval | nothing | M: 3 tasks |
 | 2 | `specs/phase-2-sources.md` | The two VCOs (triangle and square, clear of aliases, linear FM), noise and the sine sub; the ladder | 1 | M: 2 tasks |
 | 3 | `specs/phase-3-voice.md` | The three decays and the VCA, the voice assembled, played by MIDI notes (Notes mode) | 2 | M: 3 tasks |
-| 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 2 tasks |
+| 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 3 tasks |
 | 5 | `specs/phase-5-sound.md` | The darker rumble, the presets, a render of each | 4 | M: 3 tasks |
 | 6 | `specs/phase-6-window.md` | The window | 5 | L: 5 tasks |
 | 7 | `specs/phase-7-ship.md` | Strict pluginval and the install; auval, run by hand after a real install | 6 | S: 2 tasks |
