@@ -181,11 +181,12 @@ A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
 
 | Path | What | Phases |
 |---|---|---|
-| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 5 |
+| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 6 |
 | `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6, 7 |
 | `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh`, the offline renderer, `render-demos.sh` and `install.sh` (kept from Undertow 1, updated by phases 1, 5 and 7). | |
 | `tests/spec/` | The spec tests, given: one executable per file. | given |
 | `third_party/doctest/` | doctest 2.5.3, MIT, vendored. | given |
+| `third_party/fonts/` | The window's typefaces, Michroma and Geist Mono (Regular and Light), under the SIL Open Font License 1.1, with their licence texts. | given |
 | `docs/` | This PRD, `design/window.md`, `specs/phase-N-*.md`. | given |
 
 ### 3.2 Build
@@ -294,10 +295,12 @@ the kick (steps 1 and 5 are rests), a short thud at each hit, and two steps drif
 
 ## 5. The window
 
-ROSEDUST phosphor, laid out with the DFAM's panel logic: the sequencer's 8 pitch and 8 velocity knobs in two rows
-across the top, each step's lamp above its column, then the VCO, VCF and VCA sections left to right, each with its
-decay, then the rumble and the output. One look, readable at a glance: from across a room you see whether it is
-silent, rolling or clipping; up close you read every value. `docs/design/window.md` (phase 6) gives the layout.
+ROSEDUST phosphor, laid out with the DFAM's panel logic: the sequencer's 8 steps in columns across the top, each a
+glass cell (a small scope of its last hit, lit while it plays) over its pitch and velocity knobs, with the pattern's
+settings and the drift arc beside them; then the VCO, VCF and VCA sections left to right, each ending in its decay,
+with the spectrum and the sub's pitch beside them; then the rumble and the output. One look, readable at a glance:
+from across a room you see whether it is silent, rolling or clipping; up close you read every value.
+`docs/design/window.md` (phase 6) gives the layout.
 
 ## 6. Phases
 
@@ -308,7 +311,7 @@ silent, rolling or clipping; up close you read every value. `docs/design/window.
 | 3 | `specs/phase-3-voice.md` | The three decays and the VCA, the voice assembled, played by MIDI notes (Notes mode) | 2 | M: 3 tasks |
 | 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 3 tasks |
 | 5 | `specs/phase-5-sound.md` | The darker rumble, the presets, a render of each | 4 | M: 3 tasks |
-| 6 | `specs/phase-6-window.md` | The window | 5 | L: 5 tasks |
+| 6 | `specs/phase-6-window.md` | The window | 5 | L: 6 tasks |
 | 7 | `specs/phase-7-ship.md` | Strict pluginval and the install; auval, run by hand after a real install | 6 | S: 2 tasks |
 
 Run them in order, 1 to 7.
@@ -338,4 +341,5 @@ Run them in order, 1 to 7.
 ## 9. Licensing
 
 Undertow is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`, `LICENSE`). It is
-built with JUCE 8, used under JUCE's AGPLv3 licence option. doctest is MIT (`third_party/doctest/LICENSE.txt`).
+built with JUCE 8, used under JUCE's AGPLv3 licence option. doctest is MIT (`third_party/doctest/LICENSE.txt`). The
+window's typefaces, Michroma and Geist Mono, are under the SIL Open Font License 1.1 (`third_party/fonts/`).

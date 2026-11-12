@@ -49,4 +49,5 @@ The `core` preset (`build/core`) builds the plain C++ DSP library and its tests 
 
 Undertow is free software, licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`):
 see `LICENSE`. It is built with JUCE 8, used under JUCE's AGPLv3 licence option, and its tests use doctest, which is
-MIT-licensed (`third_party/doctest/LICENSE.txt`).
+MIT-licensed (`third_party/doctest/LICENSE.txt`). The window's typefaces, Michroma and Geist Mono, are under the SIL
+Open Font License 1.1 (`third_party/fonts/`).
