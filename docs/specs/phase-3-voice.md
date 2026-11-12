@@ -62,7 +62,8 @@ nothing), the presets and the darker rumble (phase 5), the window (phase 6).
        `vcf_decay`), with `vcf_res` and `vcf_drive`;
      - the VCA: the ladder's output times the level envelope (decay `vca_decay`).
    - **Attack** (`vca_attack`): Fast gives both the level and the filter envelope a 1 ms attack; Slow gives the level
-     100 ms and the filter 500 ms (10 to 90%), so a held note breathes rather than blooms.
+     100 ms and the filter 500 ms (10 to 90%), so a held note breathes rather than blooms. Phase 7 softens Fast: the
+     level rises in 1.2 ms and the filter in 0.6 ms (`docs/specs/phase-7-ship.md`).
    - **Smoothing**: the four mixer levels, `vco2_tune`, `vco_fm`, the cutoff (in octaves, `log2` of it), the
      resonance and the drive each glide towards their parameter with a 5 ms one-pole, so a knob moved during a note
      never clicks. The first `setParams` after `reset()` sets them at once.
@@ -156,11 +157,11 @@ three test files build with the `core` preset.
 | P3.06 | `tools/spec.sh 3 voice` | A hit plays VCO 1 at its note, VCO 2 at vco2_tune semitones, the sub at 0 or -1 oct, the noise, and VCO 1's FM of VCO 2 with its mean frequency kept |
 | P3.07 | `tools/spec.sh 3 voice` | The thud: each hit starts pitch_env semitones high (within 0.05) and falls to 1% of that in pitch_decay (within 5%) |
 | P3.08 | `tools/spec.sh 3 voice` | The filter: the cutoff rises vcf_env x velocity octaves and falls back in vcf_decay; resonance and drive reach the ladder |
-| P3.09 | `tools/spec.sh 3 voice` | The attack: Fast 1 ms for the level and the filter; Slow 100 ms for the level and 500 ms for the filter (10 to 90%) |
+| P3.09 | `tools/spec.sh 3 voice` | The attack: Fast 1 ms for the level and the filter (1.2 ms and 0.6 ms from phase 7); Slow 100 ms for the level and 500 ms for the filter (10 to 90%) |
 | P3.10 | `tools/spec.sh 3 voice` | Velocity sets the peak level and darkens a softer hit; velocity 0 is a rest |
 | P3.11 | `tools/spec.sh 3 voice` | A hit under -20 dB restarts the oscillators, so a repeated phrase plays the same every time; into a louder note they run on |
 | P3.12 | `tools/spec.sh 3 voice` | A knob moved during a note never clicks: the levels and the cutoff glide |
-| P3.13 | `tools/spec.sh 3 voice` | The default patch's rolling line: at least 90% of its power below 150 Hz, 98.5% below 300, 88% from 30 to 150, at most 1% below 30, the centroid at most 90 Hz, the bands above 500 Hz, 1 kHz and 2 kHz at least 25, 40 and 55 dB under, 150 to 500 Hz at 1 to 8%, the brightest frames at most 150 Hz |
+| P3.13 | `tools/spec.sh 3 voice` | The default patch's rolling line: at least 90% of its power below 150 Hz, 98.5% below 300, 88% from 30 to 150, at most 1% below 30 (2%, the PRD's, from phase 7), the centroid at most 90 Hz, the bands above 500 Hz, 1 kHz and 2 kHz at least 25, 40 and 55 dB under, 150 to 500 Hz at 1 to 8%, the brightest frames at most 150 Hz |
 | P3.14 | `tools/spec.sh 3 voice` | Short decays roll and long ones hold: 115 ms after its peak the default note is 10 dB down or more, a held one 3 dB down at most |
 | P3.15 | `tools/spec.sh 3 engine` | In Notes mode each MIDI note-on is one hit at its pitch and velocity, from its own sample; a note-off changes nothing; all sound off silences at once |
 | P3.16 | `tools/spec.sh 3 engine` | The meters show the note and its pitch while it sounds, and -1 and 0 once it has died away |
