@@ -137,7 +137,9 @@ probe = true
 
 [[routing.ladder.rungs]]
 name = "cheap"
-model = "gpt-oss-120b"
+# gpt-5.6-luna (round v8): priced with a real cache-read rate, $0.02 per 1M cached input; Cerebras answers 402.
+# In a v8 trial it passed 2 of 2 small C++ tasks on its first try for $0.0054 in all.
+model = "gpt-5-6-luna"
 
 [[routing.ladder.rungs]]
 name = "mid"
@@ -655,6 +657,17 @@ cost_cache_read_per_m = 0.35
 # cost_input_per_m = 0.6
 # cost_output_per_m = 2.2
 # cost_cache_read_per_m = 0.11
+
+# OpenAI's small GPT-5.6 model, at roko's prices-2026-10-27 rates (<=272K input tokens; cache reads at 10% of input).
+[models.gpt-5-6-luna]
+provider = "openai"
+slug = "gpt-5.6-luna"
+context_window = 272000
+max_output = 32768
+tool_format = "openai_json"
+cost_input_per_m = 0.2
+cost_output_per_m = 1.2
+cost_cache_read_per_m = 0.02
 
 [models.gpt-5-4-mini]
 provider = "openai"
