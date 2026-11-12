@@ -348,7 +348,7 @@ void Console::drawSpectrum(juce::Graphics& g) {
 
     g.saveState();
     g.reduceClipRegion(theme::spectrumGlassBounds);
-    g.setColour(theme::textPhantom.withAlpha(0.85f));
+    g.setColour(theme::roseEmber.withAlpha(0.85f));
     for (int x = theme::spectrumGlassBounds.getX() + 14; x < theme::spectrumGlassBounds.getRight(); x += 32)
         g.drawVerticalLine(x, static_cast<float>(theme::spectrumGlassBounds.getY() + 16),
                            static_cast<float>(theme::spectrumGlassBounds.getBottom() - 16));
@@ -372,10 +372,10 @@ void Console::drawSpectrum(juce::Graphics& g) {
 
     for (const int db : {-36, -60, -84}) {
         const float y = plotYForDb(static_cast<float>(db));
-        g.setColour(theme::textPhantom.withAlpha(0.95f));
+        g.setColour(theme::roseEmber.withAlpha(0.95f));
         g.drawDashedLine(juce::Line<float>(static_cast<float>(plot.getX()), y, static_cast<float>(plot.getRight()), y),
                          dash, 2, 1.0f);
-        drawText(g, theme::numberFont(8.0f), theme::textDim, juce::String(db), static_cast<float>(plot.getRight() - 2),
+        drawText(g, theme::numberFont(8.0f), theme::roseDim, juce::String(db), static_cast<float>(plot.getRight() - 2),
                  y - 1.0f, juce::Justification::right);
     }
 
@@ -389,7 +389,7 @@ void Console::drawSpectrum(juce::Graphics& g) {
     g.restoreState();
 
     drawText(g, theme::legendFont(7.5f, 0.0f), theme::rose, "SPECTRUM", 798.0f, 360.0f, juce::Justification::left);
-    drawText(g, theme::numberFont(8.5f), theme::textDim, "20 Hz - 2 kHz", 798.0f, 378.0f, juce::Justification::left);
+    drawText(g, theme::numberFont(8.5f), theme::roseDim, "20 Hz - 2 kHz", 798.0f, 378.0f, juce::Justification::left);
 
     if (isSounding(frame_)) {
         const int share = juce::roundToInt(std::round(spectrum_.share() * 100.0f));
@@ -408,7 +408,7 @@ void Console::drawSpectrum(juce::Graphics& g) {
         {300.0, "300"}, {500.0, "500"}, {1000.0, "1k"}, {2000.0, "2k"},
     }};
     for (const auto& [hz, label] : axis) {
-        const auto colour = (hz == 30.0 || hz == 150.0) ? theme::rose : theme::textDim;
+        const auto colour = (hz == 30.0 || hz == 150.0) ? theme::rose : theme::roseDim;
         drawText(g, theme::numberFont(8.5f), colour, label, plotXForHz(hz), 582.0f,
                  juce::Justification::horizontallyCentred);
     }
@@ -546,7 +546,7 @@ void Console::drawArc(juce::Graphics& g) {
 void Console::drawHead(juce::Graphics& g) {
     drawText(g, theme::legendFont(13.0f, 5.4f), theme::rose, "UNDERTOW", 24.0f, 29.5f, juce::Justification::left);
     drawText(g, theme::legendFont(13.0f), theme::roseDim, "2", 188.0f, 29.5f, juce::Justification::left);
-    g.setColour(theme::rule2);
+    g.setColour(theme::roseDim);
     g.drawVerticalLine(216, 17.0f, 31.0f);
     drawText(g, theme::legendFont(7.0f, 2.4f), theme::roseDim, "METAKOSMIA", 230.0f, 28.5f,
              juce::Justification::left);
@@ -574,7 +574,7 @@ void Console::drawHead(juce::Graphics& g) {
 
     const bool live = linearToDb(frame_.rms, kSpectrumFloorDb) > kSilenceDb;
     drawLamp(g, {1140.0f, 24.0f}, 3.2f, live);
-    drawText(g, theme::legendFont(7.0f, 1.6f), live ? theme::rose : theme::textDim, "LIVE", 1151.0f, 27.0f,
+    drawText(g, theme::legendFont(7.0f, 1.6f), live ? theme::rose : theme::roseDim, "LIVE", 1151.0f, 27.0f,
              juce::Justification::left);
 }
 
@@ -601,11 +601,11 @@ void Console::drawMeter(juce::Graphics& g) {
              juce::Justification::right);
 
     for (const int db : {-48, -36, -24, -12, -6, 0})
-        drawText(g, theme::numberFont(8.0f), theme::textDim, juce::String(db), meterXForDb(static_cast<float>(db)), 695.0f,
+        drawText(g, theme::numberFont(8.0f), theme::roseDim, juce::String(db), meterXForDb(static_cast<float>(db)), 695.0f,
                  juce::Justification::horizontallyCentred);
 
     drawLamp(g, {1158.0f, 678.0f}, 3.2f, frame_.clipping);
-    drawText(g, theme::legendFont(6.0f, 1.0f), theme::textDim, "CLIP", 1146.0f, 699.0f, juce::Justification::left);
+    drawText(g, theme::legendFont(6.0f, 1.0f), theme::roseDim, "CLIP", 1146.0f, 699.0f, juce::Justification::left);
 }
 
 void Console::drawRumble(juce::Graphics& g) {
@@ -641,6 +641,6 @@ void Console::drawLamp(juce::Graphics& g, juce::Point<float> centre, float radiu
 
     g.setColour(theme::glass);
     g.fillEllipse(centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f);
-    g.setColour(theme::rule2);
+    g.setColour(theme::roseDim);
     g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2.0f, radius * 2.0f, 1.0f);
 }

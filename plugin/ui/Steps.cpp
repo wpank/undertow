@@ -194,7 +194,7 @@ void Steps::drawRestBorder(juce::Graphics& g, juce::Rectangle<int> cell, float a
     juce::Path dashed;
     constexpr float dashPattern[] = {3.0f, 3.0f};
     juce::PathStrokeType(1.0f).createDashedStroke(dashed, path, dashPattern, 2);
-    g.setColour(undertow::ui::theme::rule2.withAlpha(alpha));
+    g.setColour(undertow::ui::theme::roseDim.withAlpha(alpha));
     g.strokePath(dashed, juce::PathStrokeType(1.0f));
 }
 
@@ -256,7 +256,7 @@ void Steps::drawCell(juce::Graphics& g, int step) const {
         g.drawRoundedRectangle(cell.expanded(1).toFloat(), 4.0f, 1.2f);
     }
 
-    const auto numberColour = active ? undertow::ui::theme::roseBright : (sounding ? undertow::ui::theme::textDim : undertow::ui::theme::textGhost);
+    const auto numberColour = active ? undertow::ui::theme::roseBright : (sounding ? undertow::ui::theme::roseDim : undertow::ui::theme::roseDim);
     g.setFont(undertow::ui::theme::numberFont(9.5f, 0.2f));
     g.setColour(numberColour.withAlpha(offsetAlpha));
     drawText(g, juce::String(step + 1), undertow::ui::theme::textBox(cell.getX() + 7.0f, cell.getY() + 13.0f, 12, 10,
@@ -275,7 +275,7 @@ void Steps::drawCell(juce::Graphics& g, int step) const {
 
     if (!sounding) {
         g.setFont(undertow::ui::theme::legendFont(6.5f, 1.0f));
-        g.setColour(undertow::ui::theme::textGhost.withAlpha(offsetAlpha));
+        g.setColour(undertow::ui::theme::roseDim.withAlpha(offsetAlpha));
         drawText(g, "REST", undertow::ui::theme::textBox(cell.getCentreX(), cell.getY() + 35.0f, 44, 10,
                                                           juce::Justification::centred),
                  juce::Justification::centred);

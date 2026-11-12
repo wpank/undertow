@@ -246,6 +246,12 @@ void Knob::paint(juce::Graphics& g) {
 
     g.setOpacity(alpha);
 
+    if (dimmed_) {
+        g.setColour(juce::Colours::black);
+        g.fillAll();
+        return;
+    }
+
     g.setColour(undertow::ui::theme::track.withAlpha(0.9f));
     g.drawEllipse(centre.x - ringRadius, centre.y - ringRadius, ringRadius * 2.0f, ringRadius * 2.0f, 3.0f);
 
@@ -349,7 +355,7 @@ void Switch::paint(juce::Graphics& g) {
     const auto segmentCount = segments();
     const auto segmentWidth = segmentCount > 0 ? bounds.getWidth() / static_cast<float>(segmentCount) : bounds.getWidth();
 
-    g.setColour(rule2.withAlpha(0.8f));
+    g.setColour(roseDim.withAlpha(0.8f));
     g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.0f);
 
     for (int i = 0; i < segmentCount; ++i) {
@@ -357,14 +363,14 @@ void Switch::paint(juce::Graphics& g) {
         const float w = (i == segmentCount - 1) ? (bounds.getRight() - x) : segmentWidth;
         const auto segment = juce::Rectangle<float>(x, bounds.getY(), w, bounds.getHeight()).reduced(1.0f, 1.0f);
         const bool on = i == selectedIndex;
-        g.setColour((on ? roseBright : textDim).withAlpha(on ? 0.85f : 0.5f));
+        g.setColour((on ? roseBright : roseDim).withAlpha(on ? 0.85f : 0.5f));
         g.fillRoundedRectangle(segment, 3.0f);
-        g.setColour(rule2.withAlpha(on ? 1.0f : 0.6f));
+        g.setColour(roseDim.withAlpha(on ? 1.0f : 0.6f));
         g.drawRoundedRectangle(segment, 3.0f, 1.0f);
 
         if (labels_.size() == 2 && labels_[0] == "triangle" && labels_[1] == "square") {
             const auto centre = segment.getCentre();
-            g.setColour(on ? roseBright : textDim);
+            g.setColour(on ? roseBright : roseDim);
             if (i == 0) {
                 juce::Path path;
                 path.addTriangle(centre.x - 9.0f, centre.y + 6.0f, centre.x, centre.y - 6.0f, centre.x + 9.0f, centre.y + 6.0f);
@@ -376,7 +382,7 @@ void Switch::paint(juce::Graphics& g) {
             }
         } else if (!labels_[static_cast<std::size_t>(i)].isEmpty()) {
             const auto font = numberLabels_ ? numberFont(9.5f, 0.2f) : legendFont(7.0f, 1.1f);
-            const auto colour = on ? roseBright : textDim;
+            const auto colour = on ? roseBright : roseDim;
             drawText(g, labels_[static_cast<std::size_t>(i)], segment.reduced(2.0f, 0.0f).toNearestInt(), juce::Justification::centred,
                      colour, font);
         }
@@ -499,8 +505,8 @@ void Controls::paint(juce::Graphics& g) {
     drawText(g, "MODE", {784, 112, 80, 16}, juce::Justification::left, rose, legendFont(8.0f, 1.1f));
     drawText(g, "ATTACK", {660, 452, 92, 16}, juce::Justification::centred, rose, legendFont(8.0f, 1.1f));
 
-    drawDashedVertical(g, 292.0f, 362.0f, 570.0f, rule2.withAlpha(0.8f));
-    drawDashedVertical(g, 556.0f, 362.0f, 570.0f, rule2.withAlpha(0.8f));
+    drawDashedVertical(g, 292.0f, 362.0f, 570.0f, roseDim.withAlpha(0.8f));
+    drawDashedVertical(g, 556.0f, 362.0f, 570.0f, roseDim.withAlpha(0.8f));
 
     // Knob legends and values.
     for (const auto& entry : entries_) {
@@ -514,7 +520,11 @@ void Controls::paint(juce::Graphics& g) {
         const bool showAlways = !isSwitchId(specId) && (startsWith(spec.id, "step") || specId == "seq_root" || specId == "seq_rate" || specId == "seq_length" || specId == "seq_bpm" || specId == "seq_drift");
         const bool hovered = entry.knob->isHovered();
         const bool showValue = showAlways || hovered;
-        const auto alpha = entry.knob->isEnabled() ? 1.0f : 0.32f;
+        int stepIndex = -1;
+        if (startsWith(spec.id, "step"))
+            stepIndex = juce::jlimit(0, 7, juce::String(spec.id).substring(4, 5).getIntValue() - 1);
+        const bool columnDimmed = stepIndex >= 0 ? stepDimmed_[static_cast<std::size_t>(stepIndex)] : false;
+        const auto alpha = (entry.knob->isEnabled() && !columnDimmed) ? 1.0f : 0.0f;
 
         if (entry.knob != nullptr && place.legend[0] != '\0') {
             const float legendBaseline = place.y + place.w * 0.5f + 13.5f;
@@ -523,7 +533,7 @@ void Controls::paint(juce::Graphics& g) {
                      juce::Justification::centred, legend.withAlpha(alpha), legendFont(8.0f, 1.1f));
         }
 
-        if (showValue) {
+        if (showValue && !columnDimmed) {
             const auto readout = readoutFor(spec, entry.knob->getValue(), hostClock_ && specId == "seq_bpm");
             const auto finalColour = (startsWith(spec.id, "step") ? roseBright : (hovered ? roseBright : value)).withAlpha(alpha);
             const float baseline = startsWith(spec.id, "step") && (endsWith(spec.id, "_pitch") || endsWith(spec.id, "_vel")) ? (place.y + place.w * 0.5f + 14.0f)
@@ -566,7 +576,7 @@ void Controls::paint(juce::Graphics& g) {
             const float left = static_cast<float>(bounds.getX()) + segmentWidth * static_cast<float>(i);
             const float width = (i == segmentCount - 1) ? static_cast<float>(bounds.getRight()) - left : segmentWidth;
             const auto box = juce::Rectangle<int>(juce::roundToInt(left), bounds.getY(), juce::roundToInt(width), bounds.getHeight());
-            const auto colour = i == chosen ? roseBright : textDim;
+            const auto colour = i == chosen ? roseBright : roseDim;
             const auto font = specId == "sub_octave" ? numberFont(9.5f, 0.2f) : legendFont(7.0f, 1.1f);
             drawText(g, label, box.reduced(2, 0), juce::Justification::centred, colour, font);
         }
