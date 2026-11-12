@@ -2,12 +2,12 @@
 # Build and run one spec test executable: the acceptance tests of docs/specs/ (tests/spec/pN/<name>_test.cpp).
 #
 #   tools/spec.sh <phase> <name> [<test-case filter>]
-#   tools/spec.sh 1 oscillator 'P1.03*'      runs the P1.03 test cases of tests/spec/p1/oscillator_test.cpp
+#   tools/spec.sh 2 ladder 'P2.07*'          runs the P2.07 test cases of tests/spec/p2/ladder_test.cpp
 #
 # Core tests build with the `core` preset (no JUCE); a test file marked "// spec-preset: plugin" builds with
-# the `plugin` preset. Output is kept short for the person or model fixing a failure: the build shows its progress
-# lines and its error lines as they happen, a configure or build failure ends with only its errors (full logs in
-# build/spec-logs/), and a run shows only the failed checks.
+# the `plugin` preset. Output is kept short for whoever fixes a failure, a person or a model: the build shows its
+# progress lines and its error lines as they happen, a configure or build failure ends with only its errors (full
+# logs in build/spec-logs/), and a run shows only the failed checks.
 # Exits 0 only when every selected test case passes, and fails when the filter selects none.
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -33,8 +33,8 @@ if grep -q '^// spec-preset: plugin' "$source"; then
   preset=plugin
 fi
 if [ ! -f CMakePresets.json ]; then
-  echo "spec: FAIL $target: there is no CMakePresets.json at the repository root; phase 0" \
-    "(docs/specs/phase-0-foundation.md) creates the build system and its core and plugin presets" >&2
+  echo "spec: FAIL $target: there is no CMakePresets.json at the repository root: the build system" \
+    "and its core and plugin presets are missing" >&2
   exit 1
 fi
 

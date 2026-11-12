@@ -1,6 +1,7 @@
 #pragma once
 
-// A small WAV reader for the spec tests (phase 5): RIFF/WAVE with a PCM (16 or 24-bit) or float (32-bit) data chunk.
+// A small WAV reader for the spec tests of the renders: RIFF/WAVE with a PCM (16 or 24-bit) or float (32-bit)
+// data chunk.
 
 #include <algorithm>
 #include <cstdint>

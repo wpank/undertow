@@ -1,5 +1,5 @@
 #!/bin/bash
-# Validate the installed AU with Apple's auval (instrument aumu, subtype MkUt, manufacturer Mtks) and keep its log as
+# Validate the installed AU with Apple's auval (instrument aumu, subtype MkU2, manufacturer Mtks) and keep its log as
 # a review artifact.
 #
 #   tools/auval.sh       writes artifacts/reports/auval.txt; exits with auval's code (0 = validated)
@@ -10,7 +10,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 mkdir -p artifacts/reports
-auval -v aumu MkUt Mtks > artifacts/reports/auval.txt 2>&1
+auval -v aumu MkU2 Mtks > artifacts/reports/auval.txt 2>&1
 status=$?
 if [ "$status" -ne 0 ] || ! grep -q 'AU VALIDATION SUCCEEDED' artifacts/reports/auval.txt; then
   echo "auval: FAIL (exit $status); from the log (artifacts/reports/auval.txt):" >&2

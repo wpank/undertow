@@ -1,127 +1,195 @@
-# Metakosmia Undertow: product requirements
+# Metakosmia Undertow 2: product requirements
 
-Undertow is a monophonic bass synthesizer for hypnotic techno: a clean sub, a filtered bassline voice and a
-tempo-locked rumble, with a 16-step sequencer that evolves while it plays. It is a VST3, AU and Standalone
-instrument for macOS 11+ on Apple silicon, made for FL Studio 20 and any other host, and drawn in the ROSEDUST
-phosphor language of `bardo/prd/18-interfaces` (see `docs/design/ui-spec.md`).
+Undertow 2 is a monophonic sub-bass instrument for hypnotic techno: a rolling, sub-heavy bass that sits under a 4/4
+kick and repeats for minutes, changing only a little. It is a percussive Moog-style voice in the manner of a DFAM: two
+oscillators and noise into a 24 dB/octave ladder low-pass, a clean sine sub, three decays and an 8-step pitch and
+velocity sequencer whose pattern drifts and comes home. A dark, kick-fed rumble sits under it. It is a VST3, AU and
+Standalone instrument for macOS 11+ on Apple silicon, drawn in the ROSEDUST phosphor language.
 
-This repository starts as a specification. Each phase in `docs/specs/` states what to build, the exact C++ API,
-and numbered acceptance checks that run as commands. The spec tests in `tests/spec/` were written before any
-code; they fail until the phase is built, and the code changes, never the tests.
+This repository is a specification first. Each phase in `docs/specs/` states what to build, the exact C++ API and
+numbered acceptance checks that run as commands. The spec tests in `tests/spec/` are written before the code; they
+fail until the phase is built, and the code changes, never the tests.
 
 ## 1. Sound-design goals
 
-Each goal lists reference behaviours: concrete, measurable things the phase specs check with tolerances.
+Each goal lists reference behaviours: measurable things the phase specs check, with tolerances. A **render** is 8 bars
+at 130 BPM of a patch's own pattern and root, at 48 kHz, the voice alone (no kick, the rumble off unless the goal is
+about the rumble). Its long-term spectrum is a Welch average of 32768-point Blackman-Harris segments with 50% overlap,
+and a band's **share** is its power over the total.
 
-### 1.1 Sub: a clean sine foundation
+### 1.1 The range: the energy sits between 30 and 150 Hz
 
-The sub is what the floor feels. It must be a pure tone that is the same on every note.
+- At least 90% of a render's power is below 150 Hz, at least 98.5% below 300 Hz, at least 88% between 30 and 150 Hz,
+  and at most 1% below 30 Hz. Its spectral centroid is at most 90 Hz.
+- It stays dark: the band above 500 Hz is at least 25 dB under the total, above 1 kHz at least 40 dB under, and above
+  2 kHz at least 55 dB under. Even its brightest moments stay low: the 95th percentile of the centroid of 4096-point
+  frames is at most 150 Hz.
+- Drive adds just enough harmonics to be heard on small speakers: 150 to 500 Hz holds 1% to 8% of the power.
 
-- A sine one or two octaves below the played note (`sub_octave`). Note 45 (A2, 110 Hz) with `-1 oct` sounds
-  55.0 Hz within 0.3%.
-- Clean: with the filter open and no drive, its harmonics 2 to 10 sum to at most -60 dB (THD below 0.1%).
-- Every note that starts from silence starts the sub at phase 0, so each note's first cycle hits the same way.
-  Notes that overlap keep the phase running (no click).
-- Mono: the low band leaves both channels identical (section 1.5).
+### 1.2 The voice: two oscillators, noise and a sine sub, into a mixer
 
-### 1.2 Bassline: a filtered saw or square that moves
+- **VCO 1 and VCO 2**, each a triangle or a square, band-limited, in tune within 0.1%. VCO 1 plays the root plus the
+  step's pitch; VCO 2 is `vco2_tune` semitones from it.
+- **1 to 2 FM**: VCO 1's triangle modulates VCO 2's frequency linearly, `f2 * (1 + vco_fm * tri1)`, so VCO 2 never
+  goes below 0 Hz.
+- **Noise**: white, flat within 2 dB across the octave bands from 100 Hz to 10 kHz, and the same after every `reset()`.
+- **The sub**: a pure sine an octave under VCO 1 (`-1 oct`, the default) or at its pitch (`0 oct`), phase-locked to it,
+  so the two always add the same way. Its harmonics 2 to 10 are at least 60 dB under it.
+- **The mixer** sums VCO 1, VCO 2, noise and the sub into the ladder, so the drive warms the sub too.
+- **Phase**: a hit that finds the level under -20 dB restarts VCO 1, VCO 2 and the sub at phase 0, so a pattern's hits
+  meet the kick the same way on every repeat. Into a louder note the oscillators keep running. The ladder smooths the
+  restart, so it never clicks.
 
-- Band-limited saw and square (PolyBLEP). A saw at 1.234 kHz keeps the energy that falls between its harmonics
-  (aliasing) below 4 kHz at least 50 dB under the fundamental, where a naive saw manages about 20 dB.
-- A 24 dB/octave low-pass with resonance and drive. At resonance 0 it is -3 dB at the cutoff, -24 dB an octave
-  above and -48 dB two octaves above (with tolerances); resonance raises a peak at the cutoff; drive adds odd
-  harmonics; nothing it is given makes it blow up.
-- Envelopes with exact timing: a linear attack, then exponential decay and release that fall to 1% of their
-  distance in the set time.
-- A last-note-priority mono voice with glide: in `Legato` mode a note played over a held note slides to it in
-  `glide_ms` (linear in pitch) without restarting the envelopes.
-- Accent: a note with velocity 100 or more (or an accented sequencer step) is louder and brighter.
+### 1.3 The ladder
 
-### 1.3 Rumble: the room under the kick
+- A Moog-style 24 dB/octave ladder low-pass: four saturating one-pole stages in a feedback loop. The cutoff is the
+  stages' frequency. At resonance 0 the gain is -12 dB at the cutoff (within 0.5 dB), -28 dB an octave above (within
+  1 dB) and -49 dB two octaves above (within 1.5 dB), and falls 23 to 25 dB per octave from 4 to 8 times the cutoff.
+- **Resonance** raises a peak just under the cutoff: +11 dB (within 1 dB) at the top of the knob, and never thins the
+  bass: below a quarter of the cutoff the gain stays within 1 dB of resonance 0's at every setting.
+- **It never self-oscillates.** At the top of the knob an impulse response stays 60 dB under its peak after 12 cycles
+  of the cutoff, and silence in is exact silence out within a second.
+- **Drive** sets the gain into the saturating stages, from 0.5 at 0 to 3 at the top (`0.5 * 6^drive`), taken back out
+  after them. For a -6 dBFS 55 Hz sine at a 220 Hz cutoff (four times the note) and resonance 0, drive 0 leaves
+  harmonics 2 to 10 at least 38 dB under the fundamental, the top of the knob puts the strongest of them 12 to 30 dB
+  under (warm, not fuzz), and the level stays within 4 dB across the knob.
 
-The techno rumble: a kick-triggered dark reverb, low-passed, saturated and ducked by the kick, locked to tempo.
-Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the track without routing a sidechain.
+### 1.4 The decays and the VCA
 
-- A ghost kick (a 150 to 45 Hz pitch drop) fires on the `rumble_rate` grid while the transport plays. It feeds the
-  reverb only; it is never heard dry.
-- A dark mono reverb with a decay time of `rumble_decay`, then a 24 dB/octave low-pass at `rumble_tone`,
-  saturation (`rumble_drive`) and a second low-pass, then the duck.
-- At least 90% of the rumble's energy is below 200 Hz at the default tone (110 Hz).
-- The duck pulls the rumble down at every kick and lets it swell back before the next one, so the rumble's
-  quietest moments sit on the beat.
-- At the defaults the rumble sits 9 to 15 dB under the bass below 200 Hz: a pumping bed you hear under the line.
-  `rumble_drive` adds grit at a steady level.
-- `rumble_send` feeds the voice into the same reverb, so the bassline gets its own tail.
+- **Three decays**, each exponential, reaching -40 dB of its swing at its set time (within 5%):
+  - pitch: at each hit VCO 1, VCO 2 and the sub start `pitch_env` semitones high and fall to the step's pitch (the
+    thud);
+  - filter: the cutoff rises to `vcf_env * velocity` octaves above `vcf_cutoff` and falls back;
+  - level: the VCA rises to the hit's peak and falls towards silence.
+- **Attack**, one switch for the level and the filter, always rising from where they are:
+  - Fast: both rise in 1 ms (10 to 90% in 0.5 to 2 ms).
+  - Slow: the level rises in 100 ms (10 to 90% in 70 to 130 ms) and the filter opens over 600 ms (10 to 90% in 400
+    to 600 ms), so a held note breathes rather than blooms.
+  - A hit softer than the current level glides down to its peak over 4 ms. So no hit ever steps the level: it moves
+    at most 0.042 between samples.
+- **Velocity** sets each hit's peak level (linearly, within 0.3 dB) and scales its filter swing: at velocity 0.5 a hit's
+  power above 200 Hz in its first 20 ms is at least 6 dB lower than at 1. A velocity of 0 is a rest, and a ringing note
+  carries on through it.
+- **Short decays roll, long ones hold**, judged on one note at velocity 1, 115 ms after its peak (one 1/16 at 130 BPM):
+  - a rolling patch (level decay up to 0.5 s) has fallen at least 10 dB, falls 20 dB within 60 to 250 ms and 40 dB
+    within 600 ms, and in a render drops at least 8 dB before the next hit;
+  - a held patch (level decay 2 s or more) has fallen at most 3 dB.
 
-### 1.4 Hypnotic motion
+### 1.5 The sequencer and its drift
 
-- Two tempo-synced LFOs whose phase follows the host's beat position exactly (a loop in the host replays the same
-  motion). Rates include straight, triplet and dotted values and polyrhythms against 4/4: 3/16, 5/16, 7/16, 3/4,
-  5/4 and 7/4.
-- A 16-step sequencer locked to the host transport: per step a note, rest, accent, slide and probability; swing;
-  a scale for mutation. Probability is decided by position and seed, so a looped bar repeats exactly. Mutate
-  changes a set share of steps while staying in the scale, and Evolve mutates every N bars.
+- **8 steps**, each with a pitch (`-12` to `+12` semitones from the root) and a velocity (0 to 1). `seq_length` plays
+  the first 1 to 8 of them, so 5 or 7 steps can turn slowly against the 4/4.
+- **Rate**: one step per 1 bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/8T or 1/16T of the clock.
+- **On the grid**: while the host plays, step `n` starts at beat `n * step length` of the host's position, within one
+  sample at every rate and from 60 to 200 BPM, so a looped bar replays exactly, drift included.
+- **Modes**:
+  - Key (the default): the pattern plays while a MIDI key is held, rooted on the latest held key. A key pressed from
+    silence sounds its step at once.
+  - Free: the pattern always plays, rooted on the last key pressed, or on `seq_root` before any.
+  - Notes: no pattern. Each MIDI note is one hit, at its own pitch and velocity.
+- Each hit takes its root and its step's pitch when it starts; the pitch holds until the next hit.
+- **Drift** makes the pattern wander a little and come home, as a fixed function of the step count:
+  - The pattern's passes are grouped into arcs of 16. In each arc, up to `round(3 * drift)` steps change, the count
+    rising from none at the arc's start to its most in the middle and back, by at most one step per pass.
+  - A changed step goes up an octave, up a fifth or down a fourth, or becomes a ghost hit at half its velocity; a rest
+    becomes a ghost hit at half velocity. Each arc picks its own steps and changes.
+  - At drift 0 every pass is the home pattern; at the default (0.7) two steps wander through the middle of each arc.
 
-### 1.5 Level and safety
+### 1.6 The rumble: the room under the kick
 
-- The low end is mono: `width` adds a side signal, a 12 ms delayed copy high-passed steeply at `mono_freq` (default
-  120 Hz), to one channel and takes it from the other, so everything under `mono_freq` stays in the middle (the side
-  under `mono_freq / 2` stays at least 25 dB below the mid). The mono signal itself passes through no filter, so width
-  never reshapes its peaks. At width 0 both channels carry the same signal, sample for sample.
-- A soft clipper holds every output sample within -0.3 dBFS (0.966) and is exactly transparent below -6 dBFS (0.5).
-  When the signal goes over full scale, the meters say so and the editor shows the NERV hazard stripe.
-- Headroom: `master_gain` defaults to -14 dB, so the default patch's accented notes peak between -12 and -6 dBFS,
-  at or under the clipper's knee. A DC blocker at the head of the output stage keeps the output centred, whatever the
-  pulse width.
-- The factory presets are loudness-matched: each renders within 3 dB of -18 dBFS RMS, the init patch's level, so
-  stepping through them never drops or jumps in level. A SUB preset may be a short note, so it is read over its
-  loudest 300 ms (phase 5.4).
-- Every audio callback is realtime-safe: no allocation, lock, file or log, and no NaN, infinity or denormal out.
+- A ghost kick (a 150 to 45 Hz drop) fires on the `rumble_rate` grid while the clock runs and feeds a dark mono reverb,
+  then a low-pass at `rumble_tone`, saturation and the duck. It is never heard dry, and `rumble_send` feeds the voice
+  into the same reverb.
+- **Dark**: at the default tone, at least 97% of its power is below 150 Hz, its centroid is at most 85 Hz, and the band
+  above 500 Hz is at least 60 dB under the total.
+- **It breathes**: 12 ms after each kick it is at least 10 dB under its level just before the kick, and it is back
+  within 3 dB by 400 ms. The duck's 8 ms attack never splatters: no 20 ms frame puts more than -25 dB of its power
+  above 300 Hz.
+- **It moves**: the reverb's delays drift slowly, so the bed never repeats exactly from beat to beat (a spread of at
+  least 1 dB, 150 to 450 ms after each kick).
+
+### 1.7 Never acid
+
+- By design: no accent, slide or glide, no saw, no modulated resonance, a filter swing of at most 4 octaves.
+- No preset raises the resonance peak above +5 dB (resonance 0.6), and every preset meets the darkness goals of 1.1.
+
+### 1.8 Level and safety
+
+- **Mono**: both channels carry the same signal, sample for sample.
+- **Clean**: no clicks (around every hit, a render high-passed at 6 kHz stays under -60 dBFS) and no DC (a render's mean
+  is at most -80 dBFS). A DC blocker leads the output stage.
+- **Bounded**: a soft clipper holds every sample within -0.3 dBFS (0.966) and is exactly transparent below -6 dBFS
+  (0.5). Going over full scale lights the clip meter.
+- **Level**: `master_gain`'s default puts the default pattern's peaks between -12 and -6 dBFS, and every preset plays
+  within 2 LU (integrated loudness, BS.1770) of the default pattern, with true peaks at most -1 dBTP.
+- **Realtime-safe**: no allocation, lock, file or log in an audio callback, never a NaN, an infinity or a denormal out,
+  and a silent voice outputs exact zeros.
+
+### 1.9 Under the kick
+
+A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
+- A rolling patch meets the kick the same way on every repeat: over bars where the pattern is home, the mix's 20 ms
+  envelope spreads at most 0.5 dB from one repeat to the next. The restart rule of 1.2 gives this.
+- A held patch starts on the kick's pitch class, so the kick's tail never digs deep holes in it: below its own 80 ms
+  running maximum, the mix's 20 ms envelope dips at most 7 dB (median over beats), and 18 dB at worst, 60 to 440 ms
+  after each kick.
+
+### 1.10 The presets
+
+- About eight, most of them rolling sub pulses (variations of the decays, drive, pattern and drift) or beds led by the
+  rumble, with at most two driving or held ones between them.
+- Among them `Roll`, `Hold`, `Drift`, `Rumble` and `Pressure`. `Roll` and `Hold` share their pattern and pitches and
+  differ only in their decays and attack, so they compare short and long decays directly.
+- Each meets 1.1 to 1.9. On 1/16 lines the thud stays at or under +9 semitones: higher, a dense line's sweeps push its
+  energy past 150 Hz.
 
 ## 2. Signal flow
 
 ```text
- MIDI ──┐   ┌────────────── Sequencer (phase 3) ───────────────┐
-        └──►│ notes, accent, slide          host ppq / internal │
-            └──────────────┬────────────────────────────────────┘
-                           ▼
-   ┌──────────── Mono voice (phase 1) ─────────────┐
-   │ OSC saw|square (PolyBLEP) ──┐                  │
-   │ SUB sine −1|−2 oct ─────────┼─► LP 24 dB/oct ─►│ × amp env ─► saturation ─┬──────────────► + ─► crossover ─► clipper ─► L R
-   │ glide · legato · accent     │   res · drive    │                          │                ▲   mono < mono_freq
-   │ filter env · key track      │   ▲ LFO 1/2      │                          └─ rumble_send ─┐ │   width above
-   └─────────────────────────────┴───┴──────────────┘                                          ▼ │
-                                          ghost kick on the beat grid ─► dark reverb ─► LP ─► drive ─► LP ─► duck ─► rumble
-                                                                                      (phase 2)
+ MIDI keys ─► root ──┐   ┌────────────── sequencer (phase 4) ─────────────┐
+ host or own clock ──┴──►│ 8 steps: pitch, velocity · rate · length       │──► hits
+                         │ Key · Free · Notes · drift                     │
+                         └────────────────────────────────────────────────┘
+                                       │ pitch, velocity
+ ┌────────────────────────────── voice (phases 2, 3) ─────────────────────────────┐
+ │ VCO 1 tri|sq ──┬────────────────┐                                              │
+ │                └─ FM ─► VCO 2 ──┤                                              │
+ │ noise ──────────────────────────┼─► mix ─► drive ─► ladder ─► VCA ─►           │
+ │ sine sub, an octave under ──────┘                     ▲          ▲             │
+ │ pitch decay ─► VCOs and sub          filter decay ─► cutoff    level decay     │
+ └────────────────────────────────────────────────────────────────────────────────┘
+          │
+          ├────► rumble_send ─► dark reverb ◄── ghost kick on the beat grid
+          │                      └─► low-pass ─► drive ─► duck ──┐   rumble (phases 1, 5)
+          ▼                                                     │
+          + ◄───────────────────────────────────────────────────┘
+          └─► DC block ─► master ─► clip ─► L = R                   output (phase 1)
 ```
 
 ## 3. Architecture
 
 ### 3.1 Layout
 
-| Path | What | Phase |
+| Path | What | Phases |
 |---|---|---|
-| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 0 to 3, 5 |
-| `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the ROSEDUST UI). | 0, 4, 5 |
-| `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh` (phase 0); the offline renderer and install script (phase 5). | |
+| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 5 |
+| `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6, 7 |
+| `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh`, the offline renderer, `render-demos.sh` and `install.sh` (kept from Undertow 1, updated by phases 1, 5 and 7). | |
 | `tests/spec/` | The spec tests, given: one executable per file. | given |
 | `third_party/doctest/` | doctest 2.5.3, MIT, vendored. | given |
-| `docs/` | This PRD, `design/ui-spec.md`, `specs/phase-N-*.md`. | given |
+| `docs/` | This PRD, `design/window.md`, `specs/phase-N-*.md`. | given |
 
 ### 3.2 Build
 
-- CMake 3.22 or newer with presets and the Unix Makefiles generator (this machine has no Ninja), C++17,
-  `CMAKE_OSX_DEPLOYMENT_TARGET` 11.0, arm64.
-- Two presets, as in Metakosmia: `core` (binary dir `build/core`, no JUCE, `UNDERTOW_BUILD_PLUGIN=OFF`) and `plugin`
-  (`build/plugin`, `UNDERTOW_BUILD_PLUGIN=ON`). Both `RelWithDebInfo`, so the timing checks measure optimized code.
-- JUCE 8.0.12, the same tarball and SHA256 as Metakosmia, comes from the shared dependency cache
-  (`~/Library/Caches/undertow`, or `$UNDERTOW_DEPS_DIR`): `tools/fetch-juce.sh --prefix` downloads, checks, builds
-  and installs it once (about 30 s), and `cmake/Juce.cmake` uses `find_package(JUCE CONFIG)` on that prefix. A
-  new checkout or worktree therefore never downloads JUCE or rebuilds juceaide; it compiles only the JUCE modules
-  its plugin uses.
-- The plugin target: `juce_add_plugin(Undertow ...)` with company `Metakosmia`, manufacturer code `Mtks`, plugin code
-  `MkUt`, bundle id `audio.metakosmia.undertow`, product name `Metakosmia Undertow`, formats VST3 AU Standalone,
-  `IS_SYNTH TRUE`, `NEEDS_MIDI_INPUT TRUE`.
+- CMake 3.22 or newer with presets and the Unix Makefiles generator, C++17, `CMAKE_OSX_DEPLOYMENT_TARGET` 11.0, arm64.
+- Two presets: `core` (`build/core`, no JUCE, `UNDERTOW_BUILD_PLUGIN=OFF`) and `plugin` (`build/plugin`,
+  `UNDERTOW_BUILD_PLUGIN=ON`), both `RelWithDebInfo`. The core's sources are globbed (`core/src/*.cpp`), so a task
+  adds a file without editing `core/CMakeLists.txt`.
+- JUCE 8.0.12 comes from the shared dependency cache (`tools/fetch-juce.sh --prefix`), never `FetchContent`.
+- The plugin target: `juce_add_plugin(Undertow ...)`, company `Metakosmia`, manufacturer code `Mtks`, plugin code
+  `MkU2`, bundle id `audio.metakosmia.undertow2`, product name `Metakosmia Undertow 2`, version 2.0.0, formats VST3 AU
+  Standalone, `IS_SYNTH TRUE`, `NEEDS_MIDI_INPUT TRUE`. Its own codes let it install beside Undertow 1, whose
+  sessions keep loading their own plugin.
 - Validation: pluginval 1.0.4 (`tools/pluginval.sh`) and `auval` for the AU.
 
 ### 3.3 Threads and realtime rules
@@ -129,158 +197,136 @@ Undertow makes its own ghost kick on the beat grid, so the rumble pumps with the
 - The audio thread owns `undertow::Engine`. `UndertowProcessor::processBlock` copies the parameter values into it
   (`setParam`), converts the MIDI buffer into a preallocated `undertow::MidiEvent` array and the host position into
   an `undertow::Transport`, and calls `Engine::process`.
-- The UI thread never calls into the engine's processing. It reads `Engine::meters()` and the scope (phase 4) through
-  lock-free storage, and changes the sequencer pattern through a lock-free handoff that reads back at once what it
-  set (phase 3).
-- In `process`, `setParam`, `meters` and `reset`: no heap allocation (the spec tests count them with an
-  `operator new` override), no locks, no I/O, no logging, no exceptions. Everything is sized in `prepare`.
-- Outputs are always finite; state that decays flushes to exact zero instead of drifting into denormals.
+- The UI thread never calls into the engine's processing. It reads `Engine::meters()` and the scope through
+  lock-free storage. The sequencer's steps are ordinary parameters, so the window edits them as it edits any knob.
+- In `process`, `setParam`, `getParam`, `meters` and `reset`: no heap allocation (the spec tests count them), no
+  locks, no I/O, no logging, no exceptions. Everything is sized in `prepare`.
+- Outputs are always finite; state that decays flushes to exact zero.
 
-### 3.4 Beat clock
+### 3.4 The clock
 
-With a host position (`Transport::valid`), the engine's beat position is the host's ppq, advanced through the
-block at the host's tempo while it plays. Without one (the Standalone app) the engine runs its own clock at
-`seq_bpm` from 0 after `reset()`. LFOs, the ghost kick, the duck and the sequencer all read this one clock.
+- With a host position (`Transport::valid`), the engine's beat position is the host's ppq, advanced through the
+  block at the host's tempo while it plays. Without one (the Standalone app), the engine runs its own clock at
+  `seq_bpm` from 0 after `reset()`. The rumble's ghost kick and duck read this clock.
+- The sequencer reads it too, with one addition (phase 4): while the host is stopped, a held key still plays,
+  counting steps from the key press at the host's tempo.
 
 ## 4. Parameters
 
 The host-facing parameters, in host order. Ids are stable once released; the index is the position in this table
-and the `undertow::param` enumerator (the id in CamelCase: `filter_cutoff` is `undertow::param::FilterCutoff`).
-"Centre" is the value at half knob travel (JUCE `setSkewForCentre`); 0 means a linear range. Choice parameters
-run from 0 to their number of choices minus one. `tests/spec/p0/params_test.cpp` holds the same table.
+and the `undertow::param` enumerator (the id in CamelCase: `vcf_cutoff` is `undertow::param::VcfCutoff`). "Centre"
+is the value at half knob travel (JUCE `setSkewForCentre`); 0 means a linear range. Choice parameters run from 0 to
+their number of choices minus one. `tests/spec/p1/params_test.cpp` holds the same table.
 
 | # | id | name | kind | min | max | default | centre | unit |
 |---|---|---|---|---|---|---|---|---|
-| 0 | `osc_wave` | Wave | Choice | 0 | 1 | 0 | 0 | |
-| 1 | `osc_pw` | Pulse Width | Float | 0.05 | 0.95 | 0.5 | 0 | |
-| 2 | `osc_level` | Osc Level | Float | 0 | 1 | 0.6 | 0 | |
-| 3 | `osc_octave` | Octave | Int | -2 | 1 | 0 | 0 | oct |
-| 4 | `osc_fine` | Fine | Float | -50 | 50 | 0 | 0 | ct |
-| 5 | `sub_level` | Sub Level | Float | 0 | 1 | 0.7 | 0 | |
-| 6 | `sub_octave` | Sub Octave | Choice | 0 | 1 | 0 | 0 | |
-| 7 | `filter_cutoff` | Cutoff | Float | 20 | 18000 | 600 | 600 | Hz |
-| 8 | `filter_res` | Resonance | Float | 0 | 1 | 0.35 | 0 | |
-| 9 | `filter_drive` | Drive | Float | 0 | 1 | 0.2 | 0 | |
-| 10 | `filter_env` | Env Amount | Float | -6 | 6 | 3 | 0 | oct |
-| 11 | `filter_track` | Key Track | Float | 0 | 1 | 0.5 | 0 | |
-| 12 | `amp_attack` | Amp Attack | Float | 0.5 | 2000 | 1 | 30 | ms |
-| 13 | `amp_decay` | Amp Decay | Float | 1 | 4000 | 300 | 200 | ms |
-| 14 | `amp_sustain` | Amp Sustain | Float | 0 | 1 | 0.8 | 0 | |
-| 15 | `amp_release` | Amp Release | Float | 1 | 4000 | 60 | 200 | ms |
-| 16 | `filt_attack` | Filter Attack | Float | 0.5 | 2000 | 1 | 30 | ms |
-| 17 | `filt_decay` | Filter Decay | Float | 1 | 4000 | 220 | 200 | ms |
-| 18 | `filt_sustain` | Filter Sustain | Float | 0 | 1 | 0 | 0 | |
-| 19 | `filt_release` | Filter Release | Float | 1 | 4000 | 60 | 200 | ms |
-| 20 | `glide_ms` | Glide | Float | 0 | 1000 | 50 | 100 | ms |
-| 21 | `glide_mode` | Glide Mode | Choice | 0 | 2 | 1 | 0 | |
-| 22 | `accent` | Accent | Float | 0 | 1 | 0.5 | 0 | |
-| 23 | `bend_range` | Bend Range | Int | 0 | 12 | 2 | 0 | st |
-| 24 | `lfo1_rate` | LFO 1 Rate | Choice | 0 | 16 | 2 | 0 | |
-| 25 | `lfo1_shape` | LFO 1 Shape | Choice | 0 | 5 | 0 | 0 | |
-| 26 | `lfo1_cutoff` | LFO 1 to Cutoff | Float | -4 | 4 | 0.5 | 0 | oct |
-| 27 | `lfo1_phase` | LFO 1 Phase | Float | 0 | 1 | 0 | 0 | |
-| 28 | `lfo2_rate` | LFO 2 Rate | Choice | 0 | 16 | 11 | 0 | |
-| 29 | `lfo2_shape` | LFO 2 Shape | Choice | 0 | 5 | 1 | 0 | |
-| 30 | `lfo2_dest` | LFO 2 Dest | Choice | 0 | 5 | 0 | 0 | |
-| 31 | `lfo2_depth` | LFO 2 Depth | Float | 0 | 1 | 0 | 0 | |
-| 32 | `lfo2_phase` | LFO 2 Phase | Float | 0 | 1 | 0 | 0 | |
-| 33 | `rumble_level` | Rumble | Float | 0 | 1 | 0.3 | 0 | |
-| 34 | `rumble_send` | Rumble Send | Float | 0 | 1 | 0.25 | 0 | |
-| 35 | `rumble_kick` | Ghost Kick | Float | 0 | 1 | 0.6 | 0 | |
-| 36 | `rumble_rate` | Kick Rate | Choice | 0 | 3 | 0 | 0 | |
-| 37 | `rumble_decay` | Rumble Decay | Float | 0.2 | 8 | 2.5 | 2 | s |
-| 38 | `rumble_tone` | Rumble Tone | Float | 40 | 250 | 110 | 100 | Hz |
-| 39 | `rumble_drive` | Rumble Drive | Float | 0 | 1 | 0.4 | 0 | |
-| 40 | `rumble_duck` | Duck | Float | 0 | 1 | 0.8 | 0 | |
-| 41 | `sat_drive` | Saturation | Float | 0 | 1 | 0.2 | 0 | |
-| 42 | `width` | Width | Float | 0 | 1 | 0.25 | 0 | |
-| 43 | `mono_freq` | Mono Below | Float | 60 | 250 | 120 | 0 | Hz |
-| 44 | `master_gain` | Master | Float | -24 | 6 | -14 | 0 | dB |
-| 45 | `seq_on` | Sequencer | Bool | 0 | 1 | 0 | 0 | |
-| 46 | `seq_sync` | Seq Sync | Choice | 0 | 1 | 0 | 0 | |
-| 47 | `seq_bpm` | Seq BPM | Float | 60 | 200 | 128 | 0 | bpm |
-| 48 | `seq_rate` | Seq Rate | Choice | 0 | 3 | 1 | 0 | |
-| 49 | `seq_length` | Seq Length | Int | 1 | 16 | 16 | 0 | |
-| 50 | `seq_gate` | Seq Gate | Float | 0.05 | 1 | 0.5 | 0 | |
-| 51 | `seq_swing` | Swing | Float | 0 | 1 | 0 | 0 | |
-| 52 | `seq_root` | Root | Int | 24 | 60 | 33 | 0 | |
-| 53 | `seq_scale` | Scale | Choice | 0 | 4 | 1 | 0 | |
-| 54 | `seq_mutate` | Mutate | Float | 0 | 1 | 0.25 | 0 | |
-| 55 | `seq_evolve` | Evolve | Choice | 0 | 5 | 0 | 0 | |
-| 56 | `seq_seed` | Seed | Int | 0 | 9999 | 1 | 0 | |
+| 0 | `vco1_wave` | VCO 1 Wave | Choice | 0 | 1 | 0 | 0 |  |
+| 1 | `vco1_level` | VCO 1 Level | Float | 0 | 1 | 0.45 | 0 |  |
+| 2 | `vco2_wave` | VCO 2 Wave | Choice | 0 | 1 | 1 | 0 |  |
+| 3 | `vco2_tune` | VCO 2 Tune | Float | -24 | 24 | -12 | 0 | st |
+| 4 | `vco2_level` | VCO 2 Level | Float | 0 | 1 | 0.28 | 0 |  |
+| 5 | `vco_fm` | 1 to 2 FM | Float | 0 | 1 | 0.15 | 0 |  |
+| 6 | `noise_level` | Noise | Float | 0 | 1 | 0.05 | 0 |  |
+| 7 | `sub_level` | Sub | Float | 0 | 1 | 1 | 0 |  |
+| 8 | `sub_octave` | Sub Octave | Choice | 0 | 1 | 1 | 0 |  |
+| 9 | `pitch_env` | Pitch Env | Float | 0 | 24 | 7 | 0 | st |
+| 10 | `pitch_decay` | Pitch Decay | Float | 5 | 1000 | 75 | 60 | ms |
+| 11 | `vcf_cutoff` | Cutoff | Float | 20 | 8000 | 140 | 300 | Hz |
+| 12 | `vcf_res` | Resonance | Float | 0 | 1 | 0.32 | 0 |  |
+| 13 | `vcf_drive` | Drive | Float | 0 | 1 | 0.4 | 0 |  |
+| 14 | `vcf_env` | VCF Env | Float | 0 | 4 | 2 | 0 | oct |
+| 15 | `vcf_decay` | VCF Decay | Float | 10 | 10000 | 275 | 300 | ms |
+| 16 | `vca_attack` | Attack | Choice | 0 | 1 | 0 | 0 |  |
+| 17 | `vca_decay` | VCA Decay | Float | 10 | 20000 | 390 | 300 | ms |
+| 18 | `seq_mode` | Mode | Choice | 0 | 2 | 0 | 0 |  |
+| 19 | `seq_rate` | Rate | Choice | 0 | 7 | 4 | 0 |  |
+| 20 | `seq_length` | Length | Int | 1 | 8 | 8 | 0 |  |
+| 21 | `seq_drift` | Drift | Float | 0 | 1 | 0.7 | 0 |  |
+| 22 | `seq_root` | Root | Int | 24 | 60 | 43 | 0 |  |
+| 23 | `seq_bpm` | Tempo | Float | 60 | 200 | 130 | 0 | bpm |
+| 24 | `step1_pitch` | Step 1 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 25 | `step2_pitch` | Step 2 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 26 | `step3_pitch` | Step 3 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 27 | `step4_pitch` | Step 4 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 28 | `step5_pitch` | Step 5 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 29 | `step6_pitch` | Step 6 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 30 | `step7_pitch` | Step 7 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 31 | `step8_pitch` | Step 8 Pitch | Int | -12 | 12 | 0 | 0 | st |
+| 32 | `step1_vel` | Step 1 Velocity | Float | 0 | 1 | 0 | 0 |  |
+| 33 | `step2_vel` | Step 2 Velocity | Float | 0 | 1 | 0.22 | 0 |  |
+| 34 | `step3_vel` | Step 3 Velocity | Float | 0 | 1 | 1 | 0 |  |
+| 35 | `step4_vel` | Step 4 Velocity | Float | 0 | 1 | 0.55 | 0 |  |
+| 36 | `step5_vel` | Step 5 Velocity | Float | 0 | 1 | 0 | 0 |  |
+| 37 | `step6_vel` | Step 6 Velocity | Float | 0 | 1 | 0.25 | 0 |  |
+| 38 | `step7_vel` | Step 7 Velocity | Float | 0 | 1 | 0.9 | 0 |  |
+| 39 | `step8_vel` | Step 8 Velocity | Float | 0 | 1 | 0.6 | 0 |  |
+| 40 | `rumble_level` | Rumble | Float | 0 | 1 | 0.3 | 0 |  |
+| 41 | `rumble_send` | Rumble Send | Float | 0 | 1 | 0.2 | 0 |  |
+| 42 | `rumble_kick` | Ghost Kick | Float | 0 | 1 | 0.6 | 0 |  |
+| 43 | `rumble_rate` | Kick Rate | Choice | 0 | 3 | 0 | 0 |  |
+| 44 | `rumble_decay` | Rumble Decay | Float | 0.2 | 8 | 4.5 | 2 | s |
+| 45 | `rumble_tone` | Rumble Tone | Float | 40 | 250 | 100 | 100 | Hz |
+| 46 | `rumble_drive` | Rumble Drive | Float | 0 | 1 | 0.5 | 0 |  |
+| 47 | `rumble_duck` | Duck | Float | 0 | 1 | 0.88 | 0 |  |
+| 48 | `master_gain` | Master | Float | -24 | 6 | -12 | 0 | dB |
 
 The choices, in order:
 
-- `osc_wave`: Saw, Square
-- `sub_octave`: -1 oct, -2 oct
-- `glide_mode`: Off, Legato, Always
-- `lfo1_rate`, `lfo2_rate`: 4 bars, 2 bars, 1 bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T, 3/16, 5/16, 7/16,
-  3/4, 5/4, 7/4 (cycle lengths in beats: 16, 8, 4, 2, 1, 0.5, 0.25, 0.125, 2/3, 1/3, 1/6, 0.75, 1.25, 1.75, 3, 5, 7)
-- `lfo1_shape`, `lfo2_shape`: Sine, Triangle, Saw Down, Saw Up, Square, Sample & Hold
-- `lfo2_dest`: Cutoff, Resonance, Pulse Width, Rumble Send, Pitch, Amp
+- `vco1_wave`, `vco2_wave`: Triangle, Square
+- `sub_octave`: 0 oct, -1 oct
+- `vca_attack`: Fast, Slow
+- `seq_mode`: Key, Free, Notes
+- `seq_rate`: 1 bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/8T, 1/16T (a step of 4, 2, 1, 0.5, 0.25, 0.125, 1/3 and 1/6
+  beats)
 - `rumble_rate`: 1/4, 1/2, 1 bar, 1/8
-- `seq_sync`: Host, Internal
-- `seq_rate`: 1/8, 1/16, 1/32, 1/16T
-- `seq_scale`: Chromatic, Minor, Phrygian, Dorian, Minor Pent
-- `seq_evolve`: Off, 1 bar, 2 bars, 4 bars, 8 bars, 16 bars
 
-The sequencer's 16 steps (note, gate, accent, slide, probability) are plugin state, saved with the session, not
-host parameters (phase 3).
+The defaults are the init sound: a rolling sub at 1/16 in G (VCO 1 at G2, the sub at G1, 49 Hz), the beats left to
+the kick (steps 1 and 5 are rests), a short thud at each hit, and two steps drifting through the middle of every arc.
 
-## 5. Phases
+## 5. The window
+
+ROSEDUST phosphor, laid out with the DFAM's panel logic: the sequencer's 8 pitch and 8 velocity knobs in two rows
+across the top, each step's lamp above its column, then the VCO, VCF and VCA sections left to right, each with its
+decay, then the rumble and the output. One look, readable at a glance: from across a room you see whether it is
+silent, rolling or clipping; up close you read every value. `docs/design/window.md` (phase 6) gives the layout.
+
+## 6. Phases
 
 | Phase | Spec | Builds | Depends on | Size |
 |---|---|---|---|---|
-| 0 | `specs/phase-0-foundation.md` | CMake and presets, the core library with the parameter table and the engine skeleton, the JUCE plugin skeleton (VST3, AU, Standalone) through pluginval, `tools/check.sh` | nothing | M: 3 tasks, about 600 lines |
-| 1 | `specs/phase-1-voice.md` | PolyBLEP oscillators, the sub, the 24 dB/oct filter with drive, envelopes, the mono voice (glide, legato, accent, bend), MIDI, smoothing, realtime safety | 0 | L: 5 tasks, about 900 lines |
-| 2 | `specs/phase-2-rumble.md` | Tempo-synced LFOs, the rumble engine, saturation, the mono-sub crossover and width, the output clipper | 1 | L: 4 tasks, about 900 lines |
-| 2.1 | `specs/phase-2.1-voice-fixes.md` | Fixes from a listening test of the voice: a sustain change glides, glides keep their time and pitch, an empty block leaves the meters alone, the filter keeps its resonance at full level, the oscillator stops at Nyquist | 2 | S: 5 tasks, about 50 lines |
-| 2.2 | `specs/phase-2.2-gain-staging.md` | Gain staging from a listening test of phase 2: width as a side signal (no crossover on the mono path), drives with makeup gain, the rumble audible at the defaults | 2.1 | S: 3 tasks, about 60 lines |
-| 3 | `specs/phase-3-sequencer.md` | The 16-step sequencer: transport sync, accent, slide, rest, probability, swing, mutate and evolve; pattern state | 1 (2 for the full mix) | M: 2 tasks, about 700 lines |
-| 4 | `specs/phase-4-ui.md` | The ROSEDUST phosphor editor (`docs/design/ui-spec.md`): knobs, the bone number, the scope, the rumble field, the tunnel, the hazard stripe, the step array; snapshot and frame-budget checks | 2, 3 | L: 7 tasks, about 1000 lines |
-| 4.1 | `specs/phase-4.1-bone.md` | Bone only for the one number: phase 4's knob ticks, knob thumb, tooltips, clock readout and rumble label back to the ROSEDUST tokens, and the review images made again | 4 | S: 1 task, about 5 lines and three images |
-| 4.2 | `specs/phase-4.2-layout.md` | The editor laid out as designed: the eight panels with labelled 40 px knobs, formatted readouts on hover, the stamps, the HEAD, the pitch as the bone number in the CHEST's lower third; a hook listing every drawn word; a new instance plays the default bassline again | 4.1 | M: 3 tasks, about 400 lines |
-| 4.3 | `specs/phase-4.3-finish.md` | The editor's finish: the limbs' knobs where the mock puts them, MOD/05's nine fitting it; the HEAD's words in Unicode on one line; 16 px clip bands with their legend, the clock and the values readable while clipping; `Hz` on the number's baseline below the scope; the rumble pump field back; the review images made again | 4.2 | S: 2 tasks, about 150 lines and three images |
-| 5 | `specs/phase-5-ship.md` | Factory presets as programs, strict pluginval, the offline renderer and demo WAVs, an install script (the real install and auval by hand), the top of the resonance knob, probability 1 that always plays, the one number drawn whole at full size | 4.3 | M: 8 tasks, about 735 lines |
-| 5.1 | `specs/phase-5.1-renders.md` | Phase 5's finish: RUMBLE Dark Room retuned on the final resonance curve; the offline renderer holds the note and plays the whole pattern, and the demo renders are its files as written (no rescaling, no made-up audio); texts::draw never cuts a word (Hz drew as H) | 5 | S: 3 tasks, about 40 lines changed, about 70 removed, four renders and three images |
-| 5.2 | `specs/phase-5.2-presets.md` | The presets as named: SUB Pure Foundation the clean sine sub alone and every SUB preset the sub (F17), no preset's energy below 20 Hz (F18), by retuning six presets, not the engine | 5.1 | S: 1 task, about 10 lines and one showcase render |
-| 5.3 | `specs/phase-5.3-presets.md` | Low Pressure as named, and the Roller at level: SUB Low Pressure as "sub at -2 oct with a little saturation, a slow swell", apart from Pure Foundation and still the clean sub; BASS Hypnotic Roller's showcase at the reel's level | 5.2 | S: 1 task, about 5 lines and one showcase render |
-| 5.4 | `specs/phase-5.4-presets.md` | Kick Companion as named: SUB Kick Companion as "a short, round sub note that sits after a kick", a decaying note apart from the two held SUB presets and still the clean sub; the level check reads a SUB preset over its loudest 300 ms | 5.3 | S: 1 task, about 5 lines |
-| 5.5 | `specs/phase-5.5-auval.md` | auval clean: a host that sets Seq Gate to its default reads it back exactly (a 0.001 grid on its range), and so does every float parameter, with every id, range and default unchanged | 5.4 | S: 1 task, about 4 lines |
+| 1 | `specs/phase-1-foundation.md` | The parameter table, Undertow 2's identity, the engine skeleton with the kept rumble and output stage (mono), the parts it replaces retired, the plugin with a placeholder window, pluginval | nothing | M: 2 tasks |
+| 2 | `specs/phase-2-sources.md` | The two VCOs (triangle and square, band-limited, linear FM), noise and the sine sub; the ladder | 1 | M: 2 tasks |
+| 3 | `specs/phase-3-voice.md` | The three decays and the VCA, the voice assembled, played by MIDI notes (Notes mode) | 2 | M: 3 tasks |
+| 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 2 tasks |
+| 5 | `specs/phase-5-sound.md` | The darker rumble, the presets, a render of each | 4 | M: 3 tasks |
+| 6 | `specs/phase-6-window.md` | The window | 5 | L: 5 tasks |
+| 7 | `specs/phase-7-ship.md` | Strict pluginval and the install; auval, run by hand after a real install | 6 | S: 2 tasks |
 
-```text
- phase 0 ──► phase 1 ──► phase 2 ──► phase 2.1 ──► phase 2.2 ──┬──► phase 4 ──► phase 4.1 ──► phase 4.2 ──► phase 4.3 ──► phase 5 ──► phase 5.1 ──► phase 5.2 ──► phase 5.3 ──► phase 5.4 ──► phase 5.5
-                    └──► phase 3 ──────────────────────────────┘
-```
+Run them in order, 1 to 7.
 
-Run the phases in order: 0, 1, 2, 2.1, 2.2, 3, 4, 4.1, 4.2, 4.3, 5, 5.1, 5.2, 5.3, 5.4, 5.5. Phases 2 and 3 are independent in
-their DSP and could run in parallel once phase 1 is done, but both edit `core/src/engine.cpp` and `core/CMakeLists.txt`,
-so in parallel they end in a merge there.
-
-## 6. How the checks work
+## 7. How the checks work
 
 - `tools/spec.sh <phase> <name> [<filter>]` builds and runs one spec executable, `tests/spec/p<phase>/<name>_test.cpp`,
-  optionally only the doctest test cases matching a filter (`'P1.03*'`). Core tests build with the `core` preset in
+  optionally only the doctest test cases matching a filter (`'P2.03*'`). Core tests build with the `core` preset in
   seconds; tests marked `// spec-preset: plugin` build with the `plugin` preset.
 - One executable per test file means a task's check compiles only what that task touches: two tasks running in
   parallel never break each other's check.
-- A test file names the files it needs (`// spec-needs: core/include/undertow/oscillator.h`). Once they all exist
-  the test joins the default build and `ctest`, so `tools/check.sh` runs every spec test whose code is in place,
-  and a later phase can never quietly break an earlier one.
-- Failure messages say what to change ("sub_octave -1 on note 45 must sound 55 Hz; measured 110 Hz"), because the
-  fixing model reads them.
-- Timing budgets have at least a 10x margin over the reference implementation on this machine, so a loaded
-  machine does not fail them.
+- A test file names the files it needs (`// spec-needs: core/include/undertow/ladder.h`). Once they all exist the test
+  joins the default build and `ctest`, so `tools/check.sh` runs every spec test whose code is in place, and a later
+  phase can never quietly break an earlier one.
+- Failure messages say what to change ("the ladder is -6.1 dB at the cutoff at resonance 0; a 4-pole ladder is
+  -12 dB there"), because the fixing model reads them.
+- Timing budgets count the thread's CPU time and keep a 10x margin over the reference implementation.
 
-## 7. Out of scope
+## 8. Out of scope
 
-- Polyphony, unison and chords; MPE; oversampling beyond what the clipper and drive need.
+- Polyphony, glide, accent, slide, LFOs and pitch bend.
+- Stereo width (the instrument is mono), a sidechain input (the ghost kick replaces it).
 - Windows and Linux builds; AAX; CLAP.
-- A sidechain input bus (the ghost kick replaces it).
 - Preset browsing beyond the host's program list; cloud anything.
 - Code signing with a Developer ID and notarization (local ad-hoc signing only).
 
-## 8. Licensing
+## 9. Licensing
 
-JUCE 8 is dual-licensed, AGPLv3 or commercial. Undertow is built for local use; distributing it needs a licence
-decision first. doctest is MIT (`third_party/doctest/LICENSE.txt`).
+Undertow is licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`, `LICENSE`). It is
+built with JUCE 8, used under JUCE's AGPLv3 licence option. doctest is MIT (`third_party/doctest/LICENSE.txt`).

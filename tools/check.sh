@@ -4,7 +4,7 @@
 #   tools/check.sh           core preset: build + test
 #   tools/check.sh --plugin  also the plugin preset, its tests, and pluginval
 #
-# Once tools/render-demos.sh and tools/install.sh exist (phase 5), the core tests run after them: the demo and install
+# When tools/render-demos.sh and tools/install.sh are executable, the core tests run after them: the demo and install
 # checks read what they write into build/demos and build/install-test. install.sh builds the plugin preset's
 # Undertow_All, so even without --plugin the plugin preset is configured before it runs.
 #
