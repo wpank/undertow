@@ -22,11 +22,14 @@ using undertow::MidiEvent;
 using undertow::Transport;
 
 struct Options {
+    bool list = false;
+    bool noteSpecified = false;
     std::string preset;
     std::string out;
+    std::string hits;
     int bars = 8;
     double bpm = 130.0;
-    int note = 43;
+    int note = 0;
     double sampleRate = 48000.0;
 };
 
@@ -64,7 +67,9 @@ bool parseArgs(int argc, char** argv, Options& options, std::string& error) {
             }
             return argv[++i];
         };
-        if (arg == "--preset") {
+        if (arg == "--list") {
+            options.list = true;
+        } else if (arg == "--preset") {
             const char* value = needValue(arg);
             if (!value) return false;
             options.preset = value;
@@ -72,6 +77,10 @@ bool parseArgs(int argc, char** argv, Options& options, std::string& error) {
             const char* value = needValue(arg);
             if (!value) return false;
             options.out = value;
+        } else if (arg == "--hits") {
+            const char* value = needValue(arg);
+            if (!value) return false;
+            options.hits = value;
         } else if (arg == "--bars") {
             const char* value = needValue(arg);
             if (!value) return false;
@@ -89,10 +98,11 @@ bool parseArgs(int argc, char** argv, Options& options, std::string& error) {
         } else if (arg == "--note") {
             const char* value = needValue(arg);
             if (!value) return false;
-            if (!parseInt(value, options.note)) {
+            if (!parseInt(value, options.note) || options.note < 0 || options.note > 127) {
                 error = "invalid --note value";
                 return false;
             }
+            options.noteSpecified = true;
         } else if (arg == "--sample-rate") {
             const char* value = needValue(arg);
             if (!value) return false;
@@ -105,6 +115,8 @@ bool parseArgs(int argc, char** argv, Options& options, std::string& error) {
             return false;
         }
     }
+    if (options.list)
+        return true;
     if (options.preset.empty()) { error = "missing --preset"; return false; }
     if (options.out.empty()) { error = "missing --out"; return false; }
     return true;
@@ -177,6 +189,38 @@ bool writeWav(const std::string& path, double sampleRate, const std::vector<floa
     return static_cast<bool>(out);
 }
 
+bool writeHitsJson(const std::string& path, int rate, double bpm, int bars, int root,
+                   const std::vector<undertow::Hit>& hits, std::string& error) {
+    std::ofstream out(path, std::ios::trunc);
+    if (!out) {
+        error = "failed to open output file: " + path;
+        return false;
+    }
+
+    std::ostringstream json;
+    json << std::defaultfloat << std::setprecision(6);
+    json << "{\n";
+    json << "  \"rate\": " << rate << ",\n";
+    json << "  \"bpm\": " << bpm << ",\n";
+    json << "  \"bars\": " << bars << ",\n";
+    json << "  \"root\": " << root << ",\n";
+    json << "  \"hits\": [\n";
+    for (std::size_t i = 0; i < hits.size(); ++i) {
+        const auto& hit = hits[i];
+        json << "    {\"sample\": " << hit.sampleOffset << ", \"step\": "
+             << (hit.step < 0 ? 0 : hit.step + 1) << ", \"note\": " << hit.note << ", \"pitch\": "
+             << (hit.note - root) << ", \"velocity\": " << hit.velocity << "}";
+        if (i + 1 < hits.size())
+            json << ',';
+        json << '\n';
+    }
+    json << "  ]\n";
+    json << "}\n";
+
+    out << json.str();
+    return static_cast<bool>(out);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -187,12 +231,19 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    if (options.list) {
+        for (int i = 0; i < undertow::numFactoryPresets(); ++i)
+            std::cout << undertow::factoryPresetSlug(i) << '\n';
+        return 0;
+    }
+
     Engine engine;
     engine.prepare(options.sampleRate, 512);
     if (!loadPreset(options, engine, error)) {
         std::cerr << "error: " << error << '\n';
         return 1;
     }
+    const int root = options.noteSpecified ? options.note : static_cast<int>(engine.getParam(undertow::param::SeqRoot));
     engine.reset();
 
     constexpr int kPrepareBlock = 512;
@@ -207,7 +258,9 @@ int main(int argc, char** argv) {
     transport.bpm = options.bpm;
     transport.ppq = 0.0;
 
-    const MidiEvent noteOn{0, 0x90, static_cast<std::uint8_t>(options.note), 100};
+    const MidiEvent noteOn{0, 0x90, static_cast<std::uint8_t>(root), 100};
+    std::vector<undertow::Hit> hits;
+    hits.reserve(static_cast<std::size_t>(totalFrames / 16 + 1));
     int remaining = totalFrames;
     int offset = 0;
     bool sentNote = false;
@@ -216,6 +269,11 @@ int main(int argc, char** argv) {
         const MidiEvent* events = sentNote ? nullptr : &noteOn;
         const int numEvents = sentNote ? 0 : 1;
         engine.process(left.data() + offset, right.data() + offset, block, events, numEvents, transport);
+        undertow::Hit blockHits[undertow::kMaxHits];
+        const int hitCount = engine.hits(blockHits, undertow::kMaxHits);
+        for (int i = 0; i < hitCount; ++i)
+            blockHits[i].sampleOffset += offset;
+        hits.insert(hits.end(), blockHits, blockHits + hitCount);
         sentNote = true;
         if (transport.valid && transport.playing)
             transport.ppq += static_cast<double>(block) / options.sampleRate * options.bpm / 60.0;
@@ -236,6 +294,11 @@ int main(int argc, char** argv) {
     if (rms > 0.0) rmsDb = 20.0 * std::log10(rms);
 
     if (!writeWav(options.out, options.sampleRate, left, right, error)) {
+        std::cerr << "error: " << error << '\n';
+        return 1;
+    }
+    if (!options.hits.empty() && !writeHitsJson(options.hits, static_cast<int>(options.sampleRate), options.bpm,
+                                               options.bars, root, hits, error)) {
         std::cerr << "error: " << error << '\n';
         return 1;
     }

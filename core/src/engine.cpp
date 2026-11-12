@@ -5,6 +5,7 @@
 #include "undertow/voice.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <cstring>
@@ -58,6 +59,8 @@ struct Engine::Impl {
     std::atomic<int> step{-1};
     std::atomic<long long> count{0};
     std::atomic<int> root{-1};
+    std::array<Hit, kMaxHits> hits{};
+    int hitCount = 0;
 
     Impl() {
         for (int i = 0; i < kNumParams; ++i)
@@ -103,6 +106,7 @@ void Engine::reset() {
     impl_->step.store(-1, std::memory_order_relaxed);
     impl_->count.store(0, std::memory_order_relaxed);
     impl_->root.store(-1, std::memory_order_relaxed);
+    impl_->hitCount = 0;
 }
 
 void Engine::setParam(int index, float value) {
@@ -119,6 +123,7 @@ float Engine::getParam(int index) const {
 
 void Engine::process(float* left, float* right, int numSamples,
                      const MidiEvent* events, int numEvents, const Transport& transport) {
+    impl_->hitCount = 0;
     if (numSamples <= 0)
         return;
 
@@ -138,6 +143,12 @@ void Engine::process(float* left, float* right, int numSamples,
     int eventIndex = 0;
     const float rumbleSend = impl_->params[param::RumbleSend];
 
+    auto recordHit = [&](int sampleOffset, int step, int note, float velocity) {
+        if (impl_->hitCount >= kMaxHits)
+            return;
+        impl_->hits[static_cast<std::size_t>(impl_->hitCount++)] = Hit{sampleOffset, step, note, velocity};
+    };
+
     for (int i = 0; i < numSamples; ++i) {
         while (eventIndex < numEvents && events[eventIndex].sampleOffset == i) {
             const MidiEvent& event = events[eventIndex++];
@@ -156,17 +167,23 @@ void Engine::process(float* left, float* right, int numSamples,
             if (status == kMidiNoteOn && event.data2 > 0) {
                 const int note = static_cast<int>(event.data1);
                 impl_->sequencer.keyOn(note);
-                if (isNotesMode(impl_->params[param::SeqMode]))
-                    impl_->voice.hit(note, static_cast<float>(event.data2) / 127.0f);
+                if (isNotesMode(impl_->params[param::SeqMode])) {
+                    const float velocity = static_cast<float>(event.data2) / 127.0f;
+                    impl_->voice.hit(note, velocity);
+                    recordHit(i, -1, note, velocity);
+                }
             } else if (status == kMidiNoteOff || (status == kMidiNoteOn && event.data2 == 0)) {
                 impl_->sequencer.keyOff(static_cast<int>(event.data1));
             }
         }
 
         SeqStep seqStep;
-        if (impl_->sequencer.tick(ppq, running, bpm, seqStep))
-            if (seqStep.velocity > 0.0f)
+        if (impl_->sequencer.tick(ppq, running, bpm, seqStep)) {
+            if (seqStep.velocity > 0.0f) {
                 impl_->voice.hit(seqStep.note, seqStep.velocity);
+                recordHit(i, seqStep.step, seqStep.note, seqStep.velocity);
+            }
+        }
 
         const float voiceOut = impl_->voice.process();
         const float rumbleOut = impl_->rumble.process(voiceOut * rumbleSend, ppq, bpm, running);
@@ -205,6 +222,14 @@ void Engine::process(float* left, float* right, int numSamples,
     impl_->step.store(impl_->sequencer.step(), std::memory_order_relaxed);
     impl_->count.store(impl_->sequencer.count(), std::memory_order_relaxed);
     impl_->root.store(impl_->sequencer.root(), std::memory_order_relaxed);
+}
+
+int Engine::hits(Hit* destination, int count) const {
+    if (destination == nullptr || count <= 0 || impl_->hitCount <= 0)
+        return 0;
+    const int toCopy = std::min(count, impl_->hitCount);
+    std::copy_n(impl_->hits.data(), toCopy, destination);
+    return toCopy;
 }
 
 Meters Engine::meters() const {

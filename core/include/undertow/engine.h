@@ -6,6 +6,7 @@
 namespace undertow {
 
 constexpr int kScopeSamples = 4096;
+constexpr int kMaxHits = 64;
 
 struct MidiEvent {
     int sampleOffset;
@@ -19,6 +20,13 @@ struct Transport {
     bool playing = false;
     double bpm = 120.0;
     double ppq = 0.0;
+};
+
+struct Hit {
+    int sampleOffset = 0;
+    int step = -1;
+    int note = 0;
+    float velocity = 0.0f;
 };
 
 struct Meters {
@@ -51,6 +59,7 @@ public:
                  const MidiEvent* events, int numEvents, const Transport& transport);
     Meters meters() const;
     int copyScope(float* destination, int count) const;
+    int hits(Hit* destination, int count) const;
 
 private:
     struct Impl;
