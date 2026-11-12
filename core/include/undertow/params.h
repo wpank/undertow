@@ -6,35 +6,34 @@ namespace undertow {
 enum class ParamKind { Float, Int, Choice, Bool };
 
 struct ParamSpec {
-    const char* id;              // stable host id, e.g. "filter_cutoff"
-    const char* name;            // display name, e.g. "Cutoff"
+    const char* id;
+    const char* name;
     ParamKind kind;
-    float min;                   // real units; Choice: 0
-    float max;                   // real units; Choice: numChoices - 1
-    float def;                   // default, real units
-    float centre;                // value at half knob travel (setSkewForCentre); 0 = linear
-    const char* unit;            // "", "Hz", "ms", "s", "dB", "oct", "st", "ct", "bpm"
-    const char* const* choices;  // Choice labels, else nullptr
-    int numChoices;              // Choice: number of labels, else 0
+    float min;
+    float max;
+    float def;
+    float centre;
+    const char* unit;
+    const char* const* choices;
+    int numChoices;
 };
 
-constexpr int kNumParams = 57;
+constexpr int kNumParams = 49;
+constexpr int kSteps = 8;
 
-const ParamSpec& paramSpec(int index);   // 0 <= index < kNumParams, in docs/PRD.md section 4 order
-int findParam(std::string_view id);      // the index of `id`, or -1
+const ParamSpec& paramSpec(int index);
+int findParam(std::string_view id);
 
 namespace param {
-enum : int {  // the table's indices: the id in CamelCase
-    OscWave, OscPw, OscLevel, OscOctave, OscFine, SubLevel, SubOctave,
-    FilterCutoff, FilterRes, FilterDrive, FilterEnv, FilterTrack,
-    AmpAttack, AmpDecay, AmpSustain, AmpRelease,
-    FiltAttack, FiltDecay, FiltSustain, FiltRelease,
-    GlideMs, GlideMode, Accent, BendRange,
-    Lfo1Rate, Lfo1Shape, Lfo1Cutoff, Lfo1Phase,
-    Lfo2Rate, Lfo2Shape, Lfo2Dest, Lfo2Depth, Lfo2Phase,
+enum : int {
+    Vco1Wave, Vco1Level, Vco2Wave, Vco2Tune, Vco2Level, VcoFm, NoiseLevel, SubLevel, SubOctave, PitchEnv, PitchDecay,
+    VcfCutoff, VcfRes, VcfDrive, VcfEnv, VcfDecay,
+    VcaAttack, VcaDecay,
+    SeqMode, SeqRate, SeqLength, SeqDrift, SeqRoot, SeqBpm,
+    Step1Pitch, Step2Pitch, Step3Pitch, Step4Pitch, Step5Pitch, Step6Pitch, Step7Pitch, Step8Pitch,
+    Step1Vel, Step2Vel, Step3Vel, Step4Vel, Step5Vel, Step6Vel, Step7Vel, Step8Vel,
     RumbleLevel, RumbleSend, RumbleKick, RumbleRate, RumbleDecay, RumbleTone, RumbleDrive, RumbleDuck,
-    SatDrive, Width, MonoFreq, MasterGain,
-    SeqOn, SeqSync, SeqBpm, SeqRate, SeqLength, SeqGate, SeqSwing, SeqRoot, SeqScale, SeqMutate, SeqEvolve, SeqSeed,
+    MasterGain,
 };
 }  // namespace param
 
