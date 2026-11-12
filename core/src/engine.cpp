@@ -1,6 +1,7 @@
 #include "undertow/engine.h"
 #include "undertow/output_stage.h"
 #include "undertow/rumble.h"
+#include "undertow/voice.h"
 
 #include <algorithm>
 #include <atomic>
@@ -11,6 +12,10 @@ namespace undertow {
 namespace {
 
 constexpr double kRmsTauSeconds = 0.05;
+constexpr std::uint8_t kMidiNoteOff = 0x80;
+constexpr std::uint8_t kMidiNoteOn = 0x90;
+constexpr std::uint8_t kMidiController = 0xB0;
+constexpr std::uint8_t kAllSoundOff = 120;
 
 float clampParamValue(int index, float value) {
     const auto& spec = paramSpec(index);
@@ -22,12 +27,17 @@ float clampParamValue(int index, float value) {
     return value;
 }
 
+bool isNotesMode(float seqMode) {
+    return static_cast<int>(seqMode) == 2;
+}
+
 }  // namespace
 
 struct Engine::Impl {
     double sampleRate = 48000.0;
     int maxBlockSize = 0;
     float params[kNumParams]{};
+    Voice voice;
     Rumble rumble;
     OutputStage output;
     double ownPpq = 0.0;
@@ -56,6 +66,7 @@ Engine::~Engine() = default;
 void Engine::prepare(double sampleRate, int maxBlockSize) {
     impl_->sampleRate = std::max(sampleRate, 1.0);
     impl_->maxBlockSize = std::max(maxBlockSize, 0);
+    impl_->voice.prepare(impl_->sampleRate);
     impl_->rumble.prepare(impl_->sampleRate);
     impl_->output.prepare(impl_->sampleRate);
     reset();
@@ -68,6 +79,8 @@ void Engine::reset() {
     std::fill(std::begin(impl_->scope), std::end(impl_->scope), 0.0f);
     impl_->rmsState = 0.0f;
     impl_->rumbleRmsState = 0.0f;
+    impl_->voice.reset();
+    impl_->voice.setParams(impl_->params);
     impl_->rumble.setParams(impl_->params);
     impl_->rumble.reset();
     impl_->output.setParams(impl_->params);
@@ -100,6 +113,7 @@ void Engine::process(float* left, float* right, int numSamples,
     if (numSamples <= 0)
         return;
 
+    impl_->voice.setParams(impl_->params);
     impl_->rumble.setParams(impl_->params);
     impl_->output.setParams(impl_->params);
 
@@ -111,10 +125,28 @@ void Engine::process(float* left, float* right, int numSamples,
     float peak = 0.0f;
     double sumSquares = 0.0;
     double rumbleSumSquares = 0.0;
+    int eventIndex = 0;
+    const float rumbleSend = impl_->params[param::RumbleSend];
 
     for (int i = 0; i < numSamples; ++i) {
-        const float rumbleOut = impl_->rumble.process(0.0f, ppq, bpm, running);
-        const float mono = impl_->output.process(rumbleOut);
+        while (eventIndex < numEvents && events[eventIndex].sampleOffset == i) {
+            const MidiEvent& event = events[eventIndex++];
+            const std::uint8_t status = static_cast<std::uint8_t>(event.status & 0xF0);
+            if (status == kMidiController && event.data1 == kAllSoundOff) {
+                impl_->voice.reset();
+                impl_->rumble.reset();
+                impl_->output.reset();
+                continue;
+            }
+            if (!isNotesMode(impl_->params[param::SeqMode]))
+                continue;
+            if (status == kMidiNoteOn && event.data2 > 0)
+                impl_->voice.hit(static_cast<int>(event.data1), static_cast<float>(event.data2) / 127.0f);
+        }
+
+        const float voiceOut = impl_->voice.process();
+        const float rumbleOut = impl_->rumble.process(voiceOut * rumbleSend, ppq, bpm, running);
+        const float mono = impl_->output.process(voiceOut + rumbleOut);
         left[i] = mono;
         right[i] = mono;
 
@@ -153,8 +185,8 @@ Meters Engine::meters() const {
     m.peak = impl_->peak.load(std::memory_order_relaxed);
     m.rms = impl_->rms.load(std::memory_order_relaxed);
     m.clipping = impl_->clipping.load(std::memory_order_relaxed);
-    m.note = -1;
-    m.noteHz = 0.0f;
+    m.note = impl_->voice.note();
+    m.noteHz = static_cast<float>(impl_->voice.noteHz());
     m.step = -1;
     m.rumble = impl_->rumbleMeter.load(std::memory_order_relaxed);
     m.ppq = impl_->ppq.load(std::memory_order_relaxed);
