@@ -74,7 +74,7 @@ const std::vector<Expected>& table() {
                 {MasterGain, -8}},
                {0, 1.0f, 0, 0.8f, 0, 0.9f, 0, 0.7f})},
         {"Deep", "deep",
-         steps({{Vco2Level, 0.2f}, {VcfCutoff, 100}, {VcfEnv, 1.5f}, {VcaDecay, 400}, {SeqDrift, 0.5f}, {SeqRoot, 40},
+         steps({{Vco2Level, 0.2f}, {VcfCutoff, 100}, {VcfEnv, 1.5f}, {VcaDecay, 375}, {SeqDrift, 0.5f}, {SeqRoot, 40},
                 {MasterGain, -10}},
                {0, 0.4f, 0.7f, 1.0f, 0, 0.5f, 0.8f, 0.3f})},
     };
