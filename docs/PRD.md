@@ -20,7 +20,7 @@ and a band's **share** is its power over the total.
 ### 1.1 The range: the energy sits between 30 and 150 Hz
 
 - At least 90% of a render's power is below 150 Hz, at least 98.5% below 300 Hz, at least 88% between 30 and 150 Hz,
-  and at most 1% below 30 Hz. Its spectral centroid is at most 90 Hz.
+  at most 0.25% below 20 Hz and at most 2% below 30 Hz. Its spectral centroid is at most 90 Hz.
 - It stays dark: the band above 500 Hz is at least 25 dB under the total, above 1 kHz at least 40 dB under, and above
   2 kHz at least 55 dB under. Even its brightest moments stay low: the 95th percentile of the centroid of 4096-point
   frames is at most 150 Hz.
@@ -101,9 +101,10 @@ and a band's **share** is its power over the total.
 
 ### 1.6 The rumble: the room under the kick
 
-- A ghost kick (a 150 to 45 Hz drop) fires on the `rumble_rate` grid while the clock runs and feeds a dark mono reverb,
-  then a low-pass at `rumble_tone`, saturation and the duck. It is never heard dry, and `rumble_send` feeds the voice
-  into the same reverb.
+- A ghost kick (a 150 to 45 Hz drop) fires on the `rumble_rate` grid while the clock runs and feeds a dark mono reverb
+  whose delays drift slowly, then saturation, a 24 dB/octave low-pass at `rumble_tone` (after the saturation, so its
+  harmonics never reach the room) and the duck, which falls at every point of the same grid. It is never heard dry,
+  and `rumble_send` feeds the voice into the same reverb.
 - **Dark**: at the default tone, at least 97% of its power is below 150 Hz, its centroid is at most 85 Hz, and the band
   above 500 Hz is at least 60 dB under the total.
 - **It breathes**: 12 ms after each kick it is at least 10 dB under its level just before the kick, and it is back
@@ -111,6 +112,8 @@ and a band's **share** is its power over the total.
   above 300 Hz.
 - **It moves**: the reverb's delays drift slowly, so the bed never repeats exactly from beat to beat (a spread of at
   least 1 dB, 150 to 450 ms after each kick).
+- **It never fills the roll**: with the default rumble in, the default patch's whole output still falls at least 8 dB
+  before each next hit, as the voice alone does (1.4).
 
 ### 1.7 Never acid
 
@@ -121,7 +124,8 @@ and a band's **share** is its power over the total.
 
 - **Mono**: both channels carry the same signal, sample for sample.
 - **Clean**: no clicks (around every hit, a render high-passed at 6 kHz stays under -60 dBFS) and no DC (a render's mean
-  is at most -80 dBFS). A DC blocker leads the output stage.
+  is at most -80 dBFS). A DC blocker and a fourth-order 20 Hz high-pass lead the output stage: each hit restarts the
+  sub on the same half-cycle, which leaves a low rumble under it that the high-pass takes out.
 - **Bounded**: a soft clipper holds every sample within -0.3 dBFS (0.966) and is exactly transparent below -6 dBFS
   (0.5). Going over full scale lights the clip meter.
 - **Level**: `master_gain`'s default puts the default pattern's peaks between -12 and -6 dBFS, and every preset plays
@@ -135,15 +139,16 @@ A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
 - A rolling patch meets the kick the same way on every repeat: over bars where the pattern is home, the mix's 20 ms
   envelope spreads at most 0.5 dB from one repeat to the next. The restart rule of 1.2 gives this.
 - A held patch starts on the kick's pitch class, so the kick's tail never digs deep holes in it: below its own 80 ms
-  running maximum, the mix's 20 ms envelope dips at most 7 dB (median over beats), and 18 dB at worst, 60 to 440 ms
-  after each kick.
+  running maximum, 60 to 440 ms after each kick, the kick deepens the 20 ms envelope's median dip by at most 6 dB
+  over the voice's own, and the worst dip is at most 18 dB.
 
 ### 1.10 The presets
 
-- About eight, most of them rolling sub pulses (variations of the decays, drive, pattern and drift) or beds led by the
-  rumble, with at most two driving or held ones between them.
-- Among them `Roll`, `Hold`, `Drift`, `Rumble` and `Pressure`. `Roll` and `Hold` share their pattern and pitches and
-  differ only in their decays and attack, so they compare short and long decays directly.
+- Most of them rolling sub pulses (variations of the decays, drive, pattern and drift) or beds led by the rumble, with
+  at most two driving or held ones between them.
+- Eight: `Init`, `Roll`, `Hold`, `Drift`, `Rumble`, `Pressure`, `Offbeat` and `Deep`. `Roll` and `Hold` share their
+  pattern and pitches and differ only in their decays and attack (and the master level that keeps them equally loud),
+  so they compare short and long decays directly.
 - Each meets 1.1 to 1.9. On 1/16 lines the thud stays at or under +9 semitones: higher, a dense line's sweeps push its
   energy past 150 Hz.
 
