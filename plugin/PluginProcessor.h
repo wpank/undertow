@@ -4,14 +4,14 @@
 
 #include <undertow/engine.h>
 
+#include <vector>
+
 class UndertowProcessor final : public juce::AudioProcessor {
 public:
     UndertowProcessor();
 
     undertow::Engine& engine();
     juce::AudioProcessorValueTreeState& parameters();
-    void setPattern(const undertow::Pattern& pattern);
-    undertow::Pattern pattern() const;
 
     const juce::String getName() const override;
     bool acceptsMidi() const override;
@@ -43,6 +43,7 @@ private:
     juce::AudioProcessorValueTreeState apvts_;
     undertow::Engine engine_;
     std::vector<undertow::MidiEvent> midiEvents_;
+    int currentProgram_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UndertowProcessor)
 };
