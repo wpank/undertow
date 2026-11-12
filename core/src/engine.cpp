@@ -1,6 +1,7 @@
 #include "undertow/engine.h"
 #include "undertow/output_stage.h"
 #include "undertow/rumble.h"
+#include "undertow/sequencer.h"
 #include "undertow/voice.h"
 
 #include <algorithm>
@@ -39,6 +40,7 @@ struct Engine::Impl {
     float params[kNumParams]{};
     Voice voice;
     Rumble rumble;
+    Sequencer sequencer;
     OutputStage output;
     double ownPpq = 0.0;
     float scope[kScopeSamples]{};
@@ -53,6 +55,9 @@ struct Engine::Impl {
     std::atomic<double> ppq{0.0};
     std::atomic<bool> hostClock{false};
     std::atomic<double> bpm{120.0};
+    std::atomic<int> step{-1};
+    std::atomic<long long> count{0};
+    std::atomic<int> root{-1};
 
     Impl() {
         for (int i = 0; i < kNumParams; ++i)
@@ -68,6 +73,7 @@ void Engine::prepare(double sampleRate, int maxBlockSize) {
     impl_->maxBlockSize = std::max(maxBlockSize, 0);
     impl_->voice.prepare(impl_->sampleRate);
     impl_->rumble.prepare(impl_->sampleRate);
+    impl_->sequencer.prepare(impl_->sampleRate);
     impl_->output.prepare(impl_->sampleRate);
     reset();
 }
@@ -81,6 +87,8 @@ void Engine::reset() {
     impl_->rumbleRmsState = 0.0f;
     impl_->voice.reset();
     impl_->voice.setParams(impl_->params);
+    impl_->sequencer.reset();
+    impl_->sequencer.setParams(impl_->params);
     impl_->rumble.setParams(impl_->params);
     impl_->rumble.reset();
     impl_->output.setParams(impl_->params);
@@ -92,6 +100,9 @@ void Engine::reset() {
     impl_->ppq.store(0.0, std::memory_order_relaxed);
     impl_->hostClock.store(false, std::memory_order_relaxed);
     impl_->bpm.store(static_cast<double>(impl_->params[param::SeqBpm]), std::memory_order_relaxed);
+    impl_->step.store(-1, std::memory_order_relaxed);
+    impl_->count.store(0, std::memory_order_relaxed);
+    impl_->root.store(-1, std::memory_order_relaxed);
 }
 
 void Engine::setParam(int index, float value) {
@@ -108,12 +119,11 @@ float Engine::getParam(int index) const {
 
 void Engine::process(float* left, float* right, int numSamples,
                      const MidiEvent* events, int numEvents, const Transport& transport) {
-    (void)events;
-    (void)numEvents;
     if (numSamples <= 0)
         return;
 
     impl_->voice.setParams(impl_->params);
+    impl_->sequencer.setParams(impl_->params);
     impl_->rumble.setParams(impl_->params);
     impl_->output.setParams(impl_->params);
 
@@ -132,17 +142,31 @@ void Engine::process(float* left, float* right, int numSamples,
         while (eventIndex < numEvents && events[eventIndex].sampleOffset == i) {
             const MidiEvent& event = events[eventIndex++];
             const std::uint8_t status = static_cast<std::uint8_t>(event.status & 0xF0);
-            if (status == kMidiController && event.data1 == kAllSoundOff) {
-                impl_->voice.reset();
-                impl_->rumble.reset();
-                impl_->output.reset();
+            if (status == kMidiController) {
+                if (event.data1 == 123)
+                    impl_->sequencer.allKeysOff();
+                if (event.data1 == kAllSoundOff) {
+                    impl_->sequencer.allKeysOff();
+                    impl_->voice.reset();
+                    impl_->rumble.reset();
+                    impl_->output.reset();
+                }
                 continue;
             }
-            if (!isNotesMode(impl_->params[param::SeqMode]))
-                continue;
-            if (status == kMidiNoteOn && event.data2 > 0)
-                impl_->voice.hit(static_cast<int>(event.data1), static_cast<float>(event.data2) / 127.0f);
+            if (status == kMidiNoteOn && event.data2 > 0) {
+                const int note = static_cast<int>(event.data1);
+                impl_->sequencer.keyOn(note);
+                if (isNotesMode(impl_->params[param::SeqMode]))
+                    impl_->voice.hit(note, static_cast<float>(event.data2) / 127.0f);
+            } else if (status == kMidiNoteOff || (status == kMidiNoteOn && event.data2 == 0)) {
+                impl_->sequencer.keyOff(static_cast<int>(event.data1));
+            }
         }
+
+        SeqStep seqStep;
+        if (impl_->sequencer.tick(ppq, running, bpm, seqStep))
+            if (seqStep.velocity > 0.0f)
+                impl_->voice.hit(seqStep.note, seqStep.velocity);
 
         const float voiceOut = impl_->voice.process();
         const float rumbleOut = impl_->rumble.process(voiceOut * rumbleSend, ppq, bpm, running);
@@ -178,6 +202,9 @@ void Engine::process(float* left, float* right, int numSamples,
     impl_->ppq.store(useHostClock ? (transport.playing ? ppq : transport.ppq) : impl_->ownPpq, std::memory_order_relaxed);
     impl_->hostClock.store(useHostClock, std::memory_order_relaxed);
     impl_->bpm.store(bpm, std::memory_order_relaxed);
+    impl_->step.store(impl_->sequencer.step(), std::memory_order_relaxed);
+    impl_->count.store(impl_->sequencer.count(), std::memory_order_relaxed);
+    impl_->root.store(impl_->sequencer.root(), std::memory_order_relaxed);
 }
 
 Meters Engine::meters() const {
@@ -187,7 +214,9 @@ Meters Engine::meters() const {
     m.clipping = impl_->clipping.load(std::memory_order_relaxed);
     m.note = impl_->voice.note();
     m.noteHz = static_cast<float>(impl_->voice.noteHz());
-    m.step = -1;
+    m.step = impl_->step.load(std::memory_order_relaxed);
+    m.count = impl_->count.load(std::memory_order_relaxed);
+    m.root = impl_->root.load(std::memory_order_relaxed);
     m.rumble = impl_->rumbleMeter.load(std::memory_order_relaxed);
     m.ppq = impl_->ppq.load(std::memory_order_relaxed);
     m.hostClock = impl_->hostClock.load(std::memory_order_relaxed);

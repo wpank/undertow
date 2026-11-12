@@ -28,6 +28,8 @@ struct Meters {
     int note = -1;
     float noteHz = 0;
     int step = -1;
+    long long count = 0;
+    int root = -1;
     float rumble = 0;
     double ppq = 0;
     bool hostClock = false;
