@@ -15,10 +15,11 @@ played as the PRD's render, keeps its energy between 30 and 150 Hz.
 
 In scope: `core/include/undertow/pattern.h`, `core/src/pattern.cpp`, `core/include/undertow/sequencer.h` and
 `core/src/sequencer.cpp` (new files: the core's source glob builds them without a change to `core/CMakeLists.txt`),
-and the sequencer wired into `core/src/engine.cpp`.
+the sequencer wired into `core/src/engine.cpp`, and the step's count and root added to `Meters` in
+`core/include/undertow/engine.h`.
 
-Out of scope: the presets, the darker rumble and the renderer's list of hits (phase 5); the window and its step lamps
-(phase 6), which read `meters().step`.
+Out of scope: the presets, the darker rumble and the renderer's list of hits (phase 5); the window, its step lamps and
+its drift marks (phase 6), which read `meters().step`, `count` and `root`.
 
 ## Context
 
@@ -32,7 +33,7 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
 
 1. **The pattern and its drift** (`core/include/undertow/pattern.h`, `core/src/pattern.cpp`)
    - `setParams` reads the 8 steps' pitches (`step1_pitch` to `step8_pitch`, whole semitones) and velocities
-     (`step1_vel` to `step8_vel`), `seq_length`, `seq_drift`, and `sub_octave` for the drift's 36 Hz guard.
+     (`step1_vel` to `step8_vel`), `seq_length`, `seq_drift`, and `sub_octave` for the drift's guard.
      `home(i)` is step `i` as set, and `length()` is `seq_length`, from 1 to 8.
    - **Counts.** Count 0 is the step that starts at beat 0 of the clock, and the counts before it are negative. With
      `L = seq_length`, count `c` plays step `s = c mod L`, from 0 to `L - 1` also for negative counts (count -1 is the
@@ -52,9 +53,9 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
      - **How:** a changed step takes the change `hash32((A * 8 + s) ^ 0x9E3779B9) % 4`: 0 is an octave up (+12), 1
        a fifth up (+7), 2 a fourth down (-5), and 3 a ghost hit at half its velocity, its pitch kept.
      - **The other way:** a pitch move goes the other way to the same note (+12 becomes -12, +7 becomes -5, and -5
-       becomes +7) when its own way would leave -12 to +12, or put the sub under 36 Hz: the sub's note, the root plus
-       the new pitch (less 12 when `sub_octave` is -1 oct), must be at least 26, D1 at 36.7 Hz. When neither way
-       fits, the step stays at home. On one root, a step keeps its change for the whole arc.
+       becomes +7) when its own way would leave -12 to +12, or take the sub under the bottom of its range: the sub's
+       note, the root plus the new pitch (less 12 when `sub_octave` is -1 oct), must be at least 28, E1 at 41.2 Hz.
+       When neither way fits, the step stays at home. On one root, a step keeps its change for the whole arc.
      - `hash32`, exactly:
 
        ```cpp
@@ -69,8 +70,8 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
        ```
 
      - So at the default drift (0.7) the passes of every arc change 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1 and 0
-       of the sounding steps. On the default root, G2, a fourth down from pitch 0 puts the sub at D1, the lowest it
-       may go.
+       of the sounding steps. On the default root, G2, a fourth down from pitch 0 would put the sub at D1 (36.7 Hz),
+       so it goes up a fifth instead.
 
 2. **The sequencer** (`core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`)
    - `setParams` gives the pattern its parameters and reads `seq_mode`, `seq_rate` and `seq_root`. A step lasts 4, 2,
@@ -102,8 +103,9 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
        takes over at once: the step there starts at once.
    - `tick` returns true when a step starts, and fills `out` with the step (0 to 7), its note and its velocity. A rest
      starts its step too, at velocity 0.
-   - `step()` is the step playing, from 0 to 7, or -1 while the pattern does not play. `reset()` lets every key go,
-     forgets the last key and stops the pattern.
+   - `step()` is the step playing, from 0 to 7, or -1 while the pattern does not play; `count()` is that step's count
+     (what `Pattern::at` took) and `root()` its root, the MIDI note it played on; 0 and -1 while nothing plays.
+     `reset()` lets every key go, forgets the last key and stops the pattern.
 
 3. **The engine plays the pattern** (`core/src/engine.cpp`)
    - In `prepare`, prepare the sequencer; in `reset`, reset it and give it the parameters; in `process`, give it the
@@ -118,7 +120,8 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
    - Each sample, after its MIDI, `tick` the sequencer with the engine's clock (PRD section 3.4): the beat at this
      sample, whether the clock runs (the host plays; the engine's own clock always runs) and its tempo (the host's,
      or `seq_bpm`). When a step starts, `voice.hit(note, velocity)`: a rest is no hit, so a ringing note carries on.
-   - `meters().step` is the sequencer's `step()` at the end of the block.
+   - `meters().step`, `meters().count` and `meters().root` are the sequencer's `step()`, `count()` and `root()` at
+     the end of the block, so the window can show which steps have wandered on the pass that plays.
 
 ## API
 
@@ -175,12 +178,18 @@ public:
     // it moves and `bpm` its tempo. Returns true when a step starts at this sample, and fills `out`.
     bool tick(double beat, bool running, double bpm, SeqStep& out);
     int step() const;                      // the step playing (0 .. 7), or -1 while the pattern does not play
+    long long count() const;               // the count of the step playing, 0 while none plays
+    int root() const;                      // the root of the step playing (a MIDI note), -1 while none plays
 };
 
 }  // namespace undertow
 ```
 
-`engine.h` does not change.
+```cpp
+// core/include/undertow/engine.h: two fields join Meters, after step
+    long long count = 0;      // phase 4: that step's count from beat 0 (what Pattern::at takes), 0 when idle
+    int root = -1;            // phase 4: that step's root, a MIDI note, -1 when idle
+```
 
 ## Acceptance checks
 
@@ -192,15 +201,15 @@ three test files build with the `core` preset.
 | P4.01 | `tools/spec.sh 4 pattern` | At drift 0 every count plays its home step, count mod length, for every length and on both sides of 0 |
 | P4.02 | `tools/spec.sh 4 pattern` | The drift follows the recipe above exactly, for every pattern, length, drift, root and count |
 | P4.03 | `tools/spec.sh 4 pattern` | Each arc of 16 passes leaves home and comes back one step at a time, never more than round(3 x drift) steps away; at the default two steps through its middle |
-| P4.04 | `tools/spec.sh 4 pattern` | A changed step goes up an octave, up a fifth or down a fourth within -12 to +12, or plays as a ghost; rests stay rests; no move puts the sub under 36 Hz; every change occurs, and arcs differ |
+| P4.04 | `tools/spec.sh 4 pattern` | A changed step goes up an octave, up a fifth or down a fourth within -12 to +12, or plays as a ghost; rests stay rests; no move takes the sub under E1 (41.2 Hz); every change occurs, and arcs differ |
 | P4.05 | `tools/spec.sh 4 pattern` | The pattern is a pure function of its parameters and the count, and never allocates |
 | P4.06 | `tools/spec.sh 4 sequencer` | With the clock running each step starts within one sample of its beat, at all 8 rates, from 60 to 200 BPM, from any position, once each, through host positions that jitter |
 | P4.07 | `tools/spec.sh 4 sequencer` | Free plays whenever the clock runs, rooted on seq_root, then on the last key pressed; notes stay within 0 to 127; the drift's guard reads the root played |
 | P4.08 | `tools/spec.sh 4 sequencer` | Key plays only while a key is held, rooted on the latest key held; a key from silence sounds its step at once; with every key up it stops |
 | P4.09 | `tools/spec.sh 4 sequencer` | A loop plays its steps again exactly, drift included, even a loop one step long; a jump into another step sounds it at once |
 | P4.10 | `tools/spec.sh 4 sequencer` | With the host stopped a held key plays from step 1, counting from the key at the host's tempo; when the host plays its grid takes over at once |
-| P4.11 | `tools/spec.sh 4 sequencer` | step() shows the step playing, -1 when nothing plays; Notes mode plays nothing; reset() forgets the keys; no allocation |
-| P4.12 | `tools/spec.sh 4 engine` | Key mode in the engine: a held key plays the pattern on the host's grid, each hit within one sample; nothing without a key |
+| P4.11 | `tools/spec.sh 4 sequencer` | step(), count() and root() show the step playing, -1, 0 and -1 when nothing plays; Notes mode plays nothing; reset() forgets the keys; no allocation |
+| P4.12 | `tools/spec.sh 4 engine` | Key mode in the engine: a held key plays the pattern on the host's grid, each hit within one sample, and meters().count and root follow it; nothing without a key |
 | P4.13 | `tools/spec.sh 4 engine` | Free mode plays on seq_root without a key; without a host the engine's own clock at seq_bpm drives it; a stopped host auditions a held key |
 | P4.14 | `tools/spec.sh 4 engine` | Each hit takes its root and pitch when it starts and holds them; a rest lets the note ring; Notes mode is unchanged |
 | P4.15 | `tools/spec.sh 4 engine` | All notes off and all sound off let every key go; reset() too |
@@ -233,9 +242,9 @@ three test files build with the `core` preset.
      - Creates: `core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`.
      - Its files are those 2 paths; it edits and deletes nothing.
      - Checks: P4.06 to P4.11, one step.
-  3. **The engine plays the pattern.** Needs task 2. Focused: about 25 lines.
-     - Edits: `core/src/engine.cpp`.
-     - Its files are that 1 path; it creates and deletes nothing.
+  3. **The engine plays the pattern.** Needs task 2. Focused: about 30 lines.
+     - Edits: `core/include/undertow/engine.h`, `core/src/engine.cpp`.
+     - Its files are those 2 paths; it creates and deletes nothing.
      - Checks: P4.12 to P4.18, one step.
 - `tools/check.sh --plugin` (P4.19) is the plan's final check, not a task's.
 - Every task builds C++: its agent needs `bash` and `edit_file`, to run `cmake` and its own `tools/spec.sh` check
