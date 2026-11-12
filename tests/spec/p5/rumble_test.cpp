@@ -63,7 +63,7 @@ TEST_CASE("P5.01 the rumble is dark: 97% of its power below 150 Hz, its centroid
     const auto l = spec::ltas(x, kRate);
     const double below = spec::share(l, 0, 150), centroid = spec::centroidHz(l);
     const double above = 10 * std::log10(spec::share(l, 500, 24001));
-    CHECK_MESSAGE(below >= 0.97, 100 * below << "% of the rumble's power is below 150 Hz; want 97% or more");
+    CHECK_MESSAGE(below >= 0.97, (100 * below) << "% of the rumble's power is below 150 Hz; want 97% or more");
     CHECK_MESSAGE(centroid <= 85.0, "the rumble's centroid is " << centroid << " Hz; want 85 Hz at most");
     CHECK_MESSAGE(above <= -60.0, "the band above 500 Hz is " << above
                                                               << " dB re the total; want -60 dB or less: the low-pass "

@@ -29,11 +29,31 @@ tools/spec.sh 1 engine 'P1.06*'    # only some of its test cases
 tools/check.sh                     # the core: configure, build, every spec test whose code is in place
 tools/check.sh --plugin            # also the plugin (VST3, AU, Standalone), its spec tests and pluginval
 tools/pluginval.sh 5               # pluginval 1.0.4 on the VST3
+tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt   # at its strictest, the log kept for review
 ```
 
 The `core` preset (`build/core`) builds the plain C++ DSP library and its tests in seconds, without JUCE. The
 `plugin` preset (`build/plugin`) adds the JUCE plugin; the first build in a new checkout compiles the JUCE modules
 (about a minute).
+
+## Install
+
+```sh
+tools/install.sh                   # build, then install for this user, signed ad hoc; Audio Units are rescanned
+tools/auval.sh                     # optional: Apple's auval on the installed AU (log in artifacts/reports/auval.txt)
+tools/install.sh --uninstall       # remove it again
+```
+
+`tools/install.sh` puts `Metakosmia Undertow 2.vst3` in `~/Library/Audio/Plug-Ins/VST3`,
+`Metakosmia Undertow 2.component` in `~/Library/Audio/Plug-Ins/Components` and `Metakosmia Undertow 2.app` in
+`~/Applications`. Undertow 1, if it is installed, stays beside it. Rescan plug-ins in the host, then load Metakosmia
+Undertow 2 as an instrument.
+
+## Play
+
+- Hold a key: the 8-step pattern plays from it, locked to the host's tempo (Key mode, the default). Free plays whenever
+  the clock runs; Notes plays one hit for each MIDI note.
+- The eight presets are the host's program list: Init, Roll, Hold, Drift, Rumble, Pressure, Offbeat and Deep.
 
 ## Layout
 
@@ -42,8 +62,9 @@ The `core` preset (`build/core`) builds the plain C++ DSP library and its tests 
 | `core/` | the DSP core, plain C++17, no JUCE (`Undertow::core`) |
 | `plugin/` | the JUCE plugin `Undertow`: processor and window |
 | `tools/` | fetch scripts, the spec runner, the offline renderer, pluginval, auval, the checks |
+| `artifacts/` | what a person reviews: the window's images, the validation logs |
 | `tests/spec/` | the spec tests, one executable per file |
-| `third_party/doctest/` | doctest 2.5.3 (MIT) |
+| `third_party/` | doctest 2.5.3 (MIT); the window's typefaces (SIL Open Font License 1.1) |
 
 ## Licence
 

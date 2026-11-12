@@ -197,12 +197,13 @@ TEST_CASE("P5.17 every preset keeps its energy between 30 and 150 Hz and stays d
         const auto voice = play(p, 8, false).out;
         const auto l = spec::ltas(voice, kRate);
         INFO("preset " << undertow::factoryPresetName(i) << ", the voice alone, 8 bars on its own root");
-        CHECK_MESSAGE(spec::share(l, 0, 150) >= 0.90, 100 * spec::share(l, 0, 150) << "% below 150 Hz; want 90%");
-        CHECK_MESSAGE(spec::share(l, 0, 300) >= 0.985, 100 * spec::share(l, 0, 300) << "% below 300 Hz; want 98.5%");
-        CHECK_MESSAGE(spec::share(l, 30, 150) >= 0.88, 100 * spec::share(l, 30, 150) << "% from 30 to 150 Hz; want 88%");
-        CHECK_MESSAGE(spec::share(l, 0, 20) <= 0.0025, 100 * spec::share(l, 0, 20) << "% below 20 Hz; want 0.25% at "
-                                                                                      "most");
-        CHECK_MESSAGE(spec::share(l, 0, 30) <= 0.02, 100 * spec::share(l, 0, 30) << "% below 30 Hz; want 2% at most");
+        CHECK_MESSAGE(spec::share(l, 0, 150) >= 0.90, (100 * spec::share(l, 0, 150)) << "% below 150 Hz; want 90%");
+        CHECK_MESSAGE(spec::share(l, 0, 300) >= 0.985, (100 * spec::share(l, 0, 300)) << "% below 300 Hz; want 98.5%");
+        CHECK_MESSAGE(spec::share(l, 30, 150) >= 0.88,
+                      (100 * spec::share(l, 30, 150)) << "% from 30 to 150 Hz; want 88%");
+        CHECK_MESSAGE(spec::share(l, 0, 20) <= 0.0025,
+                      (100 * spec::share(l, 0, 20)) << "% below 20 Hz; want 0.25% at most");
+        CHECK_MESSAGE(spec::share(l, 0, 30) <= 0.02, (100 * spec::share(l, 0, 30)) << "% below 30 Hz; want 2% at most");
         CHECK_MESSAGE(spec::centroidHz(l) <= 90.0, "the centroid is " << spec::centroidHz(l) << " Hz; want 90 Hz");
         CHECK_MESSAGE(db10(spec::share(l, 500, 24001)) <= -25.0, "above 500 Hz " << db10(spec::share(l, 500, 24001))
                                                                                   << " dB; want -25 dB");
@@ -311,7 +312,7 @@ TEST_CASE("P5.21 the Rumble preset is a bed led by its rumble, and dark") {
                                                       << spec::toDb(all / voice)
                                                       << " dB louder than its voice alone; the rumble leads (3 dB)");
     const auto l = spec::ltas(out, kRate);
-    CHECK_MESSAGE(spec::share(l, 0, 150) >= 0.97, 100 * spec::share(l, 0, 150) << "% below 150 Hz; want 97%");
+    CHECK_MESSAGE(spec::share(l, 0, 150) >= 0.97, (100 * spec::share(l, 0, 150)) << "% below 150 Hz; want 97%");
     CHECK_MESSAGE(spec::centroidHz(l) <= 85.0, "its centroid is " << spec::centroidHz(l) << " Hz; want 85 Hz");
     CHECK_MESSAGE(db10(spec::share(l, 500, 24001)) <= -40.0, "above 500 Hz " << db10(spec::share(l, 500, 24001))
                                                                               << " dB; want -40 dB");

@@ -65,7 +65,8 @@ and a band's **share** is its power over the total.
 - **Attack**, one switch for the level and the filter, always rising from where they are, each rise along half a
   cosine (smooth at both ends: the VCA comes after the ladder, so a straight line's corners would click). The times
   are 10-to-90% rises:
-  - Fast: both rise in 1 ms.
+  - Fast: the level rises in 1.2 ms and the filter in 0.6 ms, so the filter is open by the time the level arrives and
+    each hit starts soft.
   - Slow: the level rises in 100 ms and the filter in 500 ms, so a held note breathes rather than blooms.
   - A hit softer than the current level glides down to its peak over 4 ms. So no hit ever steps the level: it moves
     at most 0.042 between samples.
@@ -181,9 +182,10 @@ A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
 
 | Path | What | Phases |
 |---|---|---|
-| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 6 |
-| `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6, 7 |
-| `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh`, the offline renderer, `render-demos.sh` and `install.sh` (kept from Undertow 1, updated by phases 1, 5 and 7). | |
+| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 7 |
+| `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6 |
+| `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh`, the offline renderer, `render-demos.sh` and `install.sh` (kept from Undertow 1, updated by phases 1 and 5). | |
+| `artifacts/` | What a person reviews: the window's images (`ui/`) and the validation logs (`reports/`: pluginval's at strictness 10, and auval's after a real install). | 6, 7 |
 | `tests/spec/` | The spec tests, given: one executable per file. | given |
 | `third_party/doctest/` | doctest 2.5.3, MIT, vendored. | given |
 | `third_party/fonts/` | The window's typefaces, Michroma and Geist Mono (Regular and Light), under the SIL Open Font License 1.1, with their licence texts. | given |
@@ -312,7 +314,7 @@ from across a room you see whether it is silent, rolling or clipping; up close y
 | 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 3 tasks |
 | 5 | `specs/phase-5-sound.md` | The darker rumble, the presets, a render of each | 4 | M: 3 tasks |
 | 6 | `specs/phase-6-window.md` | The window | 5 | L: 6 tasks |
-| 7 | `specs/phase-7-ship.md` | Strict pluginval and the install; auval, run by hand after a real install | 6 | S: 2 tasks |
+| 7 | `specs/phase-7-ship.md` | Fast's softer attack, strict pluginval with its log kept, the install checked in a test folder; auval, run by hand after a real install | 6 | S: 2 tasks |
 
 Run them in order, 1 to 7.
 

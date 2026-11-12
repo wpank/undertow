@@ -288,10 +288,10 @@ TEST_CASE("P4.16 the default patch's own pattern, drift included, keeps its ener
     const auto l = spec::ltas(line, kRate);
     const double below150 = spec::share(l, 0, 150), below300 = spec::share(l, 0, 300),
                  band = spec::share(l, 30, 150), below30 = spec::share(l, 0, 30);
-    CHECK_MESSAGE(below150 >= 0.90, 100 * below150 << "% of the power is below 150 Hz; want 90% or more");
-    CHECK_MESSAGE(below300 >= 0.985, 100 * below300 << "% of the power is below 300 Hz; want 98.5% or more");
-    CHECK_MESSAGE(band >= 0.88, 100 * band << "% of the power is between 30 and 150 Hz; want 88% or more");
-    CHECK_MESSAGE(below30 <= 0.01, 100 * below30 << "% of the power is below 30 Hz; want 1% at most");
+    CHECK_MESSAGE(below150 >= 0.90, (100 * below150) << "% of the power is below 150 Hz; want 90% or more");
+    CHECK_MESSAGE(below300 >= 0.985, (100 * below300) << "% of the power is below 300 Hz; want 98.5% or more");
+    CHECK_MESSAGE(band >= 0.88, (100 * band) << "% of the power is between 30 and 150 Hz; want 88% or more");
+    CHECK_MESSAGE(below30 <= 0.01, (100 * below30) << "% of the power is below 30 Hz; want 1% at most");
     CHECK_MESSAGE(spec::centroidHz(l) <= 90.0, "the spectral centroid is " << spec::centroidHz(l)
                                                                            << " Hz; want 90 Hz at most");
     const double above500 = 10 * std::log10(spec::share(l, 500, 24001)),
