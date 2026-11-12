@@ -183,9 +183,9 @@ A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
 | Path | What | Phases |
 |---|---|---|
 | `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 7.1 |
-| `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6 |
+| `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6, 7.2 |
 | `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh`, the offline renderer, `render-demos.sh` and `install.sh` (kept from Undertow 1, updated by phases 1 and 5). | |
-| `artifacts/` | What a person reviews: the window's images (`ui/`) and the validation logs (`reports/`: pluginval's at strictness 10, and auval's after a real install). | 6, 7, 7.1 |
+| `artifacts/` | What a person reviews: the window's images (`ui/`) and the validation logs (`reports/`: pluginval's at strictness 10, and auval's after a real install). | 6, 7, 7.1, 7.2 |
 | `tests/spec/` | The spec tests, given: one executable per file. | given |
 | `third_party/doctest/` | doctest 2.5.3, MIT, vendored. | given |
 | `third_party/fonts/` | The window's typefaces, Michroma and Geist Mono (Regular and Light), under the SIL Open Font License 1.1, with their licence texts. | given |
@@ -319,8 +319,9 @@ from across a room you see whether it is silent, rolling or clipping; up close y
 | 6 | `specs/phase-6-window.md` | The window | 5 | L: 6 tasks |
 | 7 | `specs/phase-7-ship.md` | Fast's softer attack, strict pluginval with its log kept, the install checked in a test folder; auval, run by hand after a real install | 6 | S: 2 tasks |
 | 7.1 | `specs/phase-7.1-silent-until-played.md` | Silent until played: with no host, Key and Notes modes run the own clock only while a key is held; pluginval's log made again | 7 | S: 2 tasks |
+| 7.2 | `specs/phase-7.2-window-as-designed.md` | The window as designed: knobs, switches, the console's words and glass, the step cells, the static layers drawn once and a tighter frame budget; pluginval's log made again | 7.1 | M: 5 tasks |
 
-Run them in order, 1 to 7.1.
+Run them in order, 1 to 7.2.
 
 ## 7. How the checks work
 
