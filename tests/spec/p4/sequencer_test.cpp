@@ -213,6 +213,28 @@ TEST_CASE("P4.07 Free plays whenever the clock runs, rooted on seq_root and then
     const auto l = run(low, lc, 100);
     REQUIRE(l.size() == 1u);
     CHECK_MESSAGE(l[0].note == 0, "root 3 less 12 semitones is held at note 0; got " << l[0].note);
+
+    // The drift's 36 Hz guard reads the root each step plays on: on key D2 (38), with the sub an octave down, a
+    // fourth down (to A1, 33) would put the sub at 27.5 Hz, so it must go up a fifth (to A2, 45) instead.
+    auto g = steps(Free, 5); // 1/32: 16 arcs in 128 s at 120 BPM
+    for (int i = 0; i < undertow::kSteps; ++i)
+        spec::set(g, Step1Pitch + i, 0);
+    spec::set(g, SeqDrift, 1.0f);
+    spec::set(g, SeqRoot, 43);
+    auto guard = make(g);
+    guard.keyOn(38);
+    Clock gc;
+    int below = 0, fifths = 0;
+    for (long long n = 0; n < 128LL * 48000; ++n, ++gc.sample) {
+        undertow::SeqStep st;
+        if (guard.tick(gc.beat(), gc.running, gc.bpm, st)) {
+            below += st.note == 33 ? 1 : 0;
+            fifths += st.note == 45 ? 1 : 0;
+        }
+    }
+    CHECK_MESSAGE((below == 0 && fifths > 0), "on key D2 the drift must judge its 36 Hz guard on the root it plays, 38, "
+                                              "not seq_root: fourths down to note 33 "
+                                                  << below << ", fifths up to 45 " << fifths);
 }
 
 TEST_CASE("P4.08 Key plays while a key is held, rooted on the latest key held; a key from silence sounds at once") {
@@ -274,15 +296,15 @@ TEST_CASE("P4.09 a loop plays its steps again exactly, drift included; a jump in
     pattern.setParams(p.data());
     int drifted = 0;
     for (long long k = 64; k < 80; ++k)
-        drifted += (pattern.at(k).pitch != pattern.home(position(k, 8)).pitch ||
-                    pattern.at(k).velocity != pattern.home(position(k, 8)).velocity)
+        drifted += (pattern.at(k, 43).pitch != pattern.home(position(k, 8)).pitch ||
+                    pattern.at(k, 43).velocity != pattern.home(position(k, 8)).velocity)
                        ? 1
                        : 0;
     REQUIRE_MESSAGE(drifted > 0, "the test needs a bar where the default drift is away from home");
     REQUIRE_MESSAGE(want.size() == 16u, "4 beats at 1/16 must start 16 steps; got " << want.size());
     int unlike = 0;
     for (std::size_t k = 0; k < want.size(); ++k) {
-        const auto played = pattern.at(64 + static_cast<long long>(k));
+        const auto played = pattern.at(64 + static_cast<long long>(k), 43);
         unlike += (want[k].note == 43 + played.pitch && want[k].velocity == played.velocity) ? 0 : 1;
     }
     CHECK_MESSAGE(unlike == 0, unlike << " of the bar's steps did not play what the pattern's count plays, drift "

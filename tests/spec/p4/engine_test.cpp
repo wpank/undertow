@@ -317,9 +317,10 @@ TEST_CASE("P4.17 a looped bar replays exactly: the same steps and notes on every
     undertow::Engine straight;
     prepared(straight, p);
     const auto whole = trace(straight, 5 * bar, {spec::noteOn(0, 43)}, {true, true, 120.0, 0.0});
+    // The bar before the loop plays first, so the loop's first pass starts with the same note ringing.
     undertow::Engine looped;
     prepared(looped, p);
-    trace(looped, 1000, {spec::noteOn(0, 43)}, {true, true, 120.0, 15.0});
+    trace(looped, bar, {spec::noteOn(0, 43)}, {true, true, 120.0, 12.0});
     for (int pass = 0; pass < 3; ++pass) {
         const auto r = trace(looped, bar, {}, {true, true, 120.0, 16.0});
         int differ = 0;
@@ -333,7 +334,7 @@ TEST_CASE("P4.17 a looped bar replays exactly: the same steps and notes on every
     pattern.setParams(p.data());
     int drifted = 0;
     for (long long k = 64; k < 80; ++k)
-        drifted += pattern.at(k).pitch != pattern.home(position(k)).pitch ? 1 : 0;
+        drifted += pattern.at(k, 43).pitch != pattern.home(position(k)).pitch ? 1 : 0;
     CHECK_MESSAGE(drifted > 0, "the test needs a bar where the default drift moves a pitch");
 }
 
