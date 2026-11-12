@@ -1,10 +1,10 @@
 juce_add_plugin(Undertow
-    VERSION 0.1.0
+    VERSION 2.0.0
     COMPANY_NAME "Metakosmia"
     PLUGIN_MANUFACTURER_CODE Mtks
-    PLUGIN_CODE MkUt
-    BUNDLE_ID "audio.metakosmia.undertow"
-    PRODUCT_NAME "Metakosmia Undertow"
+    PLUGIN_CODE MkU2
+    BUNDLE_ID "audio.metakosmia.undertow2"
+    PRODUCT_NAME "Metakosmia Undertow 2"
     FORMATS VST3 AU Standalone
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
@@ -15,12 +15,9 @@ juce_add_plugin(Undertow
     COPY_PLUGIN_AFTER_BUILD FALSE
 )
 
-file(GLOB undertow_ui_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp")
-
 target_sources(Undertow PRIVATE
     PluginProcessor.cpp
     PluginEditor.cpp
-    ${undertow_ui_sources}
 )
 
 target_compile_definitions(Undertow PRIVATE

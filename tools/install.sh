@@ -54,9 +54,9 @@ else
   RESCAN=0
 fi
 
-VST3_SRC="build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/VST3/Metakosmia Undertow.vst3"
-COMPONENT_SRC="build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/AU/Metakosmia Undertow.component"
-APP_SRC="build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/Standalone/Metakosmia Undertow.app"
+VST3_SRC="build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/VST3/Metakosmia Undertow 2.vst3"
+COMPONENT_SRC="build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/AU/Metakosmia Undertow 2.component"
+APP_SRC="build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/Standalone/Metakosmia Undertow 2.app"
 
 ensure_build() {
   cmake --build --preset plugin --target Undertow_All
@@ -82,9 +82,9 @@ uninstall_bundle() {
 }
 
 if [ "$UNINSTALL" -eq 1 ]; then
-  uninstall_bundle "$VST3_DIR/Metakosmia Undertow.vst3"
-  uninstall_bundle "$COMPONENTS_DIR/Metakosmia Undertow.component"
-  uninstall_bundle "$APPLICATIONS_DIR/Metakosmia Undertow.app"
+  uninstall_bundle "$VST3_DIR/Metakosmia Undertow 2.vst3"
+  uninstall_bundle "$COMPONENTS_DIR/Metakosmia Undertow 2.component"
+  uninstall_bundle "$APPLICATIONS_DIR/Metakosmia Undertow 2.app"
   exit 0
 fi
 
@@ -94,9 +94,9 @@ for path in "$VST3_SRC" "$COMPONENT_SRC" "$APP_SRC"; do
   [ -e "$path" ] || { echo "install: missing bundle: $path" >&2; exit 1; }
 done
 
-install_bundle "$VST3_SRC" "$VST3_DIR/Metakosmia Undertow.vst3"
-install_bundle "$COMPONENT_SRC" "$COMPONENTS_DIR/Metakosmia Undertow.component"
-install_bundle "$APP_SRC" "$APPLICATIONS_DIR/Metakosmia Undertow.app"
+install_bundle "$VST3_SRC" "$VST3_DIR/Metakosmia Undertow 2.vst3"
+install_bundle "$COMPONENT_SRC" "$COMPONENTS_DIR/Metakosmia Undertow 2.component"
+install_bundle "$APP_SRC" "$APPLICATIONS_DIR/Metakosmia Undertow 2.app"
 
 if [ "$RESCAN" -eq 1 ]; then
   killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
