@@ -109,7 +109,8 @@ Out of scope:
      - a font's size is its em square in logical pixels (`juce::FontOptions(typeface).withPointHeight(px)`). Its
        tracking in pixels is `font.withExtraKerningFactor(tracking / font.getHeight())`.
    - **`Theme.h` holds the design as data** (rewritten from phase 1's):
-     - the tokens of section 6, as `juce::Colour`s;
+     - rewritten in full (phase 1's lost some of its tokens): every token of section 6, as a `juce::Colour` with the
+       table's value, named as the API below names it;
      - `editorWidth` and `editorHeight`;
      - the zones and the displays' rectangles of sections 2 and 4;
      - the headers, row labels, strip heads and dividers;
@@ -289,6 +290,32 @@ struct WindowFrame {
 ```cpp
 // plugin/ui/Theme.h: the parts the spec tests use (the rest is the design's data, free in form)
 namespace undertow::ui::theme {
+// The tokens of the design's section 6: bg_void is bgVoid, and the cap's three stops and rim are capHi, capMid, capLo
+// and capRim. A token may be a const or a constexpr juce::Colour; more tokens are free.
+inline const juce::Colour bgVoid{0xff060608};
+inline const juce::Colour bgMid{0xff080810};
+inline const juce::Colour glass{0xff070609};
+inline const juce::Colour rule{0xff1e1620};
+inline const juce::Colour rule2{0xff30222e};
+inline const juce::Colour rose{0xffaa7088};
+inline const juce::Colour roseBright{0xffcc90a8};
+inline const juce::Colour roseDim{0xff7a5060};
+inline const juce::Colour roseEmber{0xff482838};
+inline const juce::Colour roseDeep{0xff3a2030};
+inline const juce::Colour legend{0xff8e6474};
+inline const juce::Colour value{0xff988090};
+inline const juce::Colour track{0xff2e1b28};
+inline const juce::Colour pointer{0xffa8829a};
+inline const juce::Colour capHi{0xff1d151c};
+inline const juce::Colour capMid{0xff120d12};
+inline const juce::Colour capLo{0xff0a070a};
+inline const juce::Colour capRim{0xff2e202c};
+inline const juce::Colour bone{0xffc8b890};
+inline const juce::Colour boneDim{0xff8a7a5a};
+inline const juce::Colour textDim{0xff584858};
+inline const juce::Colour textGhost{0xff302830};
+inline const juce::Colour textPhantom{0xff201820};
+inline const juce::Colour dream{0xff585878};
 juce::Font legendFont(float px, float tracking = 0.0f);       // Michroma
 juce::Font numberFont(float px, float tracking = 0.2f);       // Geist Mono Regular
 juce::Font numberLightFont(float px, float tracking = 0.0f);  // Geist Mono Light
@@ -542,7 +569,8 @@ spectrum's file builds with the `core` preset in seconds; the others build the `
      - Deletes: `plugin/ui/Displays.h`, `plugin/ui/Displays.cpp`, `plugin/ui/Look.h`, `plugin/ui/Look.cpp`,
        `plugin/ui/Status.h`, `plugin/ui/Status.cpp`, `plugin/ui/UnitArray.h`, `plugin/ui/UnitArray.cpp`,
        `plugin/ui/UiFrame.h`.
-     - Its files are those 8 paths, and the 9 it deletes.
+     - 8 files written; its 9 deletions don't count towards the file budget. Its files are all 17 of those paths,
+       the deleted ones included. `plugin/ui/Texts.h` stays as it is.
      - Checks: P6.08 to P6.12, one step (`tools/spec.sh 6 frame`).
      - Its first plugin build in a fresh worktree compiles JUCE (about a minute at 4 jobs).
   3. **The controls.** Needs task 2. Integrative: about 420 lines.

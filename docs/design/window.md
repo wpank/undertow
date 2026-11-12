@@ -403,13 +403,16 @@ is against `bg_void`.
 | `value` | `#988090` | 5.6:1 | values that always show (`text_primary`) |
 | `track` | `#2E1B28` | | a knob's track |
 | `pointer` | `#A8829A` | | a knob's pointer at rest (under rose_bright's brightness, so only a lit or hovered knob is bright) |
-| `cap` | `#1D151C` to `#0A070A`, rim `#2E202C` | | a knob's cap, lit from the top left |
+| `cap` | `#1D151C`, `#120D12` at 55%, `#0A070A`; rim `#2E202C` | | a knob's cap, lit from the top left |
 | `bone` | `#C8B890` | 10.3:1 | the one number only |
 | `bone_dim` | `#8A7A5A` | | its unit and note line only |
 | `text_dim` | `#584858` | 2.4:1 | quiet labels: axis labels, switch segments that are off |
 | `text_ghost` | `#302830` | | rests, the idle number, steps past the length |
 | `text_phantom` | `#201820` | | the crosshair grid, level lines |
 | `dream` | `#585878` | | the `INT` badge only |
+
+In code every token is a `juce::Colour` in `undertow::ui::theme`, named in camel case (`bg_void` is `bgVoid`); the
+cap's stops and rim are `capHi`, `capMid`, `capLo` and `capRim`. Phase 6's checks read each one's value.
 
 White never appears; the brightest pixel is `rose_bright` or `bone`. Colour never carries state alone: every state
 also has a shape, a glyph or a word (a dashed outline for a rest, `REST`, `HOST`, `CLIP`, the stripes).
