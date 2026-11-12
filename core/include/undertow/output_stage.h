@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 namespace undertow {
 
 float softClip(float x);
@@ -17,6 +19,8 @@ private:
     double dcX1_ = 0.0;
     double dcY1_ = 0.0;
     double dcR_ = 0.0;
+    std::array<std::array<double, 5>, 2> hpCoeff_ = {};
+    std::array<std::array<double, 2>, 2> hpState_ = {};
     double masterTarget_ = 1.0;
     double masterCurrent_ = 1.0;
     double gainSmooth_ = 0.0;
