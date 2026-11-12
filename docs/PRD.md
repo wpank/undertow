@@ -28,8 +28,9 @@ and a band's **share** is its power over the total.
 
 ### 1.2 The voice: two oscillators, noise and a sine sub, into a mixer
 
-- **VCO 1 and VCO 2**, each a triangle or a square, band-limited, in tune within 0.1%. VCO 1 plays the root plus the
-  step's pitch; VCO 2 is `vco2_tune` semitones from it.
+- **VCO 1 and VCO 2**, each a triangle or a square, in tune within 0.1%, their aliases at least 60 dB under the
+  fundamental at C5: the square is band-limited, and the triangle's harmonics fall fast enough on their own. VCO 1
+  plays the root plus the step's pitch; VCO 2 is `vco2_tune` semitones from it.
 - **1 to 2 FM**: VCO 1's triangle modulates VCO 2's frequency linearly, `f2 * (1 + vco_fm * tri1)`, so VCO 2 never
   goes below 0 Hz.
 - **Noise**: white, flat within 2 dB across the octave bands from 100 Hz to 10 kHz, and the same after every `reset()`.
@@ -295,7 +296,7 @@ silent, rolling or clipping; up close you read every value. `docs/design/window.
 | Phase | Spec | Builds | Depends on | Size |
 |---|---|---|---|---|
 | 1 | `specs/phase-1-foundation.md` | The parameter table, Undertow 2's identity, the engine skeleton with the kept rumble and output stage (mono), the parts it replaces retired, the plugin with a placeholder window, pluginval | nothing | M: 3 tasks |
-| 2 | `specs/phase-2-sources.md` | The two VCOs (triangle and square, band-limited, linear FM), noise and the sine sub; the ladder | 1 | M: 2 tasks |
+| 2 | `specs/phase-2-sources.md` | The two VCOs (triangle and square, clear of aliases, linear FM), noise and the sine sub; the ladder | 1 | M: 2 tasks |
 | 3 | `specs/phase-3-voice.md` | The three decays and the VCA, the voice assembled, played by MIDI notes (Notes mode) | 2 | M: 3 tasks |
 | 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 2 tasks |
 | 5 | `specs/phase-5-sound.md` | The darker rumble, the presets, a render of each | 4 | M: 3 tasks |
