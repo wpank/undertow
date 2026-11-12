@@ -294,7 +294,7 @@ silent, rolling or clipping; up close you read every value. `docs/design/window.
 
 | Phase | Spec | Builds | Depends on | Size |
 |---|---|---|---|---|
-| 1 | `specs/phase-1-foundation.md` | The parameter table, Undertow 2's identity, the engine skeleton with the kept rumble and output stage (mono), the parts it replaces retired, the plugin with a placeholder window, pluginval | nothing | M: 2 tasks |
+| 1 | `specs/phase-1-foundation.md` | The parameter table, Undertow 2's identity, the engine skeleton with the kept rumble and output stage (mono), the parts it replaces retired, the plugin with a placeholder window, pluginval | nothing | M: 3 tasks |
 | 2 | `specs/phase-2-sources.md` | The two VCOs (triangle and square, band-limited, linear FM), noise and the sine sub; the ladder | 1 | M: 2 tasks |
 | 3 | `specs/phase-3-voice.md` | The three decays and the VCA, the voice assembled, played by MIDI notes (Notes mode) | 2 | M: 3 tasks |
 | 4 | `specs/phase-4-sequencer.md` | The 8-step sequencer: the grid, rates, length, Key and Free, the root, drift | 3 | M: 2 tasks |
