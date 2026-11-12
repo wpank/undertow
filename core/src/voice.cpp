@@ -186,8 +186,8 @@ float Voice::level() const {
 }
 
 void Voice::setAttackMode(bool slow) {
-    filterEnv_.setAttack(slow ? kSlowFilterAttackMs : kFastAttackMs);
-    levelEnv_.setAttack(slow ? kSlowLevelAttackMs : kFastAttackMs);
+    filterEnv_.setAttack(slow ? kSlowFilterAttackMs : kFastFilterAttackMs);
+    levelEnv_.setAttack(slow ? kSlowLevelAttackMs : kFastLevelAttackMs);
 }
 
 void Voice::setImmediateTargets() {

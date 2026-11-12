@@ -25,7 +25,8 @@ private:
     static constexpr double kA4Hz = 440.0;
     static constexpr double kA4Note = 69.0;
     static constexpr double kSemitonesPerOctave = 12.0;
-    static constexpr double kFastAttackMs = 1.0;
+    static constexpr double kFastLevelAttackMs = 1.2;
+    static constexpr double kFastFilterAttackMs = 0.6;
     static constexpr double kSlowLevelAttackMs = 100.0;
     static constexpr double kSlowFilterAttackMs = 500.0;
     static constexpr double kSmoothMs = 5.0;
