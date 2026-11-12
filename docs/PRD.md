@@ -182,10 +182,10 @@ A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
 
 | Path | What | Phases |
 |---|---|---|
-| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 7 |
+| `core/` | `undertow_core` (alias `Undertow::core`): the plain C++17 DSP core, headers in `core/include/undertow/`, namespace `undertow`. No JUCE, no host, no UI. | 1 to 7.1 |
 | `plugin/` | The JUCE plugin target `Undertow`: `UndertowProcessor` (a thin wrapper around `undertow::Engine`) and `UndertowEditor` (the window). | 1, 6 |
 | `tools/` | `fetch-juce.sh`, `fetch-pluginval.sh`, `spec.sh`, `pluginval.sh`, `auval.sh` (given); `check.sh`, the offline renderer, `render-demos.sh` and `install.sh` (kept from Undertow 1, updated by phases 1 and 5). | |
-| `artifacts/` | What a person reviews: the window's images (`ui/`) and the validation logs (`reports/`: pluginval's at strictness 10, and auval's after a real install). | 6, 7 |
+| `artifacts/` | What a person reviews: the window's images (`ui/`) and the validation logs (`reports/`: pluginval's at strictness 10, and auval's after a real install). | 6, 7, 7.1 |
 | `tests/spec/` | The spec tests, given: one executable per file. | given |
 | `third_party/doctest/` | doctest 2.5.3, MIT, vendored. | given |
 | `third_party/fonts/` | The window's typefaces, Michroma and Geist Mono (Regular and Light), under the SIL Open Font License 1.1, with their licence texts. | given |
@@ -218,8 +218,11 @@ A plain 4/4 kick (a sine falling from 190 to 49 Hz) plays over the render.
 ### 3.4 The clock
 
 - With a host position (`Transport::valid`), the engine's beat position is the host's ppq, advanced through the
-  block at the host's tempo while it plays. Without one (the Standalone app), the engine runs its own clock at
-  `seq_bpm` from 0 after `reset()`. The rumble's ghost kick and duck read this clock.
+  block at the host's tempo while it plays. The rumble's ghost kick and duck read this clock.
+- Without one (the Standalone app), the engine runs its own clock at `seq_bpm`:
+  - in Free mode always, from 0 after `reset()`;
+  - in Key and Notes modes only while a key is held: from beat 0 on the first key's sample, and back to beat 0 at the
+    last key's release, so a new instance is silent until it is played (phase 7.1).
 - The sequencer reads it too, with one addition (phase 4): while the host is stopped, a held key still plays,
   counting steps from the key press at the host's tempo.
 
@@ -315,8 +318,9 @@ from across a room you see whether it is silent, rolling or clipping; up close y
 | 5 | `specs/phase-5-sound.md` | The darker rumble, the presets, a render of each | 4 | M: 3 tasks |
 | 6 | `specs/phase-6-window.md` | The window | 5 | L: 6 tasks |
 | 7 | `specs/phase-7-ship.md` | Fast's softer attack, strict pluginval with its log kept, the install checked in a test folder; auval, run by hand after a real install | 6 | S: 2 tasks |
+| 7.1 | `specs/phase-7.1-silent-until-played.md` | Silent until played: with no host, Key and Notes modes run the own clock only while a key is held; pluginval's log made again | 7 | S: 2 tasks |
 
-Run them in order, 1 to 7.
+Run them in order, 1 to 7.1.
 
 ## 7. How the checks work
 

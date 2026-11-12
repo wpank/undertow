@@ -67,10 +67,11 @@ TEST_CASE("P1.09 the rumble pumps with the host's beat, through loops, and with 
     undertow::Engine standalone;
     auto p = spec::rumblePatch();
     spec::set(p, undertow::param::SeqBpm, static_cast<float>(kBpm));
+    spec::set(p, undertow::param::SeqMode, 1);  // Free: with no host and no key, only Free runs the clock (phase 7.1)
     prepared(standalone, p);
     const auto own = spec::render(standalone, static_cast<std::size_t>(16 * kBeat));
     CHECK_MESSAGE(spec::rms(own.left, static_cast<std::size_t>(4 * kBeat)) > 0.005,
-                  "without a host the rumble must run on the engine's own clock");
+                  "without a host, in Free mode, the rumble must run on the engine's own clock");
     CHECK_MESSAGE(duckRatio(own.left, 4, 16) <= 0.7, "on the engine's own clock (seq_bpm 130) the rumble must pump on "
                                                      "its beats; worst ratio "
                                                          << duckRatio(own.left, 4, 16));

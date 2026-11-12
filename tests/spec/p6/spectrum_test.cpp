@@ -93,7 +93,9 @@ TEST_CASE("P6.01 the scope keeps the newest 16384 output samples, in order, thro
                   "kSpectrumSize must equal kScopeSamples: a frame analyses the whole scope");
     undertow::Engine engine;
     engine.prepare(48000.0, 512);
-    spec::apply(engine, spec::rumblePatch());  // the rumble plays on the engine's own clock: the output is not silent
+    auto rumble = spec::rumblePatch();
+    spec::set(rumble, undertow::param::SeqMode, 1);  // Free: the room plays on the own clock with no key (phase 7.1)
+    spec::apply(engine, rumble);  // so the output is not silent
     std::vector<float> left(1536), right(1536), all;
     std::vector<float> copy(static_cast<std::size_t>(undertow::kScopeSamples) + 100);
     const undertow::Transport noHost{};
