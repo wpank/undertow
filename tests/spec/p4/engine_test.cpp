@@ -402,7 +402,9 @@ TEST_CASE("P4.18 under random transports, keys and settings the engine stays fin
     const double seconds = spec::threadSeconds() - start;
     const std::size_t allocations = counter.count(); // read before CHECK: doctest's first assertion allocates
     CHECK_MESSAGE(nonFinite == 0, nonFinite << " non-finite samples under random transports, keys and settings");
-    CHECK_MESSAGE(peak <= 0.966, "the output reached " << peak << "; the clipper holds it within 0.966");
+    // The clipper's ceiling is the float 0.966f, a hair over the double 0.966: a sample held exactly at it is in.
+    CHECK_MESSAGE(peak <= static_cast<double>(0.966f), "the output reached " << peak
+                                                                             << "; the clipper holds it within 0.966");
     CHECK_MESSAGE(allocations == 0, allocations << " heap allocations while playing: size everything in prepare()");
     CHECK_MESSAGE(seconds <= 1.0, "9.6 s of random playing took " << seconds << " s of CPU; the budget is 1 s");
     // Then Key mode, every key up, the rumble off and a short decay: the output ends in exact zeros.

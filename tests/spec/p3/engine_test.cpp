@@ -186,7 +186,9 @@ TEST_CASE("P3.19 under random notes and settings the engine stays finite, bounde
     const double seconds = spec::threadSeconds() - start;
     const std::size_t allocations = counter.count(); // read before CHECK: doctest's first assertion allocates
     CHECK_MESSAGE(nonFinite == 0, nonFinite << " non-finite samples under random notes and settings");
-    CHECK_MESSAGE(peak <= 0.966, "the output reached " << peak << "; the clipper holds it within 0.966");
+    // The clipper's ceiling is the float 0.966f, a hair over the double 0.966: a sample held exactly at it is in.
+    CHECK_MESSAGE(peak <= static_cast<double>(0.966f), "the output reached " << peak
+                                                                             << "; the clipper holds it within 0.966");
     CHECK_MESSAGE(allocations == 0, allocations << " heap allocations while playing: size everything in prepare()");
     CHECK_MESSAGE(seconds <= 1.0, "9.6 s of random playing took " << seconds << " s of CPU; the budget is 1 s");
     // Then the rumble off, a short decay and no more notes: the output ends in exact zeros.
