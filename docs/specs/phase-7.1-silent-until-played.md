@@ -78,8 +78,10 @@ Out of scope:
 3. **The strict validation's log, again** (`artifacts/reports/pluginval-strict.txt`)
    - Once task 1 is in, run `tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt` and commit the log it
      keeps, as phase 7's task 2 did. Never write or edit the log by hand.
-   - pluginval's log is the same from run to run for the same plugin. If the new log comes out unchanged, the task
-     changes nothing, and that is right: its checks pass on the unchanged tree.
+   - pluginval's log is the same from run to run but for one line: the plugin's identifier (`Testing plugin:
+     VST3-Metakosmia Undertow 2-<hash>-<hash>`), whose first hash comes from the bundle's path, so a run in another
+     checkout changes that line. Commit what the script keeps either way. If nothing changes, the task changes nothing,
+     and that is right: its checks pass on the unchanged tree.
 
 ## API
 
@@ -137,7 +139,8 @@ Each check is one command, run from the repository root; the checks that share a
      - Edits: `artifacts/reports/pluginval-strict.txt`.
      - Its files are that 1 path; it creates and deletes nothing.
      - Checks: the regression checks P7.1.12 and P7.1.13 (`expect = "pass_on_base"`).
-     - If the log comes out the same, the task changes nothing.
+     - Its log differs from phase 7's in one line at most, the plugin's identifier; if it comes out the same, the task
+       changes nothing.
 - `tools/check.sh --plugin` (P7.1.14) is the plan's final check, not a task's.
 - Both tasks run commands: each agent needs `bash` and `edit_file`. Leave `allowed_tools` out, or include `bash`,
   `edit_file`, `read_file`, `write_file`, `grep` and `glob`.
