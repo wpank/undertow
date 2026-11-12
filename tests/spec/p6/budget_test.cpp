@@ -120,7 +120,7 @@ TEST_CASE("P6.36 the whole window keeps ROSEDUST's rules: near-black, never whit
         }
 }
 
-TEST_CASE("P6.37 a full repaint keeps 60 Hz with headroom: median 11 ms and 95th percentile 16 ms at 1x, median 27 ms "
+TEST_CASE("P6.37 a full repaint keeps 60 Hz with headroom: median 9 ms and 95th percentile 16 ms at 1x, median 20 ms "
           "at 2x") {
     Fixture f;
     auto timeFrames = [&](float scale) {
@@ -139,16 +139,19 @@ TEST_CASE("P6.37 a full repaint keeps 60 Hz with headroom: median 11 ms and 95th
         std::sort(ms.begin(), ms.end());
         return std::pair<double, double>(ms[ms.size() / 2], ms[ms.size() * 95 / 100]);
     };
-    const char* const how = "draw each static layer once per display scale and copy it 1:1; draw glows as wide strokes "
-                            "at low alpha, never blurs; analyse the spectrum on every other tick";
+    // Phase 7.2 tightened 11 and 27 ms to 9 and 20 ms: with the static layers drawn once, the window has the room.
+    const char* const how = "draw each static layer once per display scale and copy it 1:1 (the ground, each knob's "
+                            "track, dots, cap and shadow, and the spectrum's glass, crosses, band, level lines, axis and "
+                            "stamp); draw glows as wide strokes at low alpha, never blurs; analyse the spectrum on every "
+                            "other tick";
     const auto one = timeFrames(1.0f);
-    CHECK_MESSAGE(one.first <= 11.0, "a tick and a full repaint at 1x take " << one.first << " ms of CPU (median of 120); "
-                                     "the target is 11 ms: " << how);
+    CHECK_MESSAGE(one.first <= 9.0, "a tick and a full repaint at 1x take " << one.first << " ms of CPU (median of 120); "
+                                    "the target is 9 ms: " << how);
     CHECK_MESSAGE(one.second <= 16.0, "the 95th percentile at 1x is " << one.second << " ms; the target is 16 ms (one 60 Hz "
                                       "frame): " << how);
     const auto two = timeFrames(2.0f);
-    CHECK_MESSAGE(two.first <= 27.0, "a tick and a full repaint at 2x (Retina) take " << two.first << " ms of CPU (median); "
-                                     "the target is 27 ms: " << how);
+    CHECK_MESSAGE(two.first <= 20.0, "a tick and a full repaint at 2x (Retina) take " << two.first << " ms of CPU (median); "
+                                     "the target is 20 ms: " << how);
 }
 
 TEST_CASE("P6.38 the window writes its review images: idle, playing and clipping at 2x in artifacts/ui, 1x in "
