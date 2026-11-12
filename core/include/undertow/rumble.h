@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <vector>
+
 namespace undertow {
 
 class Rumble {
@@ -11,16 +14,12 @@ public:
     double duckGain() const;                 // the duck's gain now, 1 = open
 
 private:
-    static constexpr int kLines = 4;
+    static constexpr int kAllpasses = 4;
+    static constexpr int kLines = 8;
     static constexpr double kDenorm = 1e-20;
 
-    // Reverb line delays in seconds (31–62 ms)
-    static constexpr double kLineDelays[4] = {0.0311, 0.0377, 0.0443, 0.0623};
-
-    // Per-sample state
     double sampleRate_ = 48000.0;
 
-    // Parameters (read from setParams)
     float level_ = 0.3f;
     float send_ = 0.25f;      // not used inside; engine uses it
     float kick_ = 0.6f;
@@ -30,38 +29,47 @@ private:
     float drive_ = 0.4f;
     float duck_ = 0.8f;
 
-    // Kick state
-    double kickPhase_ = 0.0;   // accumulated phase in cycles
-    double kickTime_ = 0.0;    // seconds since kick fired
+    double kickPhase_ = 0.0;
+    double kickTime_ = 0.0;
     bool   kickActive_ = false;
     double prevPpq_ = 0.0;
     bool   prevRunning_ = false;
     bool   firstSample_ = true;
 
-    // Reverb delay lines (sized in prepare)
-    int    delayLen_[kLines] = {};
-    int    delayIdx_[kLines] = {};
-    float* delayBuf_[kLines] = {};
-    double revLpState_[kLines] = {};  // one-pole low-pass per line
+    int preDelaySamples_ = 1;
+    int preDelayWrite_ = 0;
+    std::vector<float> preDelayData_;
 
-    // 24 dB/oct low-pass (tone) — four one-pole stages
-    double lpTone_[4] = {};
-    // 12 dB/oct low-pass (2x tone) — two one-pole stages
-    double lpPost_[2] = {};
+    std::array<std::vector<float>, kAllpasses> allpassData_;
+    std::array<int, kAllpasses> allpassWrite_ = {};
+    std::array<int, kAllpasses> allpassDelay_ = {};
+    std::array<double, kAllpasses> allpassGains_ = {};
 
-    // Duck state
+    std::array<std::vector<float>, kLines> lineData_;
+    std::array<int, kLines> lineWrite_ = {};
+    std::array<int, kLines> lineDelay_ = {};
+    std::array<double, kLines> lineGain_ = {};
+    std::array<double, kLines> linePhase_ = {};
+    std::array<double, kLines> linePhaseDelta_ = {};
+
+    std::array<double, 5> rumbleHpCoeff_ = {};
+    std::array<double, 2> rumbleHpState_ = {};
+    std::array<std::array<double, 5>, 2> toneCoeff_ = {};
+    std::array<std::array<double, 2>, 2> toneState_ = {};
+
     double duckGain_ = 1.0;
-    double duckBeatsSinceDip_ = 0.0;  // beats since the 2ms dip ended
-    bool   duckInDip_ = false;        // in the initial 2ms linear fall
-    double duckDipSamples_ = 0.0;     // samples elapsed in the 2ms dip
+    double duckEnvelope_ = 0.0;
+    double duckStartEnvelope_ = 0.0;
+    double duckTime_ = 0.0;
+    bool   duckActive_ = false;
 
-    // Grid in beats
+    double preparedTone_ = -1.0;
+    double preparedDecay_ = -1.0;
+
     double gridBeats() const;
-    // Fire a ghost kick
     void fireKick();
-    // One-pole low-pass: y += coeff * (x - y), returns y
-    static double onePoleLp(double& state, double input, double coeff);
-    // Flush denormals
+    void updateToneFilters();
+    void updateDecayGains();
     static double flush(double x);
 };
 
