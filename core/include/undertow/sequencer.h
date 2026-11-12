@@ -21,6 +21,7 @@ public:
     void keyOn(int note);                  // a MIDI key goes down
     void keyOff(int note);                 // a MIDI key comes up
     void allKeysOff();                     // every key comes up
+    bool anyKeyHeld() const;               // any key is down
     // One sample of the clock, after that sample's MIDI: `beat` is its position in quarter notes, `running` whether
     // it moves and `bpm` its tempo. Returns true when a step starts at this sample, and fills `out`.
     bool tick(double beat, bool running, double bpm, SeqStep& out);

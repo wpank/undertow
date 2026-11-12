@@ -86,6 +86,10 @@ void Sequencer::allKeysOff() {
     heldCount_ = 0;
 }
 
+bool Sequencer::anyKeyHeld() const {
+    return heldCount_ > 0;
+}
+
 int Sequencer::latestHeld() const {
     return heldCount_ > 0 ? held_[static_cast<std::size_t>(heldCount_ - 1)] : -1;
 }

@@ -133,7 +133,6 @@ void Engine::process(float* left, float* right, int numSamples,
     impl_->output.setParams(impl_->params);
 
     const bool useHostClock = transport.valid;
-    const bool running = useHostClock ? transport.playing : true;
     const double bpm = useHostClock ? transport.bpm : static_cast<double>(impl_->params[param::SeqBpm]);
     const double beatsPerSample = bpm / (60.0 * impl_->sampleRate);
     double ppq = useHostClock ? transport.ppq : impl_->ownPpq;
@@ -142,6 +141,7 @@ void Engine::process(float* left, float* right, int numSamples,
     double rumbleSumSquares = 0.0;
     int eventIndex = 0;
     const float rumbleSend = impl_->params[param::RumbleSend];
+    const int seqMode = static_cast<int>(impl_->params[param::SeqMode]);
 
     auto recordHit = [&](int sampleOffset, int step, int note, float velocity) {
         if (impl_->hitCount >= kMaxHits)
@@ -177,6 +177,11 @@ void Engine::process(float* left, float* right, int numSamples,
             }
         }
 
+        const bool useOwnClock = !useHostClock && (seqMode == 1 || impl_->sequencer.anyKeyHeld());
+        const bool running = useHostClock ? transport.playing : useOwnClock;
+        if (!useHostClock)
+            ppq = running ? impl_->ownPpq : 0.0;
+
         SeqStep seqStep;
         if (impl_->sequencer.tick(ppq, running, bpm, seqStep)) {
             if (seqStep.velocity > 0.0f) {
@@ -199,12 +204,14 @@ void Engine::process(float* left, float* right, int numSamples,
         peak = std::max(peak, std::fabs(mono));
         sumSquares += static_cast<double>(mono) * static_cast<double>(mono);
         rumbleSumSquares += static_cast<double>(rumbleOut) * static_cast<double>(rumbleOut);
+        if (!useHostClock)
+            impl_->ownPpq = running ? ppq + beatsPerSample : 0.0;
         if (running)
             ppq += beatsPerSample;
     }
 
     if (!useHostClock)
-        impl_->ownPpq = ppq;
+        ppq = impl_->ownPpq;
 
     const double alpha = 1.0 - std::exp(-static_cast<double>(numSamples) / (impl_->sampleRate * kRmsTauSeconds));
     const float blockMeanSquare = static_cast<float>(sumSquares / static_cast<double>(numSamples));
