@@ -5,7 +5,7 @@
 
 namespace undertow {
 
-constexpr int kScopeSamples = 4096;
+constexpr int kScopeSamples = 16384;  // 341 ms at 48 kHz
 constexpr int kMaxHits = 64;
 
 struct MidiEvent {
