@@ -102,7 +102,7 @@ undertow::Step recipe(const Home& h, int length, float drift, long long count, i
     }
     const int way = kind == 0 ? 12 : kind == 1 ? 7 : -5;
     const int otherWay = kind == 0 ? -12 : kind == 1 ? -5 : 7;
-    auto ok = [&](int pitch) { return pitch >= -12 && pitch <= 12 && subHz(root + pitch, subOctave) >= 36.0; };
+    auto ok = [&](int pitch) { return pitch >= -12 && pitch <= 12 && subHz(root + pitch, subOctave) >= 41.0; };
     if (ok(p + way))
         out.pitch = p + way;
     else if (ok(p + otherWay))
@@ -145,7 +145,7 @@ TEST_CASE("P4.01 at drift 0 every count plays its home step, count mod length, o
 
 TEST_CASE("P4.02 the drift follows the spec's recipe exactly, for every pattern, length, drift, root and count") {
     std::uint32_t mismatches = 0;
-    // Roots high and low, and the sub at -1 oct or with VCO 1, so the 36 Hz guard turns moves round.
+    // Roots high and low, and the sub at -1 oct or with VCO 1, so the guard at E1 (41.2 Hz) turns moves round.
     const std::pair<int, int> roots[] = {{kG2, 1}, {36, 1}, {31, 1}, {28, 0}};
     for (const auto& [root, subOctave] : roots)
         for (const Home* h : {&kDefault, &kWide, &kRests, &kMixed})
@@ -227,7 +227,7 @@ TEST_CASE("P4.03 the drift leaves home and comes back within each arc of 16 pass
 }
 
 TEST_CASE("P4.04 a changed step goes up an octave, up a fifth or down a fourth, or plays as a ghost; rests stay "
-          "rests; no move puts the sub under 36 Hz") {
+          "rests; no move takes the sub under E1, 41.2 Hz") {
     for (const Home* h : {&kWide, &kMixed}) {
         const int length = 8;
         const auto pattern = make(*h, length, 1.0f);
@@ -265,7 +265,7 @@ TEST_CASE("P4.04 a changed step goes up an octave, up a fifth or down a fourth, 
                                           << ", which is none of the drift's changes");
                     continue;
                 }
-                if (moved != 0 && subHz(kG2 + got.pitch, 1) < 36.0)
+                if (moved != 0 && subHz(kG2 + got.pitch, 1) < 41.0)
                     ++low;
                 octaves += kind == 0 ? 1 : 0;
                 fifthsUp += kind == 1 ? 1 : 0;
@@ -280,7 +280,8 @@ TEST_CASE("P4.04 a changed step goes up an octave, up a fifth or down a fourth, 
         CHECK_MESSAGE(outside == 0, outside << " steps left the pitch range -12 to +12: a move that would leave it "
                                                "goes the other way to the same note");
         CHECK_MESSAGE(rests == 0, rests << " rests changed: only sounding steps drift");
-        CHECK_MESSAGE(low == 0, low << " moves put the sub under 36 Hz on root G2: such a move goes the other way");
+        CHECK_MESSAGE(low == 0, low << " moves took the sub under E1 (41.2 Hz) on root G2: such a move goes the other "
+                                       "way");
         CHECK_MESSAGE((octaves > 0 && fifthsUp > 0 && fourthsDown > 0 && ghosts > 0),
                       "over 256 arcs every change must occur: octaves " << octaves << ", fifths up " << fifthsUp
                                                                         << ", fourths down " << fourthsDown
@@ -300,8 +301,8 @@ TEST_CASE("P4.04 a changed step goes up an octave, up a fifth or down a fourth, 
         moved += same(rests.at(count, kG2), rests.home(position(count, 8))) ? 0 : 1;
     CHECK_MESSAGE(moved == 0, "at drift 1 " << moved << " counts of a pattern of rests drifted: rests stay rests");
 
-    // The 36 Hz guard: on root D2 (38) the sub sits at D1 (36.7 Hz) at home, so a fourth down (to A0, 27.5 Hz) must
-    // go up a fifth instead. With the sub at VCO 1's pitch (sub_octave 0) the fourth down is allowed.
+    // The guard: on root D2 (38) the sub sits at D1 (36.7 Hz) at home, so a fourth down (to A0, 27.5 Hz) must go up
+    // a fifth instead. With the sub at VCO 1's pitch (sub_octave 0) the fourth down, to 55 Hz, is allowed.
     for (const int subOctave : {1, 0}) {
         const auto p = make(kDefault, 8, 1.0f, subOctave);
         int down = 0, up = 0;

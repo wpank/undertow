@@ -51,7 +51,8 @@ void prepared(undertow::Engine& e, const spec::Params& p) {
 // The engine one sample at a time, so the meters show every sample: the step playing, the voice's note and the
 // output. While the host plays, its position at sample n is `from` plus n samples at its tempo.
 struct Trace {
-    std::vector<int> step, note;
+    std::vector<int> step, note, root;
+    std::vector<long long> count;
     spec::Signal out;
 };
 
@@ -60,6 +61,8 @@ Trace trace(undertow::Engine& e, std::size_t samples, const std::vector<undertow
     Trace r;
     r.step.resize(samples);
     r.note.resize(samples);
+    r.root.resize(samples);
+    r.count.resize(samples);
     r.out.resize(samples);
     const double from = t.ppq, perSample = t.bpm / (60.0 * kRate);
     std::size_t next = 0;
@@ -78,6 +81,8 @@ Trace trace(undertow::Engine& e, std::size_t samples, const std::vector<undertow
         const auto m = e.meters();
         r.step[n] = m.step;
         r.note[n] = m.note;
+        r.root[n] = m.root;
+        r.count[n] = m.count;
     }
     return r;
 }
@@ -103,9 +108,12 @@ TEST_CASE("P4.12 Key mode: a held key plays the pattern on the host's grid, each
     const long long keyAt = 1000, offAt = 120000;
     const auto r = trace(e, 130000, {spec::noteOn(keyAt, 40), spec::noteOff(offAt, 40)}, host);
     bool idle = true;
-    for (long long n = 0; n < keyAt; ++n)
-        idle = idle && r.step[static_cast<std::size_t>(n)] == -1 && r.out[static_cast<std::size_t>(n)] == 0.0f;
-    CHECK_MESSAGE(idle, "before the key, Key mode must play nothing: meters().step -1 and exact silence");
+    for (long long n = 0; n < keyAt; ++n) {
+        const auto i = static_cast<std::size_t>(n);
+        idle = idle && r.step[i] == -1 && r.count[i] == 0 && r.root[i] == -1 && r.out[i] == 0.0f;
+    }
+    CHECK_MESSAGE(idle, "before the key, Key mode must play nothing: meters().step -1, count 0, root -1 and exact "
+                        "silence");
     const auto first = static_cast<long long>(std::floor((3.7 + keyAt * perSample) / stepBeats));
     CHECK_MESSAGE(r.step[keyAt] == position(first), "the key came during count " << first << ": its step ("
                                                                                    << position(first) + 1
@@ -115,7 +123,7 @@ TEST_CASE("P4.12 Key mode: a held key plays the pattern on the host's grid, each
     CHECK_MESSAGE(r.note[keyAt] == 40 + position(first), "the key's own step plays root 40 plus its pitch at once; "
                                                          "meters().note shows "
                                                              << r.note[keyAt]);
-    int checked = 0;
+    int checked = 0, wrongCount = 0;
     double worst = 0;
     for (long long k = first + 1; (k * stepBeats - 3.7) / perSample < offAt - 2; ++k) {
         const double exact = (k * stepBeats - 3.7) / perSample;
@@ -123,15 +131,19 @@ TEST_CASE("P4.12 Key mode: a held key plays the pattern on the host's grid, each
         INFO("count " << k << ", due at sample " << exact);
         REQUIRE_MESSAGE(at >= 0, "the step never sounded");
         worst = std::max(worst, std::fabs(static_cast<double>(at) - exact));
+        wrongCount += (r.count[static_cast<std::size_t>(at)] == k && r.root[static_cast<std::size_t>(at)] == 40) ? 0 : 1;
         ++checked;
     }
+    CHECK_MESSAGE(wrongCount == 0, wrongCount << " steps showed another count or root in the meters: meters().count is "
+                                                 "the playing step's count from beat 0, and meters().root its root");
     CHECK_MESSAGE(worst < 1.0, "a hit started " << worst << " samples from its place on the host's grid; within one "
                                                             "sample");
     CHECK(checked >= 15);
     bool stopped = true;
     for (long long n = offAt; n < 130000; ++n)
-        stopped = stopped && r.step[static_cast<std::size_t>(n)] == -1;
-    CHECK_MESSAGE(stopped, "with the key up the pattern must stop at once: meters().step -1");
+        stopped = stopped && r.step[static_cast<std::size_t>(n)] == -1 && r.count[static_cast<std::size_t>(n)] == 0 &&
+                  r.root[static_cast<std::size_t>(n)] == -1;
+    CHECK_MESSAGE(stopped, "with the key up the pattern must stop at once: meters().step -1, count 0, root -1");
 
     // In blocks of 512 too, each step starts at its own sample, not its block's: Free mode, three rests, then the
     // first hit at beat 0.75 (sample 18000 at 120 BPM, 80 samples into a block).

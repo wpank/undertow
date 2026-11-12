@@ -214,13 +214,13 @@ TEST_CASE("P4.07 Free plays whenever the clock runs, rooted on seq_root and then
     REQUIRE(l.size() == 1u);
     CHECK_MESSAGE(l[0].note == 0, "root 3 less 12 semitones is held at note 0; got " << l[0].note);
 
-    // The drift's 36 Hz guard reads the root each step plays on: on key D2 (38), with the sub an octave down, a
+    // The drift's guard at E1 reads the root each step plays on: on key D2 (38), with the sub an octave down, a
     // fourth down (to A1, 33) would put the sub at 27.5 Hz, so it must go up a fifth (to A2, 45) instead.
     auto g = steps(Free, 5); // 1/32: 16 arcs in 128 s at 120 BPM
     for (int i = 0; i < undertow::kSteps; ++i)
         spec::set(g, Step1Pitch + i, 0);
     spec::set(g, SeqDrift, 1.0f);
-    spec::set(g, SeqRoot, 43);
+    spec::set(g, SeqRoot, 50); // on D3 the fourth down would be allowed: the guard must judge the root played
     auto guard = make(g);
     guard.keyOn(38);
     Clock gc;
@@ -232,7 +232,7 @@ TEST_CASE("P4.07 Free plays whenever the clock runs, rooted on seq_root and then
             fifths += st.note == 45 ? 1 : 0;
         }
     }
-    CHECK_MESSAGE((below == 0 && fifths > 0), "on key D2 the drift must judge its 36 Hz guard on the root it plays, 38, "
+    CHECK_MESSAGE((below == 0 && fifths > 0), "on key D2 the drift must judge its E1 guard on the root it plays, 38, "
                                               "not seq_root: fourths down to note 33 "
                                                   << below << ", fifths up to 45 " << fifths);
 }
@@ -255,13 +255,20 @@ TEST_CASE("P4.08 Key plays while a key is held, rooted on the latest key held; a
                                            << starts[0].step + 1);
     CHECK_MESSAGE(starts[0].note == 45 + 4, "the root is the key held (45); got note " << starts[0].note);
     CHECK_MESSAGE(starts[1].sample == 5 * step, "then count 5 starts on its beat");
+    CHECK_MESSAGE((s.count() == 5 && s.root() == 45), "count() and root() are the playing step's count and root: "
+                                                       "want 5 and 45, got "
+                                                           << s.count() << " and " << s.root());
 
     s.keyOn(52); // a second key while 45 is held: the root moves, nothing starts
     starts = run(s, c, step / 2);
     CHECK_MESSAGE(starts.empty(), "a second key while one is held must start nothing at once");
+    CHECK_MESSAGE(s.root() == 45, "root() is the root of the step playing, 45, until the next step starts; got "
+                                      << s.root());
     starts = run(s, c, step / 2 + 1);
     REQUIRE(starts.size() == 1u);
     CHECK_MESSAGE(starts[0].note == 52 + 6, "the root is the latest key held (52); got note " << starts[0].note);
+    CHECK_MESSAGE((s.count() == 6 && s.root() == 52), "after the next step, count() 6 and root() 52; got "
+                                                          << s.count() << " and " << s.root());
     s.keyOff(52);
     starts = run(s, c, step);
     REQUIRE(starts.size() == 1u);
@@ -270,6 +277,7 @@ TEST_CASE("P4.08 Key plays while a key is held, rooted on the latest key held; a
     s.keyOff(45);
     CHECK_MESSAGE(run(s, c, 4 * step).empty(), "with every key up the pattern must stop");
     CHECK_MESSAGE(s.step() == -1, "with every key up step() must be -1");
+    CHECK_MESSAGE((s.count() == 0 && s.root() == -1), "with nothing playing count() is 0 and root() -1");
 
     s.keyOn(40);
     starts = run(s, c, 1);
@@ -371,6 +379,9 @@ TEST_CASE("P4.10 with the host stopped a held key plays from step 1, counting fr
             CHECK_MESSAGE(st.step == k % 8, "the audition counts steps from step 1 at the key");
             CHECK_MESSAGE(st.note == 43 + k % 8, "rooted on the key held");
         }
+        CHECK_MESSAGE((s.count() == 8 && s.root() == 43), "the audition counts from 0 at the key: after its ninth step "
+                                                          "count() must be 8 (root 43); got "
+                                                              << s.count() << " (root " << s.root() << ")");
         s.keyOff(43);
         CHECK_MESSAGE(run(s, c, 20000).empty(), "with the key up the audition stops");
         s.keyOn(43);
@@ -407,9 +418,13 @@ TEST_CASE("P4.11 step() shows the step playing, -1 when not; Notes mode plays no
     const long long step = static_cast<long long>(kRate / 8);
     run(s, c, 2 * step + step / 2);
     CHECK_MESSAGE(s.step() == 2, "a half-step into count 2, step() must be 2; got " << s.step());
+    CHECK_MESSAGE((s.count() == 2 && s.root() == 36), "count() and root() of the step playing: want 2 and seq_root 36; "
+                                                      "got "
+                                                          << s.count() << " and " << s.root());
     s.keyOn(50);
     s.reset();
     CHECK_MESSAGE(s.step() == -1, "after reset() nothing plays yet: step() must be -1");
+    CHECK_MESSAGE((s.count() == 0 && s.root() == -1), "after reset() count() is 0 and root() -1");
     auto starts = run(s, c, 1);
     REQUIRE(starts.size() == 1u);
     CHECK_MESSAGE(starts[0].note == 36 + 2, "after reset() Free mode is rooted on seq_root again; got note "
