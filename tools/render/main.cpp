@@ -19,15 +19,14 @@ namespace {
 
 using undertow::Engine;
 using undertow::MidiEvent;
-using undertow::Pattern;
 using undertow::Transport;
 
 struct Options {
     std::string preset;
     std::string out;
-    int bars = 4;
-    double bpm = 128.0;
-    int note = 45;
+    int bars = 8;
+    double bpm = 130.0;
+    int note = 43;
     double sampleRate = 48000.0;
 };
 
@@ -112,33 +111,25 @@ bool parseArgs(int argc, char** argv, Options& options, std::string& error) {
 }
 
 int presetIndexFromOption(std::string_view preset) {
-    if (preset == "init") return -2;
     int index = -1;
     if (parseInt(preset, index)) return index;
     return undertow::findFactoryPreset(preset);
 }
 
-bool loadPreset(const Options& options, Engine& engine, Pattern& pattern, bool& sequenced, std::string& error) {
+bool loadPreset(const Options& options, Engine& engine, std::string& error) {
     const int index = presetIndexFromOption(options.preset);
-    if (index == -2) {
-        for (int i = 0; i < undertow::kNumParams; ++i) engine.setParam(i, undertow::paramSpec(i).def);
-        pattern = undertow::defaultPattern();
-        sequenced = undertow::paramSpec(undertow::findParam("seq_on")).def >= 0.5f;
-        engine.setPattern(pattern);
-        return true;
-    }
-    if (index < 0) {
+    if (index < 0 || index >= undertow::numFactoryPresets()) {
         error = "unknown preset: " + options.preset;
         return false;
     }
-    std::vector<float> values(undertow::kNumParams);
-    if (!undertow::factoryPreset(index, values.data(), &pattern)) {
+
+    std::vector<float> values(static_cast<std::size_t>(undertow::kNumParams));
+    if (!undertow::factoryPreset(index, values.data())) {
         error = "unknown preset: " + options.preset;
         return false;
     }
-    for (int i = 0; i < undertow::kNumParams; ++i) engine.setParam(i, values[static_cast<std::size_t>(i)]);
-    sequenced = values[static_cast<std::size_t>(undertow::findParam("seq_on"))] >= 0.5f;
-    engine.setPattern(pattern);
+    for (int i = 0; i < undertow::kNumParams; ++i)
+        engine.setParam(i, values[static_cast<std::size_t>(i)]);
     return true;
 }
 
@@ -198,16 +189,13 @@ int main(int argc, char** argv) {
 
     Engine engine;
     engine.prepare(options.sampleRate, 512);
-    Pattern pattern;
-    bool sequenced = false;
-    if (!loadPreset(options, engine, pattern, sequenced, error)) {
+    if (!loadPreset(options, engine, error)) {
         std::cerr << "error: " << error << '\n';
         return 1;
     }
     engine.reset();
 
     constexpr int kPrepareBlock = 512;
-    const bool holdNote = !sequenced;
     const int framesPerBar = static_cast<int>(std::llround(options.sampleRate * 4.0 * 60.0 / options.bpm));
     const int totalFrames = framesPerBar * options.bars;
     std::vector<float> left(static_cast<std::size_t>(totalFrames));
@@ -219,27 +207,20 @@ int main(int argc, char** argv) {
     transport.bpm = options.bpm;
     transport.ppq = 0.0;
 
-    std::vector<MidiEvent> events;
-    if (holdNote) events.push_back({0, 0x90, static_cast<std::uint8_t>(options.note), 100});
-
+    const MidiEvent noteOn{0, 0x90, static_cast<std::uint8_t>(options.note), 100};
     int remaining = totalFrames;
     int offset = 0;
-    std::size_t nextEvent = 0;
+    bool sentNote = false;
     while (remaining > 0) {
         const int block = std::min(remaining, kPrepareBlock);
-        std::vector<MidiEvent> blockEvents;
-        while (nextEvent < events.size() && events[nextEvent].sampleOffset < offset + block) {
-            MidiEvent event = events[nextEvent++];
-            event.sampleOffset -= offset;
-            blockEvents.push_back(event);
-        }
-        engine.process(left.data() + offset, right.data() + offset, block, blockEvents.data(), static_cast<int>(blockEvents.size()), transport);
-        if (transport.valid && transport.playing) transport.ppq += static_cast<double>(block) / options.sampleRate * options.bpm / 60.0;
+        const MidiEvent* events = sentNote ? nullptr : &noteOn;
+        const int numEvents = sentNote ? 0 : 1;
+        engine.process(left.data() + offset, right.data() + offset, block, events, numEvents, transport);
+        sentNote = true;
+        if (transport.valid && transport.playing)
+            transport.ppq += static_cast<double>(block) / options.sampleRate * options.bpm / 60.0;
         offset += block;
         remaining -= block;
-        if (nextEvent == events.size() && blockEvents.empty()) {
-            // Hold the initial note for the full render when the sequencer is off.
-        }
     }
 
     double peakDb = -std::numeric_limits<double>::infinity();
