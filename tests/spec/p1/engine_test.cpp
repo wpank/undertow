@@ -183,6 +183,9 @@ TEST_CASE("P1.06 the beat clock follows the host transport, and runs on its own 
     CHECK_MESSAGE(m.ppq == doctest::Approx(3.5).epsilon(1e-9),
                   "with a stopped host transport, meters().ppq must stay at the host's position (3.5); got " << m.ppq);
 
+    // Free mode: with no host the own clock always runs in Free; in Key and Notes it runs only while a key is held
+    // (phase 7.1).
+    engine.setParam(undertow::param::SeqMode, 1.0f);
     engine.setParam(undertow::param::SeqBpm, 120.0f);
     engine.reset();
     CHECK_MESSAGE(engine.meters().ppq == doctest::Approx(0.0), "reset() must put the engine's own clock at 0");
@@ -190,8 +193,8 @@ TEST_CASE("P1.06 the beat clock follows the host transport, and runs on its own 
         engine.process(left.data(), right.data(), 480, nullptr, 0, undertow::Transport{});
     m = engine.meters();
     CHECK_MESSAGE(m.ppq == doctest::Approx(2.0).epsilon(1e-6),
-                  "without a host transport (Transport::valid false, as in the Standalone app) the clock runs "
-                  "by itself at seq_bpm from 0 after reset(): 1 s at 120 BPM is 2 beats; got "
+                  "in Free mode without a host transport (Transport::valid false, as in the Standalone app) the "
+                  "clock runs by itself at seq_bpm from 0 after reset(): 1 s at 120 BPM is 2 beats; got "
                       << m.ppq);
     CHECK_MESSAGE(!m.hostClock, "without a host transport, meters().hostClock must be false");
     CHECK_MESSAGE(m.bpm == doctest::Approx(120.0), "without a host, meters().bpm must be seq_bpm, 120; got " << m.bpm);
