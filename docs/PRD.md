@@ -93,9 +93,10 @@ and a band's **share** is its power over the total.
 - **Drift** makes the pattern wander a little and come home, as a fixed function of the step count:
   - The pattern's passes are grouped into arcs of 16. In each arc, up to `round(3 * drift)` steps change, the count
     rising from none at the arc's start to its most in the middle and back, by at most one step per pass.
-  - A changed step goes up an octave, up a fifth or down a fourth, or becomes a ghost hit at half its velocity; a rest
-    becomes a soft ghost hit, at velocity 0.25. A move that would leave the steps' range of 12 semitones either side
-    of the root takes the same note an octave the other way. Each arc picks its own steps and changes.
+  - Only sounding steps drift: rests stay rests, so the beats a pattern leaves to the kick stay empty. A changed step
+    goes up an octave, up a fifth or down a fourth, or becomes a ghost hit at half its velocity. A move that would
+    leave the steps' range of 12 semitones either side of the root, or put the sub under 36 Hz, takes the same note
+    an octave the other way. Each arc picks its own steps and changes.
   - At drift 0 every pass is the home pattern; at the default (0.7) two steps wander through the middle of each arc.
 
 ### 1.6 The rumble: the room under the kick

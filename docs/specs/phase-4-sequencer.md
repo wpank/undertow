@@ -32,25 +32,29 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
 
 1. **The pattern and its drift** (`core/include/undertow/pattern.h`, `core/src/pattern.cpp`)
    - `setParams` reads the 8 steps' pitches (`step1_pitch` to `step8_pitch`, whole semitones) and velocities
-     (`step1_vel` to `step8_vel`), `seq_length` and `seq_drift`. `home(i)` is step `i` as set, and `length()` is
-     `seq_length`, from 1 to 8.
+     (`step1_vel` to `step8_vel`), `seq_length`, `seq_drift`, and `sub_octave` for the drift's 36 Hz guard.
+     `home(i)` is step `i` as set, and `length()` is `seq_length`, from 1 to 8.
    - **Counts.** Count 0 is the step that starts at beat 0 of the clock, and the counts before it are negative. With
      `L = seq_length`, count `c` plays step `s = c mod L`, from 0 to `L - 1` also for negative counts (count -1 is the
      last step), on pass `q = floor(c / L)`. At drift 0 every count plays its home step.
-   - **The drift** is part of what a count plays, so the same count always plays the same step:
+   - **The drift** is part of what a count plays on a root, so the same count on the same root always plays the same
+     step:
+     - **Rests stay rests:** only sounding steps (velocity above 0) drift, so the beats a pattern leaves to the kick
+       stay empty.
      - The passes make arcs of 16: arc `a = floor(q / 16)`, and pass `j = q mod 16`, from 0 to 15, within it.
-     - On pass `j`, `n = min(L, floor(3 * seq_drift * sin(pi * j / 16) + 0.5))` steps are changed, computed in
-       double precision: none at an arc's start, `round(3 * seq_drift)` in its middle, and never more than one step
-       more or fewer than on the pass before.
-     - **Which steps:** order the arc's steps `t = 0 .. L - 1` by `hash32(A * 8 + t)`, smallest first, ties to the
-       lower `t`, where `A` is the arc `a` as a 32-bit unsigned integer (arc -1 is 4294967295) and the arithmetic
-       wraps at 32 bits. The first `n` steps in that order are changed. So a step joins as the count rises and leaves
-       as it falls, and each arc picks its own steps.
-     - **How:** a changed rest (velocity 0) becomes a soft ghost hit at velocity 0.25, its pitch kept. Any other
-       changed step takes the change `hash32((A * 8 + s) ^ 0x9E3779B9) % 4`: 0 is an octave up (+12), 1 a fifth up
-       (+7), 2 a fourth down (-5), and 3 a ghost hit at half its velocity, its pitch kept. A pitch change that would
-       leave -12 to +12 goes the other way to the same note: +12 becomes -12, +7 becomes -5, and -5 becomes +7. A
-       step keeps its change for the whole arc.
+     - On pass `j`, `n = min(S, floor(3 * seq_drift * sin(pi * j / 16) + 0.5))` steps are changed, computed in
+       double precision, where `S` is the number of sounding steps among the first `L`: none at an arc's start,
+       `round(3 * seq_drift)` in its middle, and never more than one step more or fewer than on the pass before.
+     - **Which steps:** order the arc's sounding steps `t` by `hash32(A * 8 + t)`, smallest first, ties to the lower
+       `t`, where `A` is the arc `a` as a 32-bit unsigned integer (arc -1 is 4294967295) and the arithmetic wraps at
+       32 bits. The first `n` steps in that order are changed. So a step joins as the count rises and leaves as it
+       falls, and each arc picks its own steps.
+     - **How:** a changed step takes the change `hash32((A * 8 + s) ^ 0x9E3779B9) % 4`: 0 is an octave up (+12), 1
+       a fifth up (+7), 2 a fourth down (-5), and 3 a ghost hit at half its velocity, its pitch kept.
+     - **The other way:** a pitch move goes the other way to the same note (+12 becomes -12, +7 becomes -5, and -5
+       becomes +7) when its own way would leave -12 to +12, or put the sub under 36 Hz: the sub's note, the root plus
+       the new pitch (less 12 when `sub_octave` is -1 oct), must be at least 26, D1 at 36.7 Hz. When neither way
+       fits, the step stays at home. On one root, a step keeps its change for the whole arc.
      - `hash32`, exactly:
 
        ```cpp
@@ -65,7 +69,8 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
        ```
 
      - So at the default drift (0.7) the passes of every arc change 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1 and 0
-       steps.
+       of the sounding steps. On the default root, G2, a fourth down from pitch 0 puts the sub at D1, the lowest it
+       may go.
 
 2. **The sequencer** (`core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`)
    - `setParams` gives the pattern its parameters and reads `seq_mode`, `seq_rate` and `seq_root`. A step lasts 4, 2,
@@ -79,7 +84,8 @@ Out of scope: the presets, the darker rumble and the renderer's list of hits (ph
      - `Notes` (mode 2): never; the engine plays the MIDI notes itself.
    - **The root**, which each step takes as it starts: in `Key`, the latest key still held; in `Free`, the last key
      pressed since `reset()`, or `seq_root` before any. The step's note is the root plus its pitch, the drift
-     included, held within 0 to 127. A key pressed mid-step changes nothing until the next step starts.
+     included (`Pattern::at` on that root), held within 0 to 127. A key pressed mid-step changes nothing until the
+     next step starts.
    - **The clock.** The engine calls `tick` once a sample, after that sample's MIDI, with the clock's beat, whether
      it runs and its tempo:
      - While it runs, the count is `floor(beat / stepLength + 1e-9)` (the `1e-9` absorbs rounding in the host's
@@ -136,7 +142,7 @@ public:
     void setParams(const float* values);  // kNumParams values in real units
     int length() const;                   // seq_length, 1 .. 8
     Step home(int index) const;           // step `index` (0 .. 7) as set, before the drift
-    Step at(long long count) const;       // what count `count` plays: step `count mod length`, the drift included
+    Step at(long long count, int root) const;  // what count `count` plays on MIDI note `root`, the drift included
 };
 
 }  // namespace undertow
@@ -184,12 +190,12 @@ three test files build with the `core` preset.
 | Check | Command | Proves |
 |---|---|---|
 | P4.01 | `tools/spec.sh 4 pattern` | At drift 0 every count plays its home step, count mod length, for every length and on both sides of 0 |
-| P4.02 | `tools/spec.sh 4 pattern` | The drift follows the recipe above exactly, for every pattern, length, drift and count |
+| P4.02 | `tools/spec.sh 4 pattern` | The drift follows the recipe above exactly, for every pattern, length, drift, root and count |
 | P4.03 | `tools/spec.sh 4 pattern` | Each arc of 16 passes leaves home and comes back one step at a time, never more than round(3 x drift) steps away; at the default two steps through its middle |
-| P4.04 | `tools/spec.sh 4 pattern` | A changed step goes up an octave, up a fifth or down a fourth within -12 to +12, or becomes a ghost; a rest becomes a ghost at 0.25; every step and change occurs, and arcs differ |
+| P4.04 | `tools/spec.sh 4 pattern` | A changed step goes up an octave, up a fifth or down a fourth within -12 to +12, or plays as a ghost; rests stay rests; no move puts the sub under 36 Hz; every change occurs, and arcs differ |
 | P4.05 | `tools/spec.sh 4 pattern` | The pattern is a pure function of its parameters and the count, and never allocates |
 | P4.06 | `tools/spec.sh 4 sequencer` | With the clock running each step starts within one sample of its beat, at all 8 rates, from 60 to 200 BPM, from any position, once each, through host positions that jitter |
-| P4.07 | `tools/spec.sh 4 sequencer` | Free plays whenever the clock runs, rooted on seq_root, then on the last key pressed; notes stay within 0 to 127 |
+| P4.07 | `tools/spec.sh 4 sequencer` | Free plays whenever the clock runs, rooted on seq_root, then on the last key pressed; notes stay within 0 to 127; the drift's guard reads the root played |
 | P4.08 | `tools/spec.sh 4 sequencer` | Key plays only while a key is held, rooted on the latest key held; a key from silence sounds its step at once; with every key up it stops |
 | P4.09 | `tools/spec.sh 4 sequencer` | A loop plays its steps again exactly, drift included, even a loop one step long; a jump into another step sounds it at once |
 | P4.10 | `tools/spec.sh 4 sequencer` | With the host stopped a held key plays from step 1, counting from the key at the host's tempo; when the host plays its grid takes over at once |
