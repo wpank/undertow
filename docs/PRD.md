@@ -62,10 +62,11 @@ and a band's **share** is its power over the total.
     thud);
   - filter: the cutoff rises to `vcf_env * velocity` octaves above `vcf_cutoff` and falls back;
   - level: the VCA rises to the hit's peak and falls towards silence.
-- **Attack**, one switch for the level and the filter, always rising from where they are:
-  - Fast: both rise in 1 ms (10 to 90% in 0.5 to 2 ms).
-  - Slow: the level rises in 100 ms (10 to 90% in 70 to 130 ms) and the filter opens over 600 ms (10 to 90% in 400
-    to 600 ms), so a held note breathes rather than blooms.
+- **Attack**, one switch for the level and the filter, always rising from where they are, each rise along half a
+  cosine (smooth at both ends: the VCA comes after the ladder, so a straight line's corners would click). The times
+  are 10-to-90% rises:
+  - Fast: both rise in 1 ms.
+  - Slow: the level rises in 100 ms and the filter in 500 ms, so a held note breathes rather than blooms.
   - A hit softer than the current level glides down to its peak over 4 ms. So no hit ever steps the level: it moves
     at most 0.042 between samples.
 - **Velocity** sets each hit's peak level (linearly, within 0.3 dB) and scales its filter swing: at velocity 0.5 a hit's

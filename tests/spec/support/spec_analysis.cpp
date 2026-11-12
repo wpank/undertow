@@ -142,6 +142,24 @@ Spectrum spectrum(const Signal& x, std::size_t offset, std::size_t size, double 
     return s;
 }
 
+Spectrum hannSpectrum(const Signal& x, std::size_t offset, std::size_t size, double sampleRate) {
+    std::vector<std::complex<double>> data(size);
+    for (std::size_t n = 0; n < size; ++n) {
+        const double window = 0.5 - 0.5 * std::cos(2.0 * kPi * static_cast<double>(n) / static_cast<double>(size));
+        const double value = offset + n < x.size() ? static_cast<double>(x[offset + n]) : 0.0;
+        data[n] = value * window;
+    }
+    fft(data);
+    Spectrum s;
+    s.sampleRate = sampleRate;
+    s.size = size;
+    s.amplitude.resize(size / 2 + 1);
+    const double scale = 2.0 / (static_cast<double>(size) * 0.5);
+    for (std::size_t k = 0; k <= size / 2; ++k)
+        s.amplitude[k] = std::abs(data[k]) * scale;
+    return s;
+}
+
 double peakHz(const Spectrum& s, double loHz, double hiHz) {
     const auto lo = static_cast<std::size_t>(std::max(1.0, std::floor(loHz / s.binHz())));
     const auto hi = static_cast<std::size_t>(

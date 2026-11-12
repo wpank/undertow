@@ -30,6 +30,8 @@ struct Spectrum {
     double binHz() const { return sampleRate / static_cast<double>(size); }
 };
 Spectrum spectrum(const Signal& x, std::size_t offset, std::size_t size, double sampleRate);
+// The same under a Hann window (periodic), as the frame-by-frame measures use; calibrated the same way.
+Spectrum hannSpectrum(const Signal& x, std::size_t offset, std::size_t size, double sampleRate);
 
 double peakHz(const Spectrum& s, double loHz, double hiHz);     // the strongest bin, interpolated
 double amplitudeAt(const Spectrum& s, double hz);               // the peak within 3 bins of hz
