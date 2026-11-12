@@ -516,7 +516,7 @@ spectrum's file builds with the `core` preset in seconds; the others build the `
 | P6.34 | `tools/spec.sh 6 console` | The rumble: the ghost kick's lamp flashes for 120 ms on its grid; the rule brightens with the bed |
 | P6.35 | `tools/spec.sh 6 budget` | The window as one: the playing column's knobs light with its cell and fade with it; past the length and in Notes mode a column's knobs dim |
 | P6.36 | `tools/spec.sh 6 budget` | The whole window idle, playing and clipping, at 1x and 2x: at least 80% near-black, never white, at least 90% of the coloured pixels rose, bone only in the number's box and only once a note has played |
-| P6.37 | `tools/spec.sh 6 budget` | A tick and a full repaint keep 60 Hz with headroom: CPU median 11 ms and 95th percentile 16 ms at 1x, median 27 ms at 2x |
+| P6.37 | `tools/spec.sh 6 budget` | A tick and a full repaint keep 60 Hz with headroom: CPU median 11 ms and 95th percentile 16 ms at 1x, median 27 ms at 2x (9 and 20 ms from phase 7.2) |
 | P6.38 | `tools/spec.sh 6 budget` | The review images: idle, playing and clipping at 2x in artifacts/ui (under 3 MB each), 1x in build/previews |
 | P6.39 | `tools/check.sh --plugin` | The whole local check still passes: phases 1 to 6, both presets, pluginval |
 

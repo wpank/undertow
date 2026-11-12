@@ -96,7 +96,36 @@ that; a step knob has no legend, so its value sits 14 px below the dial. A switc
 
 **Which values show at rest.** The top tier shows every value always: the steps and the pattern are read, not
 felt. The voice, rumble and output knobs show their value only while hovered or dragged, where the legend's line
-gains a second line. Switches show their state.
+gains a second line. Switches show their state. Values are `value`, and turn `rose_bright` while hovered or dragged
+and, for a step's two knobs, with their column's light. A dimmed column (past the length, or in Notes mode) keeps its
+knobs and readouts at 30%, still editable, and TEMPO under a host's clock reads `HOST` at 45%.
+
+**How a knob is drawn** (a dial of `d` px, centre `c`; every angle clockwise from 12 o'clock, as the slider's rotary
+range and `Path::addCentredArc` count it, so a point at angle `a` and radius `r` is `c + r (sin a, -cos a)`):
+- the track: the 270° range from 7:30 to 4:30 (`1.25π` to `2.75π`) at radius `r = d / 2 - 2.5`, 2 px, `track`, round
+  ends;
+- the value arc on it, 2.4 px, round ends: `rose`, turning `rose_bright` with the light (lit) or at once (hovered),
+  from 7:30 to the value, or for a bipolar knob from 12 o'clock (`2π`) to the value. The value's angle is
+  `1.25π + 1.5π p`, with `p` the slider's own proportion (`valueToProportionOfLength`), so a skewed knob reads as it
+  turns;
+- hovered or dragged, the arc glows: under it, strokes of 7 px at 22% and 4.5 px at 35% `rose_bright`;
+- a knob of 2 to 8 positions has one detent dot per position at radius `r + 4.6`: 1.9 px across in `text_ghost`, the
+  current one 2.5 px across in `rose_bright`. A knob of more positions has none; a bipolar knob has a 1.2 px
+  `text_ghost` tick at 12 o'clock from `r + 3` to `r + 6`;
+- the cap, radius `0.7 r`: a soft shadow below it (black at 55%, 2.2 px larger, 1.6 px down), a `#040305` base 1.2 px
+  larger, a radial gradient lit from the top left (`capHi` at 28% left and 40% up of its radius, `capMid` at 55%,
+  `capLo` at the far edge), a 1 px `capRim` ring and a faint highlight (`rose` at 16%, 1 px, ±62° about 12 o'clock);
+- the pointer: from 18% to 86% of the cap's radius at the value's angle, 1.8 px (2 px for a dial of 44 px and up),
+  `pointer` at rest, `rose_bright` while hovered or lit past half;
+- dimmed: the whole knob drawn through a 32% transparency layer, never replaced by a fill.
+
+**How a switch is drawn:** a `glass` face, radius 3, with a 1 px `rule2` outline. The chosen segment is lit inset 2 px:
+a fill from `rose_ember` at 95% (top) to `rose_deep` at 75% (bottom), radius 2, with a 1 px `rose` ring at 55%. The
+other segments are unfilled, with a 1 px `rule2` divider between two unchosen neighbours (6 px from the top and the
+bottom). Words are centred in their segment, `rose_bright` when chosen and `text_dim` otherwise. The wave switches
+draw a wave glyph instead of a word: 13 x 7 px at 1.4 px, round joins, a triangle wave (from the left middle up to a
+quarter, down to three quarters, back to the right middle) or a square wave (up, across half, down, across, back to
+the middle).
 
 **Sequencer: the steps** (step `n` is column `n - 1`, centre x = 145 + 82 (n - 1))
 
@@ -213,18 +242,25 @@ oscilloscope of its step's last hit, so the row reads as the pattern itself: the
 are tall, and how far a hit's trace reaches across its cell is its decay.
 
 - **The step number**, `1` to `8`, top left (x + 7, baseline y + 13), Geist Mono 9.5 px.
+- **The cell** at rest: a glass face (`#09070B` at the top to `glass` at the bottom), scanlines (one dark row in three,
+  34% black), a 1 px `rule` border and a faint top highlight (`rose` at 7%, 1 px, inset 3 px).
 - **The trace** fills `x + 4, y + 18, 66 x 34`. One min/max pair per pixel column, drawn as a filled band (the
-  phosphor) with its upper and lower edges as 1 px strokes. A sample of +-0.4 (-8 dBFS) reaches the half height;
-  larger ones are clamped. When step `n` starts (`meters().step` changes), its cell is cleared and its trace sweeps in
-  from the left as the step plays, at 66 px per step length (the step length from `seq_rate` and `meters().bpm`), from
-  the newest output samples (`copyScope`). A bright 1 px sweep head marks where it is.
-- **Lit:** the playing step's cell has a `rose_bright` border (1.2 px), an ember fill fading downwards, a soft outer
-  glow and a `rose_bright` trace, and its two knobs' arcs, pointers and readouts turn `rose_bright` too: the whole
-  column lights. When the step moves on, the column fades back over 250 ms (ease-out), a phosphor trail across the
-  row.
+  phosphor: `rose` at 20% times the trace's alpha, `rose_bright` at 30% while the cell is lit past half) with its upper
+  and lower edges as 1 px strokes (at the trace's alpha, and 70% of it). A sample of +-0.4 (-8 dBFS) reaches the half
+  height; larger ones are clamped. When step `n` starts (`meters().step` changes), its cell is cleared and its trace
+  sweeps in from the left as the step plays, at 66 px per step length (the step length from `seq_rate` and
+  `meters().bpm`), from the newest output samples (`copyScope`). A bright 1 px sweep head (`rose_bright` at 55%, with a
+  10 px soft dot at 18%) marks where it is, in the playing cell only. A cell that has not played yet shows a 1 px
+  `rose_deep` line across its middle.
+- **Lit:** the playing step's cell has a `rose_bright` border (1.2 px; `rule` blending to `rose_bright` with the
+  light), an ember fill fading downwards (`rose_ember` at 55% of the light at the top to 12% at the bottom), a soft
+  outer glow (`rose_bright` at 16% of the light, a 5 px stroke 3 px outside the cell, radius 6) and a `rose_bright`
+  trace, and its two knobs' arcs, pointers and readouts turn `rose_bright` too: the whole column lights. When the step
+  moves on, the column fades back over 250 ms (ease-out), a phosphor trail across the row.
 - **Older traces** stay, dimmer with age: `alpha = max(0.28, 0.85 - 0.09 * age)`, where `age` is the number of
   steps since that cell last lit.
-- **A rest** (velocity 0): a dashed outline (`rule2`, 3 on, 3 off), the word `REST` centred in `text_ghost`, no trace.
+- **A rest** (velocity 0): a dashed outline (1 px `rule2` dashes, 3 on and 3 off, quieter than any cell that plays),
+  the word `REST` centred in `text_ghost`, no trace.
 - **Past the length** (`n > seq_length`): the whole column, cell and both knobs and readouts, at 30% opacity, still
   editable.
 - **Drift marks:** a step the drift has moved on the current pass shows how, top right (right edge x + 68, baseline
@@ -236,14 +272,17 @@ are tall, and how far a hit's trace reaches across its cell is its decay.
 
 ### 4.2 The spectrum: where the energy sits
 
-The console's glass, `784, 338, 392 x 262`, radius 6, with scanlines and a `+` crosshair every 32 px in
-`text_phantom`. It shows the output's spectrum from 20 Hz to 2 kHz on a log axis, with the body band, 30 to 150 Hz,
-marked: the instrument's whole claim, visible at a glance.
+The console's glass, `784, 338, 392 x 262`, radius 6, with scanlines and a crosshair in `text_phantom`: a 5 px `+`
+(1 px arms) centred on every 32 px point from (800, 354), never lines across the glass. It shows the output's spectrum
+from 20 Hz to 2 kHz on a log axis, with the body band, 30 to 150 Hz, marked: the instrument's whole claim, visible at a
+glance.
 
 - **The plot:** `798, 404, 364 x 166`. x is log frequency, 20 Hz at the left edge to 2 kHz at the right; y is level,
-  -18 dB at the top to -96 dB at the bottom (0 dB = a full-scale sine). Dotted level lines at -36, -60 and -84 dB,
-  labelled at the right edge (Geist Mono 8 px, `text_dim`). Ticks and labels under the axis at 20, 30, 50, 100, 150,
-  300, 500, 1k and 2k (Geist Mono 8.5 px, `text_dim`; 30 and 150 in `rose`).
+  -18 dB at the top to -96 dB at the bottom (0 dB = a full-scale sine). Dotted level lines (1 px every 4 px,
+  `text_phantom`) at -36, -60 and -84 dB, labelled at the right edge (Geist Mono 8 px, `text_dim`, right-aligned at
+  x 1160, baseline 3 px above the line). The axis is a 1 px `rule2` line; ticks (1 x 4 px, `rule2`) and labels under it
+  at 20, 30, 50, 100, 150, 300, 500, 1k and 2k (Geist Mono 8.5 px, `text_dim`, 30 and 150 in `rose`; centred, baseline
+  585).
 - **The band:** 30 to 150 Hz, a fill of `rose` rising from 0% alpha at the top to 9% at the bottom, dashed `rose` edges
   at 30% alpha, and the legend `30-150 Hz` (Michroma 6.5 px, `rose_dim`) centred in it on baseline 564, 6 px above the
   axis, drawn over the curves so a loud sub never hides it.
@@ -262,10 +301,10 @@ marked: the instrument's whole claim, visible at a glance.
   no curve at all.
 - **The share below 150 Hz,** top left (x 798, baseline 390): the power from 20 to 150 Hz over the power above 20 Hz,
   from the newest frame, smoothed with a 500 ms time constant, as a whole percent: `98` in Geist Mono Light 22 px
-  `rose`, `%` in 12 px `rose_dim`, then `BELOW 150 Hz` (Michroma 6.5 px, `rose_dim`). Hidden while the output is
-  silent.
-- **The stamp,** top left (x 798, baseline 360): `SPECTRUM` (Michroma 7.5 px, `rose`) and `20 Hz - 2 kHz` (Geist Mono
-  8.5 px, `text_dim`).
+  `rose`, `%` in 12 px `rose_dim` 2 px after the digits, then `BELOW 150 Hz` (Michroma 6.5 px, tracking 1.1 px,
+  `rose_dim`) 6 px after the `%`, all on one baseline. Hidden while the output is silent.
+- **The stamp,** top left (x 798, baseline 360): `SPECTRUM` (Michroma 7.5 px, tracking 1.6 px, `rose`), then `20 Hz - 2
+  kHz` (Geist Mono 8.5 px, `text_dim`) 8 px after it on the same baseline.
 - **The hint,** while nothing sounds, on a small glass plate centred in the plot at 40% of its height: `HOLD A KEY TO
   PLAY THE PATTERN` in Key mode, `PLAY MIDI NOTES` in Notes mode, nothing in Free mode (Michroma 7.5 px, `rose_dim`).
   It fades out over 300 ms when sound starts.
@@ -305,10 +344,11 @@ start of the arc, the most in the middle, none at the end.
 - **The mark:** `UNDERTOW` (Michroma 13 px, tracking 5.4 px, `rose`) at x 24, baseline 29.5; `2` (Michroma 13 px,
   `rose_dim`) at x 188; a 1 px `rule2` divider at x 216 from y 17 to 31; `METAKOSMIA` (Michroma 7 px, tracking 2.4 px,
   `rose_dim`) at x 230, baseline 28.5.
-- **The clock,** on glass `488, 12, 224 x 26`: the tempo in use, `meters().bpm`, as `130.0` (Geist Mono 12 px, `value`)
-  and `BPM` (Michroma 6.5 px, `rose_dim`); a badge (40 x 13 at x 584) reading `HOST` (`rose_dim`) while a host's
+- **The clock,** on glass `488, 12, 224 x 26`: the tempo in use, `meters().bpm`, as `130.0` (Geist Mono 12 px, tracking
+  0.4 px, `value`, at x 502, baseline 29) and `BPM` (Michroma 6.5 px, `rose_dim`, 6 px after it, baseline 28.5); a
+  badge (40 x 13 at x 584.5, y 18.5) reading `HOST` (`rose_dim`) while a host's
   transport drives the clock, or `INT` (`dream`) on the window's own clock; the position `002.1.3`, bar, beat and
-  sixteenth from `meters().ppq` in 4/4 (Geist Mono 12 px, `value`, right-aligned at x 698).
+  sixteenth from `meters().ppq` in 4/4 (Geist Mono 12 px, `value`, right-aligned at x 698, baseline 29).
 - **LIVE,** right: a lamp (r 3.2 at x 1140, y 24) and `LIVE` (Michroma 7 px, tracking 1.6 px, at x 1151, baseline 27).
   Lit (`rose_bright` with a glow, the word in `rose`) while the output's RMS is above -60 dBFS; dark (`glass` with a
   `rule2` ring, the word in `text_dim`) otherwise.
@@ -327,9 +367,12 @@ start of the arc, the most in the middle, none at the end.
 - Glass `868, 672, 268 x 12`, radius 2: -48 to 0 dBFS, linear in dB. The output RMS (`meters().rms`) as a fill from
   `rose_deep` through `rose_dim` to `rose`; the peak (`meters().peak`, held 1.5 s, then falling 20 dB/s) as a 2 px
   `rose_bright` tick on whole pixels.
-- Ticks under it at -48, -36, -24, -12, -6 and 0, labelled in Geist Mono 8 px, `text_dim`. Above its right end, the
-  held peak: `PEAK -12.1 dBFS` (Geist Mono 8.5 px, `value`).
-- The clip lamp at (1158, 678), r 3.2, with `CLIP` under it: lit `rose_bright` while `meters().clipping`.
+- Ticks under it at -48, -36, -24, -12, -6 and 0, labelled in Geist Mono 8 px, `text_dim` (centred, baseline 695).
+  Above its right end, the held peak: `PEAK -12.1 dBFS` (Geist Mono 8.5 px, `value`, right-aligned at x 1136, baseline
+  667).
+- The clip lamp at (1158, 678), r 3.2, with `CLIP` (Michroma 6.5 px, tracking 1.1 px) centred under it on baseline
+  695: lit `rose_bright` while `meters().clipping`; dark, the lamp is `glass` with a `rule2` ring and the word
+  `text_dim`.
 
 ### 4.8 The hazard stripes
 
@@ -460,8 +503,10 @@ its parameter id and titled by its parameter name, for accessibility and for the
   tracks, caps and their shadows, the spectrum's grid, band and axis) is drawn once per display scale at that scale
   and then copied 1:1.
 - Glows are layered strokes at low alpha, never blurs. The spectrum's FFT runs on every other tick.
-- Budget, as phase 6's check measures it, counting the painting thread's own CPU time: a full repaint at most a median
-  of 11 ms and a 95th percentile of 16 ms at 1x, and a median of 27 ms at 2x.
+- Budget, as phase 6's check measures it (P6.37), counting the painting thread's own CPU time: a full repaint at most a
+  median of 9 ms and a 95th percentile of 16 ms at 1x, and a median of 20 ms at 2x. That needs the static layer drawn
+  once: the ground, each knob's track, dots, cap and shadow, and the spectrum's glass, crosshair, band, level lines,
+  axis and stamp. (Phase 6 allowed 11 and 27 ms; phase 7.2 tightened them.)
 
 ## 10. What the engine gives the window
 
