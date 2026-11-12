@@ -8,8 +8,8 @@
 #                                                                   editor windows
 #
 # Checks never run the GUI tests: they would open windows on the screen during every run.
-# The log is written to build/pluginval/ (and, on success, copied to the report path if one is given). Exits with
-# pluginval's exit code (0 = every test passed).
+# The log is written to build/pluginval/ (and, on success, copied to the report path if one is given, with its paths
+# relative to the checkout). Exits with pluginval's exit code (0 = every test passed).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
@@ -70,7 +70,9 @@ fi
 grep -E 'SUCCESS|ALL TESTS PASSED' build/pluginval/run.log | tail -n 2
 if [ -n "$report" ]; then
   mkdir -p "$(dirname "$report")"
-  cp build/pluginval/run.log "$report"
+  # The kept log is published with the source: it names its paths from the checkout, never the folder it ran in.
+  root=$(printf '%s/' "$PWD" | sed 's/[][\.*^$|&]/\\&/g')
+  sed "s|$root||g" build/pluginval/run.log > "$report"
   echo "pluginval: log kept in $report"
 fi
 echo "pluginval: OK, strictness $strictness$([ "$gui" -eq 1 ] && echo ', with the GUI tests')"
