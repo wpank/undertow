@@ -15,11 +15,13 @@ later phase only adds DSP and UI.
 ## Scope
 
 In scope:
-- `core/`: `undertow/params.h` and `params.cpp` (the new table), `undertow/engine.h` and `engine.cpp` (the skeleton),
-  `undertow/output_stage.h` and `.cpp` (mono), `undertow/presets.h` and `.cpp` (one program, Init), and the retired
-  files removed.
-- `plugin/`: the identity in `plugin/CMakeLists.txt`, `PluginProcessor.h/.cpp`, a placeholder `PluginEditor.h/.cpp`,
-  and the retired window files removed.
+- `core/`: `core/include/undertow/params.h` and `core/src/params.cpp` (the new table),
+  `core/include/undertow/engine.h` and `core/src/engine.cpp` (the skeleton), `core/include/undertow/output_stage.h`
+  and `core/src/output_stage.cpp` (mono), `core/include/undertow/presets.h` and `core/src/presets.cpp` (one program,
+  Init), and twelve retired files deleted (listed in "What to build", item 2).
+- `plugin/`: the identity in `plugin/CMakeLists.txt`, `plugin/PluginProcessor.h` and `plugin/PluginProcessor.cpp`, a
+  placeholder `plugin/PluginEditor.h` and `plugin/PluginEditor.cpp`, `plugin/ui/Theme.h` cut down, and nine retired
+  window files deleted (listed in item 6).
 - `tools/render/main.cpp`, `tools/render-demos.sh` and `tools/install.sh`, updated to the new table and identity.
 
 Out of scope: any voice (phase 2 adds the oscillators and the ladder, phase 3 the voice), the sequencer (phase 4),
@@ -50,10 +52,13 @@ ghost kick through its reverb: that is correct.
    - `findParam` compares ids exactly and returns -1 for anything else, the first version's ids included
      (`filter_cutoff`, `glide_ms`, `seq_on`).
 
-2. **The retired core files** (delete them)
-   - `core/include/undertow/oscillator.h`, `filter.h`, `envelope.h`, `lfo.h`, `voice.h`, `sequencer.h` and their
-     `core/src/*.cpp`: twelve files. Phases 2 to 4 build their replacements under new names (`vco.h`, `ladder.h`,
-     `decay.h`) or anew (`voice.h`, `sequencer.h`).
+2. **The retired core files** (delete these twelve)
+   - Delete: `core/include/undertow/oscillator.h`, `core/src/oscillator.cpp`, `core/include/undertow/filter.h`,
+     `core/src/filter.cpp`, `core/include/undertow/envelope.h`, `core/src/envelope.cpp`,
+     `core/include/undertow/lfo.h`, `core/src/lfo.cpp`, `core/include/undertow/voice.h`, `core/src/voice.cpp`,
+     `core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`.
+   - Phases 2 to 4 build their replacements under new names (`vco.h`, `ladder.h`, `decay.h`) or anew (`voice.h`,
+     `sequencer.h`).
 
 3. **The engine skeleton** (`core/include/undertow/engine.h`, `core/src/engine.cpp`)
    - The API below. `setPattern`, `pattern` and the pattern handoff go: the sequencer's steps are parameters now.
@@ -85,7 +90,8 @@ ghost kick through its reverb: that is correct.
 5. **The presets** (`core/include/undertow/presets.h`, `core/src/presets.cpp`)
    - One program, `Init` (slug `init`): every parameter at its table default. The API below; phase 5 adds the rest.
 
-6. **The plugin** (`plugin/CMakeLists.txt`, `plugin/PluginProcessor.h/.cpp`, `plugin/PluginEditor.h/.cpp`, `plugin/ui/`)
+6. **The plugin** (`plugin/CMakeLists.txt`, `plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`,
+   `plugin/PluginEditor.h`, `plugin/PluginEditor.cpp`, `plugin/ui/`)
    - `juce_add_plugin(Undertow VERSION 2.0.0 COMPANY_NAME "Metakosmia" PLUGIN_MANUFACTURER_CODE Mtks PLUGIN_CODE MkU2
      BUNDLE_ID "audio.metakosmia.undertow2" PRODUCT_NAME "Metakosmia Undertow 2" ...)`; everything else in the call,
      the definitions and the links stay as they are.
@@ -109,9 +115,11 @@ ghost kick through its reverb: that is correct.
    - `getName()` returns `JucePlugin_Name`; `getTailLengthSeconds()` 8 (the rumble's longest decay).
    - `UndertowEditor`: a placeholder, fixed 1200 x 760, not resizable, painting the void (`#060608`), a hairline
      border (`#181420`) and the product name in rose (`#AA7088`). Phase 6 replaces its contents.
-   - `plugin/ui/`: keep `Theme.h` with only its colour tokens, `sansFont`, `monoFont`, `editorWidth` and
-     `editorHeight`, and keep `Texts.h`. Delete the rest: `Displays.h/.cpp`, `Look.h/.cpp`, `Status.h/.cpp`,
-     `UnitArray.h/.cpp` and `UiFrame.h`.
+   - `plugin/ui/`: cut `plugin/ui/Theme.h` down to its colour tokens, `sansFont`, `monoFont`, `editorWidth` and
+     `editorHeight`, and keep `plugin/ui/Texts.h` as it is.
+   - Delete these nine: `plugin/ui/Displays.h`, `plugin/ui/Displays.cpp`, `plugin/ui/Look.h`, `plugin/ui/Look.cpp`,
+     `plugin/ui/Status.h`, `plugin/ui/Status.cpp`, `plugin/ui/UnitArray.h`, `plugin/ui/UnitArray.cpp`,
+     `plugin/ui/UiFrame.h`.
 
 7. **The renderer and the scripts** (`tools/render/main.cpp`, `tools/render-demos.sh`, `tools/install.sh`)
    - `undertow_render --preset <init|slug|index> --out <file.wav> [--bars N] [--bpm B] [--note N] [--sample-rate R]`:
@@ -341,19 +349,31 @@ build the `plugin` preset (about a minute the first time in a fresh worktree, mo
   build" and API sections hold what the tests and the PRD don't (the files to delete, what each kept file keeps).
 - Two tasks, in this order. Each task's verify steps are exactly the checks named for it, with their commands
   unchanged, and each passes once that task (and the one before it) is done:
-  1. **The core re-keyed**: `core/include/undertow/params.h`, `core/src/params.cpp`, `engine.h/.cpp`,
-     `output_stage.h/.cpp`, `presets.h/.cpp`, and the twelve retired files deleted. Checks: P1.01 and P1.02 (one
-     step), P1.03 to P1.07 (one step), P1.08, P1.09. Architectural: about 350 lines written, most of them the table,
-     and about 1,600 removed. Every core spec test links the whole core library, so the core must compile as a whole
-     before any of its checks can pass: delete the retired files and finish the engine before running them. Build
-     only your checks' targets (`tools/spec.sh` does): until task 2, the renderer (`tools/render/main.cpp`) and the
-     plugin still name the first version's pattern and parameters, so a full build fails there, and they are task 2's
-     files.
-  2. **The plugin re-keyed, and the tools**: `plugin/CMakeLists.txt`, `plugin/PluginProcessor.h/.cpp`,
-     `plugin/PluginEditor.h/.cpp`, `plugin/ui/Theme.h`, the retired `plugin/ui` files deleted, `tools/render/main.cpp`,
-     `tools/render-demos.sh`, `tools/install.sh`. Checks: P1.10 to P1.17 (one step), P1.18, P1.19. Needs task 1.
-     Integrative: about 150 lines written and about 1,300 removed. Its first plugin build in a fresh worktree compiles
-     the JUCE modules (about a minute at 4 jobs).
+  1. **The core re-keyed.** Architectural: about 350 lines written, most of them the table, and about 1,600 removed.
+     - Edits: `core/include/undertow/params.h`, `core/src/params.cpp`, `core/include/undertow/engine.h`,
+       `core/src/engine.cpp`, `core/include/undertow/output_stage.h`, `core/src/output_stage.cpp`,
+       `core/include/undertow/presets.h`, `core/src/presets.cpp`.
+     - Deletes: `core/include/undertow/oscillator.h`, `core/src/oscillator.cpp`, `core/include/undertow/filter.h`,
+       `core/src/filter.cpp`, `core/include/undertow/envelope.h`, `core/src/envelope.cpp`,
+       `core/include/undertow/lfo.h`, `core/src/lfo.cpp`, `core/include/undertow/voice.h`, `core/src/voice.cpp`,
+       `core/include/undertow/sequencer.h`, `core/src/sequencer.cpp`.
+     - Its files are all 20 of those paths, the deleted ones included.
+     - Checks: P1.01 and P1.02 (one step), P1.03 to P1.07 (one step), P1.08, P1.09.
+     - Every core spec test links the whole core library, so the core must compile as a whole before any of its
+       checks can pass: delete the retired files and finish the engine before running them. Build only your checks'
+       targets (`tools/spec.sh` does): until task 2, the renderer and the plugin still name the first version's
+       pattern and parameters, so a full build fails there, and they are task 2's files.
+  2. **The plugin re-keyed, and the tools.** Needs task 1. Architectural by its file count (18 paths, half of them
+     deletions): about 150 lines written and about 1,300 removed.
+     - Edits: `plugin/CMakeLists.txt`, `plugin/PluginProcessor.h`, `plugin/PluginProcessor.cpp`,
+       `plugin/PluginEditor.h`, `plugin/PluginEditor.cpp`, `plugin/ui/Theme.h`, `tools/render/main.cpp`,
+       `tools/render-demos.sh`, `tools/install.sh`.
+     - Deletes: `plugin/ui/Displays.h`, `plugin/ui/Displays.cpp`, `plugin/ui/Look.h`, `plugin/ui/Look.cpp`,
+       `plugin/ui/Status.h`, `plugin/ui/Status.cpp`, `plugin/ui/UnitArray.h`, `plugin/ui/UnitArray.cpp`,
+       `plugin/ui/UiFrame.h`.
+     - Its files are all 18 of those paths, the deleted ones included. `plugin/ui/Texts.h` stays as it is.
+     - Checks: P1.10 to P1.17 (one step), P1.18, P1.19.
+     - Its first plugin build in a fresh worktree compiles the JUCE modules (about a minute at 4 jobs).
 - `tools/check.sh --plugin` (P1.20) is the plan's final check, not a task's.
 - P1.17 needs no grid: with the table's defaults every Float parameter comes back exactly. Its message names any
   parameter that doesn't.
