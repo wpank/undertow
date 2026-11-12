@@ -1,13 +1,13 @@
 #!/bin/bash
 # Build the plugin (the `plugin` preset) and validate its VST3 with pluginval 1.0.4, seed 42.
 #
-#   tools/pluginval.sh 5                                            phase 0: strictness 5
-#   tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt    phase 5: strictness 10, the log kept as a review
-#                                                                   artifact
-#   tools/pluginval.sh 10 --gui                                     by hand, once, with the person's heads-up: also
-#                                                                   the GUI tests, which open editor windows
+#   tools/pluginval.sh 5                                            strictness 5 (phase 1)
+#   tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt    strictness 10, the log kept as a review artifact
+#                                                                   (phase 7)
+#   tools/pluginval.sh 10 --gui                                     by hand, once: also the GUI tests, which open
+#                                                                   editor windows
 #
-# Checks never run the GUI tests: they would open windows on the person's screen during every run.
+# Checks never run the GUI tests: they would open windows on the screen during every run.
 # The log is written to build/pluginval/ (and, on success, copied to the report path if one is given). Exits with
 # pluginval's exit code (0 = every test passed).
 set -uo pipefail
@@ -27,7 +27,7 @@ case "$strictness" in
   *) echo "usage: tools/pluginval.sh <strictness 1-10> [<report>] [--gui]" >&2; exit 2 ;;
 esac
 if [ ! -f CMakePresets.json ]; then
-  echo "pluginval: FAIL: there is no CMakePresets.json; phase 0 (docs/specs/phase-0-foundation.md) creates it" >&2
+  echo "pluginval: FAIL: there is no CMakePresets.json at the repository root" >&2
   exit 1
 fi
 
@@ -45,9 +45,9 @@ if [ "${PIPESTATUS[0]}" -ne 0 ]; then
   grep -E -A2 'error:|Error:|undefined symbol|ld: ' build/pluginval/build.log | head -n 40 >&2
   exit 1
 fi
-vst3=$(find build/plugin -type d -name 'Metakosmia Undertow.vst3' -prune 2>/dev/null | head -n 1)
+vst3=$(find build/plugin -type d -name 'Metakosmia Undertow 2.vst3' -prune 2>/dev/null | head -n 1)
 if [ -z "$vst3" ]; then
-  echo "pluginval: FAIL: no 'Metakosmia Undertow.vst3' bundle under build/plugin" >&2
+  echo "pluginval: FAIL: no 'Metakosmia Undertow 2.vst3' bundle under build/plugin" >&2
   exit 1
 fi
 pluginval=$(tools/fetch-pluginval.sh) || exit 1

@@ -16,7 +16,7 @@
 # target exists, the test depends on it and gets its path as SPEC_TARGET_<TARGET> (upper case), and its path in the
 # build tree as SPEC_TARGET_<TARGET>_IN_BUILD (spec::built in support/spec_paths.h finds it at run time).
 #
-# Needs: the target Undertow::core (docs/specs/phase-0-foundation.md); for plugin tests, the target Undertow.
+# Needs: the target Undertow::core (docs/specs/phase-1-foundation.md); for plugin tests, the target Undertow.
 
 add_library(undertow_spec_support OBJECT
     support/spec_main.cpp

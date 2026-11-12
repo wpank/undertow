@@ -1,28 +1,34 @@
-# Metakosmia Undertow
+# Metakosmia Undertow 2
 
-A monophonic bass synthesizer for hypnotic techno: a clean sub, a filtered bassline voice and a tempo-locked rumble,
-with a 16-step sequencer that evolves while it plays. VST3, AU and Standalone, macOS 11+ on Apple silicon, built
-with JUCE 8.0.12, drawn in the ROSEDUST phosphor language.
+A sub-bass instrument for hypnotic techno: a rolling, sub-heavy bass that sits under a 4/4 kick and changes only a
+little over minutes. Two oscillators and noise feed a 24 dB/octave ladder low-pass, a clean sine sub sits under them,
+three decays shape every hit, and an 8-step pitch and velocity sequencer plays the line, drifting a little and coming
+home. A dark rumble, fed by a ghost kick, sits under it all. VST3, AU and Standalone for macOS 11+ on Apple silicon,
+built with JUCE 8.0.12.
 
-This repository starts as a specification, and an agent harness builds the synth from it, phase by phase:
+## How this repository is built
 
-- `docs/PRD.md`: the product, the sound-design goals, the architecture, the parameters and the phases.
-- `docs/design/ui-spec.md`: the editor, in the language of `bardo/prd/18-interfaces`.
-- `docs/specs/phase-N-*.md`: one spec per phase, with the exact C++ API and numbered acceptance checks.
-- `tests/spec/`: the acceptance tests, written before the code. They fail until a phase is built. Change the code,
-  never the tests.
+The specification comes first, and the code is written to it:
+
+- `docs/PRD.md`: the product, its sound as measurable behaviours, the architecture, the parameters and the phases.
+- `docs/specs/phase-N-*.md`: one spec per phase, with the exact C++ API and numbered acceptance checks that run as
+  commands.
+- `tests/spec/`: the acceptance tests, written before the code. A phase is done when its tests pass; the code
+  changes, never the tests.
+
+The code is written phase by phase by roko, an agent harness, from these specs.
 
 ## Build and check
 
-Needs CMake 3.22+, the Xcode command-line tools and the network once (JUCE and pluginval are cached in
+Needs CMake 3.22+, the Xcode command-line tools, and the network once (JUCE and pluginval are cached in
 `~/Library/Caches/undertow`).
 
 ```sh
-tools/spec.sh 0 params            # one spec test executable (phase 0, params_test.cpp)
-tools/spec.sh 1 oscillator 'P1.0*' # only some test cases
-tools/check.sh                    # the core: configure, build, every spec test whose code is in place (phase 0 adds it)
-tools/check.sh --plugin           # also the plugin (VST3, AU, Standalone), its spec tests and pluginval
-tools/pluginval.sh 5              # pluginval 1.0.4 on the VST3
+tools/spec.sh 1 params             # one spec test executable (phase 1, params_test.cpp)
+tools/spec.sh 1 engine 'P1.06*'    # only some of its test cases
+tools/check.sh                     # the core: configure, build, every spec test whose code is in place
+tools/check.sh --plugin            # also the plugin (VST3, AU, Standalone), its spec tests and pluginval
+tools/pluginval.sh 5               # pluginval 1.0.4 on the VST3
 ```
 
 The `core` preset (`build/core`) builds the plain C++ DSP library and its tests in seconds, without JUCE. The
@@ -34,12 +40,13 @@ The `core` preset (`build/core`) builds the plain C++ DSP library and its tests 
 | Path | What |
 |---|---|
 | `core/` | the DSP core, plain C++17, no JUCE (`Undertow::core`) |
-| `plugin/` | the JUCE plugin `Undertow`: processor and editor |
-| `tools/` | fetch scripts, the spec runner, pluginval, the checks |
+| `plugin/` | the JUCE plugin `Undertow`: processor and window |
+| `tools/` | fetch scripts, the spec runner, the offline renderer, pluginval, auval, the checks |
 | `tests/spec/` | the spec tests, one executable per file |
 | `third_party/doctest/` | doctest 2.5.3 (MIT) |
 
-## Licences
+## Licence
 
-JUCE 8 is AGPLv3 or commercial: Undertow is built for local use, and distributing it needs a licence decision.
-doctest is MIT (`third_party/doctest/LICENSE.txt`).
+Undertow is free software, licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`):
+see `LICENSE`. It is built with JUCE 8, used under JUCE's AGPLv3 licence option, and its tests use doctest, which is
+MIT-licensed (`third_party/doctest/LICENSE.txt`).
