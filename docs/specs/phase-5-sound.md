@@ -116,7 +116,7 @@ Out of scope: the window (phase 6); strict pluginval, auval and the install (pha
      `vcf_drive` 0.875, `vcf_decay` 230, `vca_decay` 390, `seq_drift` 0.5 and `master_gain` -7; Drift's velocities.
    - **Offbeat** (`offbeat`), eighths on the off-beats: `pitch_env` 5, `pitch_decay` 50, `vcf_cutoff` 120,
      `vca_decay` 250, `seq_rate` 3 (1/8), `seq_drift` 0.4, `master_gain` -8; velocities 0, 1, 0, 0.8, 0, 0.9, 0, 0.7.
-   - **Deep** (`deep`), lower and darker, on E: `vco2_level` 0.2, `vcf_cutoff` 100, `vcf_env` 1.5, `vca_decay` 400,
+   - **Deep** (`deep`), lower and darker, on E: `vco2_level` 0.2, `vcf_cutoff` 100, `vcf_env` 1.5, `vca_decay` 375,
      `seq_drift` 0.5, `seq_root` 40 (E2), `master_gain` -10; velocities 0, 0.4, 0.7, 1, 0, 0.5, 0.8, 0.3.
 
 ## API
