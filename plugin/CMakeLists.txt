@@ -1,3 +1,12 @@
+juce_add_binary_data(UndertowFonts
+    HEADER_NAME UndertowFonts.h
+    NAMESPACE UndertowFonts
+    SOURCES
+        ${PROJECT_SOURCE_DIR}/third_party/fonts/Michroma-Regular.ttf
+        ${PROJECT_SOURCE_DIR}/third_party/fonts/GeistMono-Regular.ttf
+        ${PROJECT_SOURCE_DIR}/third_party/fonts/GeistMono-Light.ttf
+)
+
 juce_add_plugin(Undertow
     VERSION 2.0.0
     COMPANY_NAME "Metakosmia"
@@ -15,9 +24,12 @@ juce_add_plugin(Undertow
     COPY_PLUGIN_AFTER_BUILD FALSE
 )
 
+file(GLOB undertow_ui_sources CONFIGURE_DEPENDS ui/*.cpp)
+
 target_sources(Undertow PRIVATE
     PluginProcessor.cpp
     PluginEditor.cpp
+    ${undertow_ui_sources}
 )
 
 target_compile_definitions(Undertow PRIVATE
@@ -28,6 +40,7 @@ target_compile_definitions(Undertow PRIVATE
 
 target_link_libraries(Undertow PRIVATE
     Undertow::core
+    UndertowFonts
     juce::juce_audio_utils
 )
 
