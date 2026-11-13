@@ -17,6 +17,7 @@ public:
     void setHovered(bool hovered);
     void setDimmed(bool dimmed);
     bool isHovered() const;
+    void dropCache();
 
     void paint(juce::Graphics&) override;
     void mouseEnter(const juce::MouseEvent&) override;
@@ -27,6 +28,8 @@ public:
     void setFormatter(std::function<juce::String(double)> formatter);
 
 private:
+    void rebuildCaches(float scale);
+
     std::function<juce::String(double)> formatter_;
     bool bipolar_ = false;
     int detents_ = 0;
@@ -34,6 +37,11 @@ private:
     bool hovered_ = false;
     bool dragging_ = false;
     bool dimmed_ = false;
+    float cachedScale_ = 0.0f;
+    int cachedWidth_ = 0;
+    int cachedHeight_ = 0;
+    juce::Image underlayCache_;
+    juce::Image overlayCache_;
 };
 
 class Switch final : public juce::Component {
