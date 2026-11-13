@@ -194,7 +194,7 @@ void Steps::drawRestBorder(juce::Graphics& g, juce::Rectangle<int> cell, float a
     juce::Path dashed;
     constexpr float dashPattern[] = {3.0f, 3.0f};
     juce::PathStrokeType(1.0f).createDashedStroke(dashed, path, dashPattern, 2);
-    g.setColour(undertow::ui::theme::roseDim.withAlpha(alpha));
+    g.setColour(undertow::ui::theme::rule2.withAlpha(alpha));
     g.strokePath(dashed, juce::PathStrokeType(1.0f));
 }
 
@@ -204,21 +204,35 @@ void Steps::drawTrace(juce::Graphics& g, int step, juce::Rectangle<int> trace) c
     if (stored.columns <= 0 || alpha <= 0.0f)
         return;
 
-    const auto traceColour = undertow::ui::theme::roseBright;
-    const float halfHeight = trace.getHeight() * 0.5f;
     const float midY = trace.getCentreY();
-    g.setColour(traceColour.withAlpha(alpha));
+    const float scale = trace.getHeight() * 0.5f / 0.4f;
+    const auto traceColour = undertow::ui::theme::roseBright;
+
     for (int col = 0; col < stored.columns; ++col) {
-        const float top = midY - stored.maximum[static_cast<std::size_t>(col)] / 0.4f * halfHeight;
-        const float bottom = midY - stored.minimum[static_cast<std::size_t>(col)] / 0.4f * halfHeight;
-        const int y = juce::roundToInt(std::floor(std::min(top, bottom)));
-        const int h = std::max(1, juce::roundToInt(std::ceil(std::max(top, bottom))) - y + 1);
-        g.fillRect(trace.getX() + col, y, 1, h);
+        const float x = static_cast<float>(trace.getX() + col);
+        float top = midY - stored.maximum[static_cast<std::size_t>(col)] * scale;
+        float bottom = midY - stored.minimum[static_cast<std::size_t>(col)] * scale;
+        if (bottom < top)
+            std::swap(top, bottom);
+
+        juce::ColourGradient band(traceColour.withAlpha(alpha * 0.22f), x, top, traceColour.withAlpha(alpha * 0.56f), x,
+                                  (top + bottom) * 0.5f, false);
+        band.addColour(0.68, traceColour.withAlpha(alpha * 0.34f));
+        band.addColour(1.0, traceColour.withAlpha(alpha * 0.22f));
+        g.setGradientFill(band);
+        g.fillRect(x, top, 1.0f, std::max(1.0f, bottom - top));
+
+        g.setColour(traceColour.withAlpha(alpha * 0.18f));
+        g.drawLine(x + 0.5f, top, x + 0.5f, bottom, 1.0f);
     }
 
-    if (stored.columns < kTraceColumns) {
-        g.setColour(undertow::ui::theme::roseBright.withAlpha(alpha * 0.7f));
-        g.fillRect(trace.getX() + stored.columns, trace.getY(), 1, trace.getHeight());
+    if (step == currentStep_ && stored.columns < kTraceColumns) {
+        const float headX = static_cast<float>(trace.getX() + stored.columns);
+        g.setColour(traceColour.withAlpha(alpha * 0.98f));
+        g.fillRect(juce::Rectangle<float>(headX, static_cast<float>(trace.getY()), 1.0f, static_cast<float>(trace.getHeight())));
+        g.setColour(traceColour.withAlpha(alpha * 0.46f));
+        g.fillRect(juce::Rectangle<float>(headX - 1.0f, static_cast<float>(trace.getY() + 2), 3.0f,
+                                            static_cast<float>(trace.getHeight() - 4)));
     }
 }
 
@@ -230,30 +244,45 @@ void Steps::drawCell(juce::Graphics& g, int step) const {
     const float lightAmount = juce::jlimit(0.0f, 1.0f, light(step));
     const bool active = step == currentStep_ && sounding && lightAmount > 0.0f;
 
-    const float cellLight = juce::jlimit(0.0f, 1.0f, light(step));
+    const auto cellFloat = cell.toFloat();
+    g.setColour(undertow::ui::theme::glass.withAlpha((0.30f + 0.10f * lightAmount) * offsetAlpha));
+    g.fillRoundedRectangle(cellFloat.reduced(0.5f), 3.0f);
 
-    g.setColour(undertow::ui::theme::glass.withAlpha((0.32f + 0.10f * cellLight) * offsetAlpha));
-    g.fillRoundedRectangle(cell.toFloat().reduced(0.5f), 3.0f);
-
-    if (sounding) {
-        g.setColour(undertow::ui::theme::roseEmber.withAlpha((0.08f + 0.08f * cellLight) * offsetAlpha));
-        g.fillRoundedRectangle(cell.reduced(1).toFloat(), 3.0f);
-        const float brightAlpha = juce::jlimit(0.0f, 1.0f, (0.35f + 0.65f * cellLight) * offsetAlpha);
+    if (sounding && lightAmount > 0.0f) {
+        const float glowAlpha = offsetAlpha * (0.03f + 0.11f * lightAmount);
+        g.setColour(undertow::ui::theme::roseBright.withAlpha(glowAlpha * 0.55f));
+        g.fillRoundedRectangle(cellFloat.expanded(5.0f), 6.0f);
+        g.setColour(undertow::ui::theme::roseBright.withAlpha(glowAlpha));
+        g.fillRoundedRectangle(cellFloat.expanded(3.0f), 5.0f);
+        g.setColour(undertow::ui::theme::roseEmber.withAlpha((0.18f + 0.18f * lightAmount) * offsetAlpha));
+        juce::ColourGradient ember(undertow::ui::theme::roseEmber.withAlpha((0.56f + 0.10f * lightAmount) * offsetAlpha),
+                                   cellFloat.getCentreX(), cellFloat.getY(),
+                                   undertow::ui::theme::roseDeep.withAlpha((0.10f + 0.06f * lightAmount) * offsetAlpha),
+                                   cellFloat.getCentreX(), cellFloat.getBottom(), false);
+        ember.addColour(0.56, undertow::ui::theme::roseEmber.withAlpha((0.38f + 0.12f * lightAmount) * offsetAlpha));
+        ember.addColour(0.82, undertow::ui::theme::roseEmber.withAlpha((0.22f + 0.10f * lightAmount) * offsetAlpha));
+        g.setGradientFill(ember);
+        g.fillRoundedRectangle(cellFloat.reduced(1.0f), 3.0f);
+        const float brightAlpha = offsetAlpha * (active ? 0.90f : (0.58f + 0.22f * lightAmount));
         g.setColour(undertow::ui::theme::roseBright.withAlpha(brightAlpha));
         g.fillRect(cell.getX(), cell.getY(), cell.getWidth(), 2);
         g.fillRect(cell.getX(), cell.getBottom() - 2, cell.getWidth(), 2);
         g.fillRect(cell.getX(), cell.getY(), 2, cell.getHeight());
         g.fillRect(cell.getRight() - 2, cell.getY(), 2, cell.getHeight());
-        drawTrace(g, step, trace);
-        g.setColour(undertow::ui::theme::rule.withAlpha(0.45f * offsetAlpha));
-        g.drawRoundedRectangle(cell.toFloat().reduced(0.5f), 3.0f, 1.0f);
-    } else {
-        drawRestBorder(g, cell, 0.85f * offsetAlpha);
     }
 
-    if (active) {
-        g.setColour(undertow::ui::theme::roseBright.withAlpha(0.82f * offsetAlpha));
-        g.drawRoundedRectangle(cell.expanded(1).toFloat(), 4.0f, 1.2f);
+    drawTrace(g, step, trace);
+
+    if (sounding) {
+        const float borderAlpha = offsetAlpha * (active ? 0.78f : 0.46f);
+        g.setColour((lightAmount > 0.0f ? undertow::ui::theme::roseBright : undertow::ui::theme::rule).withAlpha(borderAlpha));
+        g.drawRoundedRectangle(cellFloat.reduced(0.5f), 3.0f, 1.0f);
+        if (lightAmount > 0.0f) {
+            g.setColour(undertow::ui::theme::roseBright.withAlpha(offsetAlpha * (0.16f + 0.10f * lightAmount)));
+            g.drawRoundedRectangle(cellFloat.expanded(1.0f), 4.0f, 1.0f);
+        }
+    } else {
+        drawRestBorder(g, cell, 0.92f * offsetAlpha);
     }
 
     const auto numberColour = active ? undertow::ui::theme::roseBright
