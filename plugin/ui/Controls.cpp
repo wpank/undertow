@@ -25,10 +25,14 @@ using undertow::ui::theme::textDim;
 using undertow::ui::theme::textGhost;
 using undertow::ui::theme::value;
 using undertow::ui::theme::legendFont;
+using undertow::ui::theme::glass;
+using undertow::ui::theme::roseDeep;
+using undertow::ui::theme::roseEmber;
 
 constexpr float kPi = juce::MathConstants<float>::pi;
 constexpr float kKnobStart = 1.25f * kPi;
 constexpr float kKnobEnd = 2.75f * kPi;
+constexpr float kTop = 2.0f * kPi;
 
 bool startsWith(std::string_view text, std::string_view prefix) {
     return text.size() >= prefix.size() && text.substr(0, prefix.size()) == prefix;
@@ -160,6 +164,60 @@ bool isSwitchId(const juce::String& id) {
     return id == "vco1_wave" || id == "vco2_wave" || id == "sub_octave" || id == "vca_attack" || id == "seq_mode";
 }
 
+juce::Point<float> pointAtClockAngle(juce::Point<float> centre, float radius, float angle) {
+    return {centre.x + radius * std::sin(angle), centre.y - radius * std::cos(angle)};
+}
+
+void strokeArc(juce::Graphics& g, juce::Point<float> centre, float radius, float startAngle, float endAngle,
+               const juce::Colour& colour, float thickness) {
+    juce::Path path;
+    path.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, startAngle, endAngle, true);
+    g.setColour(colour);
+    g.strokePath(path, juce::PathStrokeType(thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+void fillDot(juce::Graphics& g, juce::Point<float> centre, float diameter, const juce::Colour& colour) {
+    g.setColour(colour);
+    g.fillEllipse(centre.x - diameter * 0.5f, centre.y - diameter * 0.5f, diameter, diameter);
+}
+
+void drawWaveGlyph(juce::Graphics& g, juce::Rectangle<float> segment, const juce::Colour& colour, bool triangle) {
+    const auto centre = segment.getCentre();
+    const float left = centre.x - 6.5f;
+    const float right = centre.x + 6.5f;
+    const float top = centre.y - 3.5f;
+    const float middle = centre.y;
+    const float bottom = centre.y + 3.5f;
+    const float quarter = left + 3.25f;
+    const float threeQuarter = right - 3.25f;
+
+    juce::Path path;
+    path.startNewSubPath(left, middle);
+    if (triangle) {
+        path.lineTo(quarter, top);
+        path.lineTo(threeQuarter, bottom);
+        path.lineTo(right, middle);
+    } else {
+        path.lineTo(left, top);
+        path.lineTo(centre.x, top);
+        path.lineTo(centre.x, bottom);
+        path.lineTo(right, bottom);
+        path.lineTo(right, middle);
+    }
+
+    g.setColour(colour);
+    g.strokePath(path, juce::PathStrokeType(1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+}
+
+int detentsFor(const undertow::ParamSpec& spec) {
+    const auto id = std::string_view(spec.id);
+    if (id == "seq_rate" || id == "seq_length")
+        return 8;
+    if (id == "rumble_rate")
+        return 4;
+    return 0;
+}
+
 }  // namespace
 
 struct Controls::Entry {
@@ -197,6 +255,14 @@ bool Knob::isHovered() const {
     return hovered_ || dragging_;
 }
 
+void Knob::dropCache() {
+    cachedScale_ = 0.0f;
+    cachedWidth_ = 0;
+    cachedHeight_ = 0;
+    underlayCache_ = {};
+    overlayCache_ = {};
+}
+
 void Knob::mouseEnter(const juce::MouseEvent& e) {
     hovered_ = true;
     juce::Slider::mouseEnter(e);
@@ -231,95 +297,118 @@ juce::String Knob::getTextFromValue(double value) {
     return juce::Slider::getTextFromValue(value);
 }
 
+void Knob::rebuildCaches(float scale) {
+    const auto bounds = getLocalBounds().toFloat().reduced(6.0f);
+    const auto centre = bounds.getCentre();
+    const auto radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const float trackRadius = radius - 2.5f;
+    const float capRadius = 0.7f * trackRadius;
+    const auto pixelWidth = std::max(1, juce::roundToInt(static_cast<float>(getWidth()) * scale));
+    const auto pixelHeight = std::max(1, juce::roundToInt(static_cast<float>(getHeight()) * scale));
+
+    underlayCache_ = juce::Image(juce::Image::ARGB, pixelWidth, pixelHeight, true);
+    overlayCache_ = juce::Image(juce::Image::ARGB, pixelWidth, pixelHeight, true);
+
+    {
+        juce::Graphics gg(underlayCache_);
+        gg.addTransform(juce::AffineTransform::scale(scale));
+        strokeArc(gg, centre, trackRadius, kKnobStart, kKnobEnd, undertow::ui::theme::track, 2.0f);
+
+        if (detents_ > 1) {
+            const int total = juce::jlimit(2, 8, detents_);
+            const float proportion = static_cast<float>(valueToProportionOfLength(getValue()));
+            const int litIndex = juce::jlimit(0, total - 1, juce::roundToInt(proportion * static_cast<float>(total - 1)));
+            for (int i = 0; i < total; ++i) {
+                const float t = total == 1 ? 0.0f : static_cast<float>(i) / static_cast<float>(total - 1);
+                const float angle = kKnobStart + t * (kKnobEnd - kKnobStart);
+                const auto dot = pointAtClockAngle(centre, trackRadius + 4.6f, angle);
+                fillDot(gg, dot, i == litIndex ? 2.5f : 1.9f, i == litIndex ? roseBright : textGhost);
+            }
+        } else if (bipolar_) {
+            const auto start = pointAtClockAngle(centre, trackRadius + 3.0f, kTop);
+            const auto end = pointAtClockAngle(centre, trackRadius + 6.0f, kTop);
+            gg.setColour(textGhost);
+            gg.drawLine(start.x, start.y, end.x, end.y, 1.2f);
+        }
+    }
+
+    {
+        juce::Graphics gg(overlayCache_);
+        gg.addTransform(juce::AffineTransform::scale(scale));
+        gg.setColour(juce::Colours::black.withAlpha(0.55f));
+        gg.fillEllipse(centre.x - capRadius - 2.2f, centre.y - capRadius + 1.6f - 2.2f, (capRadius + 2.2f) * 2.0f,
+                       (capRadius + 2.2f) * 2.0f);
+
+        gg.setColour(juce::Colour(0xff040305));
+        gg.fillEllipse(centre.x - capRadius - 1.2f, centre.y - capRadius - 1.2f, (capRadius + 1.2f) * 2.0f,
+                       (capRadius + 1.2f) * 2.0f);
+
+        juce::ColourGradient gradient(undertow::ui::theme::capHi, centre.x - capRadius * 0.28f, centre.y - capRadius * 0.40f,
+                                      undertow::ui::theme::capLo, centre.x + capRadius, centre.y + capRadius, true);
+        gradient.addColour(0.55, undertow::ui::theme::capMid.withAlpha(0.55f));
+        gg.setGradientFill(gradient);
+        gg.fillEllipse(centre.x - capRadius, centre.y - capRadius, capRadius * 2.0f, capRadius * 2.0f);
+
+        gg.setColour(undertow::ui::theme::capRim);
+        gg.drawEllipse(centre.x - capRadius, centre.y - capRadius, capRadius * 2.0f, capRadius * 2.0f, 1.0f);
+
+        strokeArc(gg, centre, capRadius - 0.5f, kTop - 62.0f * kPi / 180.0f, kTop + 62.0f * kPi / 180.0f,
+                  rose.withAlpha(0.16f), 1.0f);
+    }
+
+    cachedScale_ = scale;
+    cachedWidth_ = getWidth();
+    cachedHeight_ = getHeight();
+}
+
 void Knob::paint(juce::Graphics& g) {
     const auto bounds = getLocalBounds().toFloat().reduced(6.0f);
     const auto centre = bounds.getCentre();
     const auto radius = std::min(bounds.getWidth(), bounds.getHeight()) * 0.5f;
-    const auto ringRadius = radius - 5.0f;
-    const auto innerRadius = ringRadius - 8.0f;
+    const float trackRadius = radius - 2.5f;
+    const float capRadius = 0.7f * trackRadius;
 
     const auto light = juce::jlimit(0.0f, 1.0f, light_);
     const bool active = hovered_ || dragging_;
-    const auto alpha = dimmed_ ? 0.32f : 1.0f;
-    const auto base = (active || light > 0.0f) ? roseBright : undertow::ui::theme::pointer;
     const auto arcColour = (active || light > 0.0f) ? roseBright : rose;
-
-    g.setOpacity(alpha);
-
-    if (dimmed_) {
-        g.setColour(juce::Colours::black);
-        g.fillAll();
-        return;
+    const auto pointerColour = (active || light > 0.5f) ? roseBright : undertow::ui::theme::pointer;
+    const float scale = g.getInternalContext().getPhysicalPixelScaleFactor();
+    if (!underlayCache_.isValid() || !overlayCache_.isValid() || cachedScale_ != scale || cachedWidth_ != getWidth() ||
+        cachedHeight_ != getHeight()) {
+        rebuildCaches(scale);
     }
 
-    g.setColour(undertow::ui::theme::track.withAlpha(0.9f));
-    g.drawEllipse(centre.x - ringRadius, centre.y - ringRadius, ringRadius * 2.0f, ringRadius * 2.0f, 3.0f);
+    const float proportion = static_cast<float>(valueToProportionOfLength(getValue()));
+    const float angle = kKnobStart + proportion * (kKnobEnd - kKnobStart);
+    const float pointerWidth = bounds.getWidth() >= 44.0f ? 2.0f : 1.8f;
+    const auto pointerStart = pointAtClockAngle(centre, capRadius * 0.18f, angle);
+    const auto pointerEnd = pointAtClockAngle(centre, capRadius * 0.86f, angle);
 
-    auto drawArc = [&](float startAngle, float endAngle, const juce::Colour& colour, float thickness, float glowAlpha) {
-        juce::Path path;
-        path.addCentredArc(centre.x, centre.y, ringRadius, ringRadius, 0.0f, startAngle, endAngle, true);
-        g.setColour(colour.withAlpha(glowAlpha));
-        g.strokePath(path, juce::PathStrokeType(thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    auto drawLive = [&] {
+        const auto imageTransform = juce::AffineTransform::scale(1.0f / scale);
+        g.drawImageTransformed(underlayCache_, imageTransform, false);
+
+        const bool glowing = active || light > 0.0f;
+        const float arcStart = bipolar_ ? std::min(kTop, angle) : kKnobStart;
+        const float arcEnd = bipolar_ ? std::max(kTop, angle) : angle;
+        if (glowing) {
+            strokeArc(g, centre, trackRadius, arcStart, arcEnd, roseBright.withAlpha(0.22f), 7.0f);
+            strokeArc(g, centre, trackRadius, arcStart, arcEnd, roseBright.withAlpha(0.35f), 4.5f);
+        }
+        if (!bipolar_ || std::abs(angle - kTop) > 1.0e-4f)
+            strokeArc(g, centre, trackRadius, arcStart, arcEnd, arcColour, 2.4f);
+
+        g.drawImageTransformed(overlayCache_, imageTransform, false);
+
+        g.setColour(pointerColour);
+        g.drawLine(pointerStart.x, pointerStart.y, pointerEnd.x, pointerEnd.y, pointerWidth);
     };
 
-    const auto value = getValue();
-    const auto min = getMinimum();
-    const auto max = getMaximum();
-    const auto proportion = max > min ? static_cast<float>((value - min) / (max - min)) : 0.0f;
-    const auto angle = kKnobStart + proportion * (kKnobEnd - kKnobStart);
-
-    if (bipolar_) {
-        const auto centreAngle = 1.5f * kPi;
-        const auto centreValue = std::abs(value) < 1e-6 ? centreAngle : centreAngle;
-        if (value < 0.0f) {
-            drawArc(angle, centreAngle, arcColour, 4.0f, 0.85f);
-        } else if (value > 0.0f) {
-            drawArc(centreAngle, angle, arcColour, 4.0f, 0.85f);
-        }
-        drawArc(centreAngle - 0.05f, centreAngle + 0.05f, roseDim, 2.0f, 0.9f);
-        (void)centreValue;
-    } else {
-        drawArc(kKnobStart, angle, arcColour, 4.0f, 0.95f);
-    }
-
-    if (active || light > 0.0f) {
-        drawArc(bipolar_ ? (value < 0.0f ? angle : 1.5f * kPi) : kKnobStart,
-                bipolar_ ? (value < 0.0f ? 1.5f * kPi : angle) : angle,
-                roseBright, 7.0f, 0.12f + 0.10f * light);
-    }
-
-    if (detents_ > 0) {
-        const auto total = std::max(2, detents_);
-        for (int i = 0; i < total; ++i) {
-            const auto t = total == 1 ? 0.0f : static_cast<float>(i) / static_cast<float>(total - 1);
-            const auto a = kKnobStart + t * (kKnobEnd - kKnobStart);
-            const juce::Point<float> outer(centre.x + std::cos(a) * (ringRadius + 1.5f), centre.y + std::sin(a) * (ringRadius + 1.5f));
-            const juce::Point<float> inner(centre.x + std::cos(a) * (ringRadius - 2.5f), centre.y + std::sin(a) * (ringRadius - 2.5f));
-            g.setColour(i == juce::roundToInt(proportion * static_cast<float>(total - 1)) ? roseBright : roseDim);
-            g.drawLine(outer.x, outer.y, inner.x, inner.y, 1.2f);
-        }
-    }
-
-    g.setColour(undertow::ui::theme::capRim.withAlpha(alpha));
-    g.fillEllipse(centre.x - innerRadius, centre.y - innerRadius, innerRadius * 2.0f, innerRadius * 2.0f);
-    g.setColour(undertow::ui::theme::capHi.withAlpha(alpha));
-    g.fillEllipse(centre.x - innerRadius, centre.y - innerRadius, innerRadius * 2.0f, innerRadius * 2.0f);
-    g.setColour(undertow::ui::theme::capMid.withAlpha(alpha));
-    g.fillEllipse(centre.x - innerRadius * 0.92f, centre.y - innerRadius * 0.92f, innerRadius * 1.84f, innerRadius * 1.84f);
-    g.setColour(undertow::ui::theme::capLo.withAlpha(alpha));
-    g.fillEllipse(centre.x - innerRadius * 0.72f, centre.y - innerRadius * 0.72f, innerRadius * 1.44f, innerRadius * 1.44f);
-
-    const auto pointerLength = ringRadius - 4.0f;
-    juce::Point<float> pointerStart = centre;
-    juce::Point<float> pointerEnd(centre.x + std::cos(angle) * pointerLength, centre.y + std::sin(angle) * pointerLength);
-    if (bipolar_ && std::abs(value) < 1e-6f)
-        pointerEnd = juce::Point<float>(centre.x, centre.y - pointerLength);
-
-    g.setColour(base.withAlpha(alpha));
-    g.drawLine(pointerStart.x, pointerStart.y, pointerEnd.x, pointerEnd.y, 2.4f);
-
-    g.setColour(undertow::ui::theme::pointer.withAlpha(alpha));
-    g.drawLine(centre.x - 1.0f, centre.y - 1.0f, pointerEnd.x, pointerEnd.y, 1.0f);
+    if (dimmed_)
+        g.beginTransparencyLayer(0.32f);
+    drawLive();
+    if (dimmed_)
+        g.endTransparencyLayer();
 }
 
 Switch::Switch(juce::RangedAudioParameter& parameter, std::vector<juce::String> labels, bool numberLabels)
@@ -355,35 +444,38 @@ void Switch::paint(juce::Graphics& g) {
     const auto segmentCount = segments();
     const auto segmentWidth = segmentCount > 0 ? bounds.getWidth() / static_cast<float>(segmentCount) : bounds.getWidth();
 
-    g.setColour(roseDim.withAlpha(0.8f));
-    g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.0f);
+    juce::ColourGradient face(juce::Colour(0xff09070b), bounds.getCentreX(), bounds.getY(), glass, bounds.getCentreX(), bounds.getBottom(), false);
+    g.setGradientFill(face);
+    g.fillRoundedRectangle(bounds, 3.0f);
+    g.setColour(rule2);
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 3.0f, 1.0f);
 
     for (int i = 0; i < segmentCount; ++i) {
         const float x = bounds.getX() + segmentWidth * static_cast<float>(i);
         const float w = (i == segmentCount - 1) ? (bounds.getRight() - x) : segmentWidth;
-        const auto segment = juce::Rectangle<float>(x, bounds.getY(), w, bounds.getHeight()).reduced(1.0f, 1.0f);
+        const auto segment = juce::Rectangle<float>(x, bounds.getY(), w, bounds.getHeight());
+        const auto inner = segment.reduced(2.0f, 2.0f);
         const bool on = i == selectedIndex;
-        g.setColour((on ? roseBright : roseDim).withAlpha(on ? 0.85f : 0.5f));
-        g.fillRoundedRectangle(segment, 3.0f);
-        g.setColour(roseDim.withAlpha(on ? 1.0f : 0.6f));
-        g.drawRoundedRectangle(segment, 3.0f, 1.0f);
+        if (on) {
+            juce::ColourGradient fill(roseEmber.withAlpha(0.65f), inner.getCentreX(), inner.getY(), roseDeep.withAlpha(0.55f),
+                                      inner.getCentreX(), inner.getBottom(), false);
+            g.setGradientFill(fill);
+            g.fillRoundedRectangle(inner, 2.0f);
+            g.setColour(rose.withAlpha(0.55f));
+            g.drawRoundedRectangle(inner.reduced(0.5f), 2.0f, 1.0f);
+        }
+
+        if (i > 0 && i != selectedIndex && i - 1 != selectedIndex) {
+            g.setColour(rule2);
+            g.drawLine(segment.getX(), segment.getY() + 6.0f, segment.getX(), segment.getBottom() - 6.0f, 1.0f);
+        }
 
         if (labels_.size() == 2 && labels_[0] == "triangle" && labels_[1] == "square") {
-            const auto centre = segment.getCentre();
-            g.setColour(on ? roseBright : roseDim);
-            if (i == 0) {
-                juce::Path path;
-                path.addTriangle(centre.x - 9.0f, centre.y + 6.0f, centre.x, centre.y - 6.0f, centre.x + 9.0f, centre.y + 6.0f);
-                g.strokePath(path, juce::PathStrokeType(1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            } else {
-                juce::Path path;
-                path.addRectangle(centre.x - 7.5f, centre.y - 7.5f, 15.0f, 15.0f);
-                g.strokePath(path, juce::PathStrokeType(1.8f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-            }
+            drawWaveGlyph(g, inner, on ? roseBright : textDim, i == 0);
         } else if (!labels_[static_cast<std::size_t>(i)].isEmpty()) {
-            const auto font = numberLabels_ ? numberFont(9.5f, 0.2f) : legendFont(7.0f, 1.1f);
-            const auto colour = on ? roseBright : roseDim;
-            drawText(g, labels_[static_cast<std::size_t>(i)], segment.reduced(2.0f, 0.0f).toNearestInt(), juce::Justification::centred,
+            const auto font = numberLabels_ ? numberFont(9.5f, 0.2f) : legendFont(7.5f, 1.1f);
+            const auto colour = on ? roseBright : textDim;
+            drawText(g, labels_[static_cast<std::size_t>(i)], segment.toNearestInt().reduced(2, 0), juce::Justification::centred,
                      colour, font);
         }
     }
@@ -502,7 +594,7 @@ void Controls::paint(juce::Graphics& g) {
     for (const auto& [text, x] : std::array<std::pair<const char*, float>, 6>{{{"VCO 1", 56.0f}, {"VCO 2", 120.0f}, {"NOISE", 184.0f}, {"SUB", 248.0f}, {"PITCH", 336.0f}, {"ENV", 596.0f}}})
         drawText(g, text, {juce::roundToInt(x - 24.0f), 359, 48, 16}, juce::Justification::centred, roseDim, legendFont(7.0f, 1.2f));
 
-    drawText(g, "MODE", {784, 112, 80, 16}, juce::Justification::left, rose, legendFont(8.0f, 1.1f));
+    drawText(g, "MODE", {784, 116, 80, 16}, juce::Justification::left, rose, legendFont(8.0f, 1.1f));
     drawText(g, "ATTACK", {660, 452, 92, 16}, juce::Justification::centred, rose, legendFont(8.0f, 1.1f));
 
     drawDashedVertical(g, 292.0f, 362.0f, 570.0f, roseDim.withAlpha(0.8f));
@@ -516,7 +608,6 @@ void Controls::paint(juce::Graphics& g) {
         const auto& spec = *entry.spec;
         const auto& place = *entry.place;
         const auto specId = juce::String(spec.id);
-        const auto bounds = entry.knob->getBounds();
         const bool showAlways = !isSwitchId(specId) && (startsWith(spec.id, "step") || specId == "seq_root" || specId == "seq_rate" || specId == "seq_length" || specId == "seq_bpm" || specId == "seq_drift");
         const bool hovered = entry.knob->isHovered();
         const bool showValue = showAlways || hovered;
@@ -524,23 +615,37 @@ void Controls::paint(juce::Graphics& g) {
         if (startsWith(spec.id, "step"))
             stepIndex = juce::jlimit(0, 7, juce::String(spec.id).substring(4, 5).getIntValue() - 1);
         const bool columnDimmed = stepIndex >= 0 ? stepDimmed_[static_cast<std::size_t>(stepIndex)] : false;
-        const auto alpha = (entry.knob->isEnabled() && !columnDimmed) ? 1.0f : 0.0f;
+        const auto legendAlpha = entry.knob->isEnabled() ? 1.0f : 0.0f;
 
         if (entry.knob != nullptr && place.legend[0] != '\0') {
             const float legendBaseline = place.y + place.w * 0.5f + 13.5f;
             const float legendAdjust = place.y < 300.0f ? 1.0f : 2.0f;
             drawText(g, place.legend, anchoredTextBox(place.x, legendBaseline + legendAdjust, 120, 16, juce::Justification::centred),
-                     juce::Justification::centred, legend.withAlpha(alpha), legendFont(8.0f, 1.1f));
+                     juce::Justification::centred, legend.withAlpha(legendAlpha), legendFont(8.0f, 1.1f));
         }
 
-        if (showValue && !columnDimmed) {
+        if (showValue) {
             const auto readout = readoutFor(spec, entry.knob->getValue(), hostClock_ && specId == "seq_bpm");
-            const auto finalColour = (startsWith(spec.id, "step") ? roseBright : (hovered ? roseBright : value)).withAlpha(alpha);
+            juce::Colour finalColour = value;
+            if (startsWith(spec.id, "step")) {
+                const float light = stepIndex >= 0 ? stepLights_[static_cast<std::size_t>(stepIndex)] : 0.0f;
+                finalColour = (hovered || light > 0.0f) ? roseBright : value;
+            } else if (hovered) {
+                finalColour = roseBright;
+            }
+
+            float readoutAlpha = 1.0f;
+            if (columnDimmed)
+                readoutAlpha = 0.30f;
+            else if (hostClock_ && specId == "seq_bpm")
+                readoutAlpha = 0.45f;
+
             const float baseline = startsWith(spec.id, "step") && (endsWith(spec.id, "_pitch") || endsWith(spec.id, "_vel")) ? (place.y + place.w * 0.5f + 14.0f)
                                                                                                                           : (place.y + place.w * 0.5f + 26.5f);
             const int width = juce::jlimit(36, 160, juce::roundToInt(std::max(42.0f, place.w + 30.0f)));
             drawText(g, readout, anchoredTextBox(place.x, baseline, width, juce::roundToInt(numberFont(9.5f).getHeight()) + 3,
-                                                 juce::Justification::centred), juce::Justification::centred, finalColour,
+                                                 juce::Justification::centred), juce::Justification::centred,
+                     finalColour.withAlpha(readoutAlpha),
                      numberFont(9.5f, 0.2f));
         }
     }
@@ -551,7 +656,6 @@ void Controls::paint(juce::Graphics& g) {
             continue;
 
         const auto& spec = *entry.spec;
-        const auto& place = *entry.place;
         const auto specId = juce::String(spec.id);
         const auto bounds = entry.sw->getBounds();
         const int chosen = entry.sw->selected();
@@ -576,18 +680,23 @@ void Controls::paint(juce::Graphics& g) {
             const float left = static_cast<float>(bounds.getX()) + segmentWidth * static_cast<float>(i);
             const float width = (i == segmentCount - 1) ? static_cast<float>(bounds.getRight()) - left : segmentWidth;
             const auto box = juce::Rectangle<int>(juce::roundToInt(left), bounds.getY(), juce::roundToInt(width), bounds.getHeight());
-            const auto colour = i == chosen ? roseBright : roseDim;
-            const auto font = specId == "sub_octave" ? numberFont(9.5f, 0.2f) : legendFont(7.0f, 1.1f);
+            const auto colour = i == chosen ? roseBright : textDim;
+            const auto font = specId == "sub_octave" ? numberFont(9.5f, 0.2f) : legendFont(7.5f, 1.1f);
             drawText(g, label, box.reduced(2, 0), juce::Justification::centred, colour, font);
         }
     }
 }
 
-void Controls::dropCache() {}
+void Controls::dropCache() {
+    for (auto& entry : entries_) {
+        if (entry.knob != nullptr)
+            entry.knob->dropCache();
+    }
+}
 
 void Controls::attachKnob(juce::AudioProcessorValueTreeState& state, juce::Component& window, const undertow::ParamSpec& spec,
                           const ParameterPlace& place) {
-    auto* knob = new Knob(spec.min < 0.0f && spec.max > 0.0f, spec.kind == undertow::ParamKind::Choice || spec.kind == undertow::ParamKind::Int ? 8 : 0);
+    auto* knob = new Knob(spec.min < 0.0f && spec.max > 0.0f, detentsFor(spec));
     knob->setName(spec.id);
     knob->setTitle(spec.name);
     knob->setBounds(juce::roundToInt(place.x - (place.w + 12.0f) * 0.5f), juce::roundToInt(place.y - (place.w + 12.0f) * 0.5f),
