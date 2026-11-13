@@ -41,6 +41,8 @@ private:
     Steps steps_;
     Console console_;
     std::array<float, 8> rememberedStepVelocities_{};
+    juce::Image groundCache_;
+    float groundCacheScale_ = 0.0f;
     double lastTickMs_ = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(UndertowEditor)

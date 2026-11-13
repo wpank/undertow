@@ -204,15 +204,27 @@ void UndertowEditor::toggleStepRest(int step) {
 }
 
 void UndertowEditor::paintGround(juce::Graphics& g) {
-    g.fillAll(undertow::ui::theme::bgVoid);
-    g.setGradientFill(groundGradient());
-    g.fillAll();
+    const float scale = g.getInternalContext().getPhysicalPixelScaleFactor();
+    if (!groundCache_.isValid() || groundCacheScale_ != scale) {
+        const int pixelWidth = std::max(1, juce::roundToInt(static_cast<float>(getWidth()) * scale));
+        const int pixelHeight = std::max(1, juce::roundToInt(static_cast<float>(getHeight()) * scale));
+        groundCache_ = juce::Image(juce::Image::ARGB, pixelWidth, pixelHeight, false);
 
-    g.setColour(undertow::ui::theme::roseDeep.withAlpha(0.35f));
-    for (int y = 0; y < getHeight(); y += 4) {
-        for (int x = 0; x < getWidth(); x += 4) {
-            if (shouldDrawNoisePixel(x, y))
-                g.fillRect(x, y, 1, 1);
+        juce::Graphics cached(groundCache_);
+        cached.addTransform(juce::AffineTransform::scale(scale));
+        cached.fillAll(undertow::ui::theme::bgVoid);
+        cached.setGradientFill(groundGradient());
+        cached.fillAll();
+
+        cached.setColour(undertow::ui::theme::roseDeep.withAlpha(0.35f));
+        for (int y = 0; y < getHeight(); y += 4) {
+            for (int x = 0; x < getWidth(); x += 4) {
+                if (shouldDrawNoisePixel(x, y))
+                    cached.fillRect(x, y, 1, 1);
+            }
         }
+        groundCacheScale_ = scale;
     }
+
+    g.drawImageTransformed(groundCache_, juce::AffineTransform::scale(1.0f / scale), false);
 }
