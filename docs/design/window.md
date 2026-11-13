@@ -107,8 +107,9 @@ range and `Path::addCentredArc` count it, so a point at angle `a` and radius `r`
 - the value arc on it, 2.4 px, round ends: `rose`, turning `rose_bright` with the light (lit) or at once (hovered),
   from 7:30 to the value, or for a bipolar knob from 12 o'clock (`2π`) to the value. The value's angle is
   `1.25π + 1.5π p`, with `p` the slider's own proportion (`valueToProportionOfLength`), so a skewed knob reads as it
-  turns;
-- hovered or dragged, the arc glows: under it, strokes of 7 px at 22% and 4.5 px at 35% `rose_bright`;
+  turns. At the arc's start (a value of 0, or a bipolar knob at 0) there is no arc, so nothing is drawn: not a dot;
+- hovered or dragged, and only then, the arc glows: under it, strokes of 7 px at 22% and 4.5 px at 35% `rose_bright`.
+  A lit knob's arc turns `rose_bright` but never glows;
 - a knob of 2 to 8 positions has one detent dot per position at radius `r + 4.6`: 1.9 px across in `text_ghost`, the
   current one 2.5 px across in `rose_bright`. A knob of more positions has none; a bipolar knob has a 1.2 px
   `text_ghost` tick at 12 o'clock from `r + 3` to `r + 6`;
@@ -244,19 +245,21 @@ are tall, and how far a hit's trace reaches across its cell is its decay.
 - **The step number**, `1` to `8`, top left (x + 7, baseline y + 13), Geist Mono 9.5 px.
 - **The cell** at rest: a glass face (`#09070B` at the top to `glass` at the bottom), scanlines (one dark row in three,
   34% black), a 1 px `rule` border and a faint top highlight (`rose` at 7%, 1 px, inset 3 px).
-- **The trace** fills `x + 4, y + 18, 66 x 34`. One min/max pair per pixel column, drawn as a filled band (the
-  phosphor: `rose` at 20% times the trace's alpha, `rose_bright` at 30% while the cell is lit past half) with its upper
-  and lower edges as 1 px strokes (at the trace's alpha, and 70% of it). A sample of +-0.4 (-8 dBFS) reaches the half
-  height; larger ones are clamped. When step `n` starts (`meters().step` changes), its cell is cleared and its trace
-  sweeps in from the left as the step plays, at 66 px per step length (the step length from `seq_rate` and
-  `meters().bpm`), from the newest output samples (`copyScope`). A bright 1 px sweep head (`rose_bright` at 55%, with a
-  10 px soft dot at 18%) marks where it is, in the playing cell only. A cell that has not played yet shows a 1 px
-  `rose_deep` line across its middle.
+- **The trace** fills `x + 4, y + 18, 66 x 34`. One min/max pair per pixel column, each taken with 0, so every
+  column's band reaches from the middle line to the wave: a filled waveform, never a thin line. It is drawn as a filled
+  band (the phosphor: `rose` at 20% times the trace's alpha, `rose_bright` at 30% while the cell is lit past half) with
+  its upper and lower edges as 1 px strokes (at the trace's alpha, and 70% of it), so the edges are the brightest part
+  of the band. A sample of +-0.4 (-8 dBFS) reaches the half height; larger ones are clamped. When step `n` starts
+  (`meters().step` changes), its cell is cleared and its trace sweeps in from the left as the step plays, at 66 px per
+  step length (the step length from `seq_rate` and `meters().bpm`), from the newest output samples (`copyScope`). A
+  bright 1 px sweep head (`rose_bright` at 55%, with a 10 px soft dot at 18%) marks where it is, in the playing cell
+  only. A sounding cell that has not played yet shows a 1 px `rose_deep` line across its middle.
 - **Lit:** the playing step's cell has a `rose_bright` border (1.2 px; `rule` blending to `rose_bright` with the
-  light), an ember fill fading downwards (`rose_ember` at 55% of the light at the top to 12% at the bottom), a soft
-  outer glow (`rose_bright` at 16% of the light, a 5 px stroke 3 px outside the cell, radius 6) and a `rose_bright`
-  trace, and its two knobs' arcs, pointers and readouts turn `rose_bright` too: the whole column lights. When the step
-  moves on, the column fades back over 250 ms (ease-out), a phosphor trail across the row.
+  light), an ember fill fading downwards (`rose_ember` at 55% of the light at the top to 12% at the bottom, and no
+  other fill or frame inside the cell), a soft outer glow (`rose_bright` at 16% of the light, a 5 px stroke 3 px
+  outside the cell, radius 6) and a `rose_bright` trace, and its two knobs' arcs, pointers and readouts turn
+  `rose_bright` too (their arcs never glow: that is for a hovered knob): the whole column lights. When the step moves
+  on, the column fades back over 250 ms (ease-out), a phosphor trail across the row.
 - **Older traces** stay, dimmer with age: `alpha = max(0.28, 0.85 - 0.09 * age)`, where `age` is the number of
   steps since that cell last lit.
 - **A rest** (velocity 0): a dashed outline (1 px `rule2` dashes, 3 on and 3 off, quieter than any cell that plays),

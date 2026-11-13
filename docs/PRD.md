@@ -320,8 +320,9 @@ from across a room you see whether it is silent, rolling or clipping; up close y
 | 7 | `specs/phase-7-ship.md` | Fast's softer attack, strict pluginval with its log kept, the install checked in a test folder; auval, run by hand after a real install | 6 | S: 2 tasks |
 | 7.1 | `specs/phase-7.1-silent-until-played.md` | Silent until played: with no host, Key and Notes modes run the own clock only while a key is held; pluginval's log made again | 7 | S: 2 tasks |
 | 7.2 | `specs/phase-7.2-window-as-designed.md` | The window as designed: knobs, switches, the console's words and glass, the step cells, the static layers drawn once and a tighter frame budget; pluginval's log made again | 7.1 | M: 5 tasks |
+| 7.3 | `specs/phase-7.3-step-row-as-designed.md` | The playing step row as designed: the lit cell's ember fill, traces as bands, rests' 1 px dashes, lit knobs that never glow and no arc of no length; the review images and pluginval's log made again | 7.2 | S: 3 tasks |
 
-Run them in order, 1 to 7.2.
+Run them in order, 1 to 7.3.
 
 ## 7. How the checks work
 
