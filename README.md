@@ -51,8 +51,10 @@ Undertow 2 as an instrument.
 
 ## Play
 
-- Hold a key: the 8-step pattern plays from it, locked to the host's tempo (Key mode, the default). Free plays whenever
-  the clock runs; Notes plays one hit for each MIDI note.
+- Hold a key: the 8-step pattern plays from it, locked to the host's tempo (Key mode, the default). With no host, as in
+  the Standalone app, it starts from step 1 at TEMPO when a key goes down and stops when the last key comes up, so a
+  new instance is silent until it is played. Free plays whenever the clock runs; Notes plays one hit for each MIDI
+  note.
 - The eight presets are the host's program list: Init, Roll, Hold, Drift, Rumble, Pressure, Offbeat and Deep.
 
 ## Layout
