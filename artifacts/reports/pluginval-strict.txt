@@ -6,7 +6,7 @@ Strictness level: 10
 Starting tests in: pluginval / Scan for plugins located in: build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/VST3/Metakosmia Undertow 2.vst3...
 Num plugins found: 1
 
-Testing plugin: VST3-Metakosmia Undertow 2-3808e36e-fcec69a9
+Testing plugin: VST3-Metakosmia Undertow 2-20a1f0df-fcec69a9
 Metakosmia: Metakosmia Undertow 2 v2.0.0
 Completed tests in pluginval / Scan for plugins located in: build/plugin/plugin/Undertow_artefacts/RelWithDebInfo/VST3/Metakosmia Undertow 2.vst3
 -----------------------------------------------------------------
