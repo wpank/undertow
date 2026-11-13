@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-// Phase 7.2 spec tests: the step cells drawn as designed (docs/specs/phase-7.2-window-as-designed.md, check P7.2.08;
+// Phase 7.2 spec tests: the step cells drawn as designed (docs/specs/phase-7.2-window-as-designed.md, check P7.2.05;
 // docs/design/window.md section 4.1).
 // spec-preset: plugin
 
@@ -54,11 +54,11 @@ double ringLuma(const juce::Image& image, juce::Rectangle<int> cell, float from,
 
 }  // namespace
 
-TEST_CASE("P7.2.08 the cells as designed: a rest's 1 px rule2 dashes, the lit cell's ember fill and soft glow, and a "
-          "sweep head only in the playing cell") {
+TEST_CASE("P7.2.05 the cells as designed: a rest's 1 px rule2 dashes, the lit cell's ember fill and soft glow, a "
+          "translucent trace band between 1 px edges, and a sweep head only in the playing cell") {
     Fixture f;
     f.set("seq_drift", 0.0f);
-    f.hold(stepFrame(1, 41), 1);
+    f.hold(stepFrame(1, 41), 8);  // step 2 plays through: its trace crosses its whole cell
     f.hold(stepFrame(2, 42), 1);  // step 3 plays for one tick: its trace stops part of the way across
     f.hold(stepFrame(3, 43), 3);  // step 4 plays, lit
     const auto image = f.shot(2.0f);
@@ -95,6 +95,25 @@ TEST_CASE("P7.2.08 the cells as designed: a rest's 1 px rule2 dashes, the lit ce
     CHECK_MESSAGE(glow >= ground + 0.015, "the lit cell has a soft outer glow (rose_bright, 16%, 5 px wide around it); 2 to 4 "
                                           "px outside it the luma is " << glow << " against " << ground << " around a cell "
                                           "that isn't lit");
+
+    {  // step 2's whole trace: a translucent band between antialiased 1 px edges, never solid columns
+        const auto whole = designTrace(1);
+        double brightest = 0.0;
+        for (int py = whole.getY() * 2; py < whole.getBottom() * 2; ++py)
+            for (int px = whole.getX() * 2; px < whole.getRight() * 2; ++px)
+                brightest = std::max(brightest, luma(image.getPixelAt(px, py)));
+        int strong = 0, between = 0;
+        for (int py = whole.getY() * 2; py < whole.getBottom() * 2; ++py)
+            for (int px = whole.getX() * 2; px < whole.getRight() * 2; ++px) {
+                const double l = luma(image.getPixelAt(px, py));
+                strong += l > 0.7 * brightest ? 1 : 0;
+                between += l >= 0.2 * brightest && l <= 0.7 * brightest ? 1 : 0;
+            }
+        CHECK_MESSAGE(strong >= 40, "step 2's trace crosses its cell");
+        CHECK_MESSAGE(between >= strong / 2, "the trace is a band filled at 20 to 30% between antialiased 1 px edges, so "
+                      "most of its light is half-tones; " << between << " pixels are half-tones against " << strong
+                      << " at full strength: solid columns?");
+    }
 
     const auto trace = designTrace(2);  // step 3's trace, stopped part way: no sweep head now that step 4 plays
     for (int x = trace.getX(); x < trace.getRight(); ++x) {

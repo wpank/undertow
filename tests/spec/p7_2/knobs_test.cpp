@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Phase 7.2 spec tests: the knobs and switches drawn as designed (docs/specs/phase-7.2-window-as-designed.md, checks
-// P7.2.01 to P7.2.05; docs/design/window.md sections 3, 4.1, 5 and 8).
+// P7.2.01 to P7.2.04; docs/design/window.md sections 3, 4.1, 5 and 8).
 // spec-preset: plugin
 
 #include "doctest.h"
@@ -156,8 +156,8 @@ TEST_CASE("P7.2.01 a knob's pointer and its value arc both point at its value, c
     }
 }
 
-TEST_CASE("P7.2.02 a dimmed knob is the knob at 32% opacity, never a box: TEMPO under a host's clock, and the columns "
-          "past the length, whose readouts stay at 30%") {
+TEST_CASE("P7.2.02 a dimmed knob is the knob at 32% opacity, never a box, and its readout dims with it; readouts are "
+          "`value` until their column lights") {
     Fixture f;
     f.hold(idleFrame(), 2);
     const auto normal = f.shot(2.0f);
@@ -167,8 +167,18 @@ TEST_CASE("P7.2.02 a dimmed knob is the knob at 32% opacity, never a box: TEMPO 
     const auto dimmed = f.shot(2.0f);
     checkDimmed(f, "seq_bpm", normal, dimmed);
     const auto& tempo = designPlace("seq_bpm");
-    CHECK_MESSAGE(findText(f.editor->drawnTexts(), "HOST", {static_cast<int>(tempo.x) - 30, static_cast<int>(tempo.y), 60, 50})
-                      != nullptr, "TEMPO under a host's clock reads HOST, at 45%");
+    const auto* hostWord = findText(f.editor->drawnTexts(), "HOST",
+                                    {static_cast<int>(tempo.x) - 30, static_cast<int>(tempo.y), 60, 50});
+    CHECK_MESSAGE(hostWord != nullptr, "TEMPO under a host's clock reads HOST");
+    if (hostWord != nullptr) {
+        const auto box = hostWord->bounds.toFloat();
+        double brightest = 0.0;
+        for (float y = box.getY(); y < box.getBottom(); y += 0.5f)
+            for (float x = box.getX(); x < box.getRight(); x += 0.5f)
+                brightest = std::max(brightest, lumaAt(dimmed, x, y, 2.0f));
+        CHECK_MESSAGE(brightest <= 0.35, "HOST dims with its knob, to 45% of `value`; its brightest pixel reads luma "
+                                         << brightest);
+    }
 
     f.hold(idleFrame(), 2);
     const auto full = f.shot(2.0f);
@@ -178,9 +188,41 @@ TEST_CASE("P7.2.02 a dimmed knob is the knob at 32% opacity, never a box: TEMPO 
     for (const char* id : {"step6_vel", "step7_pitch", "step8_vel"})
         checkDimmed(f, id, full, shortened);
     const auto& vel = designPlace("step6_vel");
-    CHECK_MESSAGE(findText(f.editor->drawnTexts(), "0.25", {static_cast<int>(vel.x) - 30, static_cast<int>(vel.y), 60, 40})
-                      != nullptr, "a column past the length keeps its readouts, at 30% (design section 4.1): step 6's "
-                                  "velocity still reads 0.25");
+    const auto* readout = findText(f.editor->drawnTexts(), "0.25", {static_cast<int>(vel.x) - 30, static_cast<int>(vel.y), 60, 40});
+    CHECK_MESSAGE(readout != nullptr, "a column past the length keeps its readouts, at 30% (design section 4.1): step 6's "
+                                      "velocity still reads 0.25");
+    if (readout != nullptr) {
+        const auto box = readout->bounds.toFloat();
+        double brightest = 0.0;
+        for (float y = box.getY(); y < box.getBottom(); y += 0.5f)
+            for (float x = box.getX(); x < box.getRight(); x += 0.5f)
+                brightest = std::max(brightest, lumaAt(shortened, x, y, 2.0f));
+        CHECK_MESSAGE(brightest <= 0.3, "a dimmed column's readout is at 30%; its brightest pixel reads luma " << brightest);
+    }
+
+    f.set("seq_length", 8.0f);
+    f.hold(idleFrame(), 2);
+    const auto rest = f.shot(2.0f);
+    auto readoutBox = [](const char* id) {
+        const auto& p = designPlace(id);
+        return juce::Rectangle<int>(static_cast<int>(p.x) - 18, static_cast<int>(p.y + p.w / 2) + 5, 36, 12);
+    };
+    for (int s = 1; s <= 8; ++s)
+        for (const char* kind : {"_pitch", "_vel"}) {
+            const auto id = "step" + std::to_string(s) + kind;
+            CHECK_MESSAGE(measure(rest, readoutBox(id.c_str()), 2.0f).bright == 0, "`" << id << "`'s readout is `value` "
+                          "(#988090) at rest, never rose_bright");
+        }
+    WindowFrame frame = sineFrame(98.0, -10.0);
+    frame.step = 3;
+    frame.count = 43;
+    frame.root = 43;
+    frame.hostClock = true;
+    f.hold(frame, 2);
+    const auto lit = f.shot(2.0f);
+    CHECK_MESSAGE(measure(lit, readoutBox("step4_vel"), 2.0f).bright >= 6, "the playing column's readouts turn rose_bright "
+                                                                           "with its light");
+    CHECK_MESSAGE(measure(lit, readoutBox("step2_vel"), 2.0f).bright == 0, "a column that isn't lit keeps `value`");
 }
 
 TEST_CASE("P7.2.03 switches: the chosen segment lit in rose_ember under a rose_bright word, the others unfilled with "
@@ -277,30 +319,4 @@ TEST_CASE("P7.2.04 detent dots: one per position on RATE, LENGTH and the rumble'
     for (const char* id : {"seq_root", "step1_pitch", "step4_pitch", "step8_pitch"})
         CHECK_MESSAGE(dotRuns(designPlace(id), true) == 0, "`" << id << "` has more than 8 positions: no detent dots or ticks "
                       "around it (a step pitch has only its 12 o'clock tick); found " << dotRuns(designPlace(id), true));
-}
-
-TEST_CASE("P7.2.05 the step readouts are `value` at rest and turn rose_bright with their column's light") {
-    Fixture f;
-    f.hold(idleFrame(), 2);
-    const auto rest = f.shot(2.0f);
-    auto readout = [](const char* id) {
-        const auto& p = designPlace(id);
-        return juce::Rectangle<int>(static_cast<int>(p.x) - 18, static_cast<int>(p.y + p.w / 2) + 5, 36, 12);
-    };
-    for (int s = 1; s <= 8; ++s)
-        for (const char* kind : {"_pitch", "_vel"}) {
-            const auto id = "step" + std::to_string(s) + kind;
-            CHECK_MESSAGE(measure(rest, readout(id.c_str()), 2.0f).bright == 0, "`" << id << "`'s readout is `value` at rest, "
-                          "never rose_bright");
-        }
-    WindowFrame frame = sineFrame(98.0, -10.0);
-    frame.step = 3;
-    frame.count = 43;
-    frame.root = 43;
-    frame.hostClock = true;
-    f.hold(frame, 2);
-    const auto lit = f.shot(2.0f);
-    CHECK_MESSAGE(measure(lit, readout("step4_vel"), 2.0f).bright >= 6, "the playing column's readouts turn rose_bright with "
-                                                                        "its light");
-    CHECK_MESSAGE(measure(lit, readout("step2_vel"), 2.0f).bright == 0, "a column that isn't lit keeps `value`");
 }
