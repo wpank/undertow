@@ -83,7 +83,8 @@ Out of scope:
    - **Detent dots** only on a knob of 2 to 8 positions, one per position (RATE 8, LENGTH 8, the rumble's RATE 4); none
      on the step pitches or ROOT.
    - **Dimmed** (TEMPO under a host, a column past the length or in Notes mode): the whole knob through a 32%
-     transparency layer. Its column's readouts stay, at 30%, and TEMPO's `HOST` at 45%.
+     transparency layer. Its readout dims with it: a dimmed column's readouts stay, at 30%, and TEMPO's `HOST` is drawn
+     at 45%, never at full colour.
    - **Readouts** in `value`, turning `rose_bright` while hovered or dragged and, on a step's two knobs, with their
      column's light.
    - **The switches** as section 3 draws them: the chosen segment lit with `rose_ember` under a `rose_bright` word, the
@@ -101,14 +102,16 @@ Out of scope:
    - **The stamp and the share.** `SPECTRUM` (tracking 1.6 px), then `20 Hz - 2 kHz` in `text_dim` 8 px after it, both
      on 360. The share's digits, the `%` 2 px after them and `BELOW 150 Hz` 6 px after the `%`, all on 390.
    - **The glass, quiet:** a 5 px `+` in `text_phantom` on every 32 px point from (800, 354); dotted level lines in
-     `text_phantom` with their labels in `text_dim`; the axis, its ticks and labels (baseline 585).
+     `text_phantom` with their labels in `text_dim`, each label on a baseline 3 px above its line (with every word on
+     its baseline, a label drawn at the line's `y - 1` breaks P6.27); the axis, its ticks and labels (baseline 585).
    - **Drawn once per display scale:** the spectrum's glass, scanlines, crosshair, band, level lines, axis and stamp,
      in one image, dropped by `dropCache()` so `drawnTexts()` still records the stamp and the labels.
 
 3. **The step cells** (`plugin/ui/Steps.cpp`), as design section 4.1 draws them:
    - a cell's glass face, scanlines, `rule` border and highlight;
    - lit: the border blending to `rose_bright` (1.2 px), the ember fill fading downwards and the soft outer glow;
-   - the trace as a band with 1 px edges, its sweep head in the playing cell only;
+   - the trace as an antialiased band with 1 px edges, so most of a finished trace's light is half-tones, never solid
+     columns; its sweep head in the playing cell only;
    - a rest's dashes filled in `rule2`, never stroked again;
    - a dimmed column's cell drawn through a 30% (Notes mode: 40%) transparency layer.
 
@@ -138,21 +141,20 @@ window's checks build the `plugin` preset.
 | Check | Command | Proves |
 |---|---|---|
 | P7.2.01 | `tools/spec.sh 7_2 knobs` | A knob's pointer and its value arc both point at its value (the slider's own proportion), clockwise from 12 o'clock, on the track's radius; a bipolar arc grows from 12 o'clock |
-| P7.2.02 | `tools/spec.sh 7_2 knobs` | A dimmed knob is the knob at 32%, never a box (TEMPO under a host, the columns past the length), and a dimmed column keeps its readouts at 30% |
+| P7.2.02 | `tools/spec.sh 7_2 knobs` | A dimmed knob is the knob at 32%, never a box, and its readout dims with it: TEMPO's `HOST` at 45%, a dimmed column's readouts at 30%; step readouts are `value` until their column lights |
 | P7.2.03 | `tools/spec.sh 7_2 knobs` | Switches: the chosen segment lit in `rose_ember` under a readable `rose_bright` word, the others unfilled with `text_dim` words; the waves drawn as 13 x 7 glyphs |
 | P7.2.04 | `tools/spec.sh 7_2 knobs` | Detent dots: one per position on RATE, LENGTH and the rumble's RATE, the current one lit; none on a knob of more positions |
-| P7.2.05 | `tools/spec.sh 7_2 knobs` | The step readouts are `value` at rest and turn `rose_bright` with their column's light |
+| P7.2.05 | `tools/spec.sh 7_2 cells` | The cells: a rest's 1 px `rule2` dashes, the lit cell's ember fill and soft glow, an antialiased trace (mostly half-tones), and a sweep head only in the playing cell |
 | P7.2.06 | `tools/spec.sh 7_2 console` | The head's and the console's words stand on the design's baselines within 1.5 px, where the design puts them, and no two overlap |
 | P7.2.07 | `tools/spec.sh 7_2 console` | The spectrum's glass is quiet: a `+` on every 32 px point from 800, 354 and dotted level lines, both `text_phantom`, and no line across it |
-| P7.2.08 | `tools/spec.sh 7_2 cells` | The cells: a rest's 1 px `rule2` dashes, the lit cell's ember fill and soft glow, and a sweep head only in the playing cell |
-| P7.2.09 | `tools/spec.sh 6 budget` | The window as one, its colour rules and the review images (P6.35, P6.36, P6.38), and P6.37 tightened: a full repaint at a median of 9 ms and a 95th percentile of 16 ms at 1x, a median of 20 ms at 2x |
-| P7.2.10 | `tools/spec.sh 6 controls` | The controls' places, kinds, attachments, readouts, gestures, legends and values (P6.13 to P6.19). A regression check: it passes on the base too |
-| P7.2.11 | `tools/spec.sh 6 console` | The console's displays (P6.26 to P6.34). A regression check: it passes on the base too |
-| P7.2.12 | `tools/spec.sh 6 steps` | The cells' light, traces, dimming, drift marks, clicks and Notes stamp (P6.20 to P6.25). A regression check: it passes on the base too |
-| P7.2.13 | `tools/spec.sh 6 frame` | The frame, its tokens, fonts and hooks (P6.08 to P6.12). A regression check: it passes on the base too |
-| P7.2.14 | `tools/spec.sh 7 ship` | The strict validation's log, made again: strictness 10, every test passed on Metakosmia Undertow 2 2.0.0, no folder outside the checkout. A regression check: it passes on the base too |
-| P7.2.15 | `tools/pluginval.sh 10` | pluginval passes at strictness 10 (without its GUI tests). A regression check: it passes on the base too |
-| P7.2.16 | `tools/check.sh --plugin` | The whole local check still passes: phases 1 to 7.2, both presets, pluginval |
+| P7.2.08 | `tools/spec.sh 6 budget` | The window as one, its colour rules and the review images (P6.35, P6.36, P6.38), and P6.37 tightened: a full repaint at a median of 9 ms and a 95th percentile of 16 ms at 1x, a median of 20 ms at 2x |
+| P7.2.09 | `tools/spec.sh 6 controls` | The controls' places, kinds, attachments, readouts, gestures, legends and values (P6.13 to P6.19). A regression check: it passes on the base too |
+| P7.2.10 | `tools/spec.sh 6 console` | The console's displays (P6.26 to P6.34). A regression check: it passes on the base too |
+| P7.2.11 | `tools/spec.sh 6 steps` | The cells' light, traces, dimming, drift marks, clicks and Notes stamp (P6.20 to P6.25). A regression check: it passes on the base too |
+| P7.2.12 | `tools/spec.sh 6 frame` | The frame, its tokens, fonts and hooks (P6.08 to P6.12). A regression check: it passes on the base too |
+| P7.2.13 | `tools/spec.sh 7 ship` | The strict validation's log, made again: strictness 10, every test passed on Metakosmia Undertow 2 2.0.0, no folder outside the checkout. A regression check: it passes on the base too |
+| P7.2.14 | `tools/pluginval.sh 10` | pluginval passes at strictness 10 (without its GUI tests). A regression check: it passes on the base too |
+| P7.2.15 | `tools/check.sh --plugin` | The whole local check still passes: phases 1 to 7.2, both presets, pluginval |
 
 ## Rules every task keeps
 
@@ -181,27 +183,27 @@ window's checks build the `plugin` preset.
      `Switch::paint`.
      - Edits: `plugin/ui/Controls.h`, `plugin/ui/Controls.cpp`.
      - Its files are those 2 paths; it creates and deletes nothing.
-     - Checks: P7.2.01 to P7.2.05 (one step), then the regression check P7.2.10 (`expect = "pass_on_base"`).
+     - Checks: P7.2.01 to P7.2.04 (one step), then the regression check P7.2.09 (`expect = "pass_on_base"`).
   2. **The console.** Integrative: about 105 lines changed.
      - Edits: `plugin/ui/Console.h`, `plugin/ui/Console.cpp`.
      - Its files are those 2 paths; it creates and deletes nothing.
-     - Checks: P7.2.06 and P7.2.07 (one step), then the regression check P7.2.11 (`expect = "pass_on_base"`).
+     - Checks: P7.2.06 and P7.2.07 (one step), then the regression check P7.2.10 (`expect = "pass_on_base"`).
   3. **The step cells.** Integrative: about 90 lines changed.
      - Edits: `plugin/ui/Steps.cpp`.
      - Its files are that 1 path; it creates and deletes nothing.
-     - Checks: P7.2.08, then the regression check P7.2.12 (`expect = "pass_on_base"`).
+     - Checks: P7.2.05, then the regression check P7.2.11 (`expect = "pass_on_base"`).
   4. **The ground, drawn once, the budget and the review images.** Needs tasks 1, 2 and 3. Focused: about 20 lines and
      the images its check writes.
      - Edits: `plugin/PluginEditor.h`, `plugin/PluginEditor.cpp`, `artifacts/ui/window-idle.png`,
        `artifacts/ui/window-playing.png`, `artifacts/ui/window-clipping.png`.
      - Its files are those 5 paths; it creates and deletes nothing.
-     - Checks: P7.2.09, then the regression check P7.2.13 (`expect = "pass_on_base"`). It commits the three images
-       P7.2.09 writes.
+     - Checks: P7.2.08, then the regression check P7.2.12 (`expect = "pass_on_base"`). It commits the three images
+       P7.2.08 writes.
   5. **The strict validation's log, again.** Needs task 4. Mechanical: it runs one script and commits the log it keeps.
      - Edits: `artifacts/reports/pluginval-strict.txt`.
      - Its files are that 1 path; it creates and deletes nothing.
-     - Checks: the regression checks P7.2.14 and P7.2.15 (`expect = "pass_on_base"`).
-- `tools/check.sh --plugin` (P7.2.16) is the plan's final check, not a task's.
+     - Checks: the regression checks P7.2.13 and P7.2.14 (`expect = "pass_on_base"`).
+- `tools/check.sh --plugin` (P7.2.15) is the plan's final check, not a task's.
 - Every task runs commands: each agent needs `bash` and `edit_file`. Leave `allowed_tools` out, or include `bash`,
   `edit_file`, `read_file`, `write_file`, `grep` and `glob`.
 - Tasks 1 to 4 build the plugin preset; a fresh worktree's first build compiles JUCE (about a minute at 4 jobs).
