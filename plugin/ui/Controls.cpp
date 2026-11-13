@@ -388,14 +388,15 @@ void Knob::paint(juce::Graphics& g) {
         const auto imageTransform = juce::AffineTransform::scale(1.0f / scale);
         g.drawImageTransformed(underlayCache_, imageTransform, false);
 
-        const bool glowing = active || light > 0.0f;
         const float arcStart = bipolar_ ? std::min(kTop, angle) : kKnobStart;
         const float arcEnd = bipolar_ ? std::max(kTop, angle) : angle;
+        const bool hasArc = arcEnd - arcStart > 1.0e-4f;
+        const bool glowing = active && hasArc;
         if (glowing) {
             strokeArc(g, centre, trackRadius, arcStart, arcEnd, roseBright.withAlpha(0.22f), 7.0f);
             strokeArc(g, centre, trackRadius, arcStart, arcEnd, roseBright.withAlpha(0.35f), 4.5f);
         }
-        if (!bipolar_ || std::abs(angle - kTop) > 1.0e-4f)
+        if (hasArc)
             strokeArc(g, centre, trackRadius, arcStart, arcEnd, arcColour, 2.4f);
 
         g.drawImageTransformed(overlayCache_, imageTransform, false);
