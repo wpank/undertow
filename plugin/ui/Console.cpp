@@ -192,8 +192,16 @@ juce::String Console::formatPeakDb(float db) {
 juce::Rectangle<int> Console::textBounds(const juce::Font& font, const juce::String& text, float anchorX, float baseline,
                                          juce::Justification justification, int paddingX, int paddingY) {
     const int width = juce::roundToInt(std::ceil(juce::GlyphArrangement::getStringWidth(font, text))) + 2 * paddingX;
-    const int height = juce::roundToInt(std::ceil(font.getHeight())) + 2 * paddingY;
-    return theme::textBox(anchorX, baseline, width, height, justification);
+    const int height = juce::roundToInt(std::ceil(font.getAscent() + font.getDescent())) + 2 * paddingY;
+    const auto top = juce::roundToInt(std::floor(baseline - font.getAscent() - static_cast<float>(paddingY)));
+    int x = juce::roundToInt(std::floor(anchorX));
+
+    if (justification.testFlags(juce::Justification::horizontallyCentred))
+        x -= width / 2;
+    else if (justification.testFlags(juce::Justification::right))
+        x -= width;
+
+    return {x, top, width, height};
 }
 
 void Console::drawText(juce::Graphics& g, const juce::Font& font, juce::Colour colour, const juce::String& text,
@@ -348,13 +356,14 @@ void Console::drawSpectrum(juce::Graphics& g) {
 
     g.saveState();
     g.reduceClipRegion(theme::spectrumGlassBounds);
-    g.setColour(theme::roseEmber.withAlpha(0.85f));
-    for (int x = theme::spectrumGlassBounds.getX() + 14; x < theme::spectrumGlassBounds.getRight(); x += 32)
-        g.drawVerticalLine(x, static_cast<float>(theme::spectrumGlassBounds.getY() + 16),
-                           static_cast<float>(theme::spectrumGlassBounds.getBottom() - 16));
-    for (int y = theme::spectrumGlassBounds.getY() + 18; y < theme::spectrumGlassBounds.getBottom() - 14; y += 32)
-        g.drawHorizontalLine(y, static_cast<float>(theme::spectrumGlassBounds.getX() + 12),
-                             static_cast<float>(theme::spectrumGlassBounds.getRight() - 12));
+    g.setColour(theme::textPhantom);
+    const auto crossOrigin = theme::spectrumGlassBounds.getTopLeft() + juce::Point<int>(16, 16);
+    for (int y = crossOrigin.y; y < theme::spectrumGlassBounds.getBottom(); y += 32) {
+        for (int x = crossOrigin.x; x < theme::spectrumGlassBounds.getRight(); x += 32) {
+            g.drawLine(static_cast<float>(x - 2), static_cast<float>(y), static_cast<float>(x + 2), static_cast<float>(y), 1.0f);
+            g.drawLine(static_cast<float>(x), static_cast<float>(y - 2), static_cast<float>(x), static_cast<float>(y + 2), 1.0f);
+        }
+    }
 
     const float bandLeft = plotXForHz(30.0);
     const float bandRight = plotXForHz(150.0);
@@ -372,11 +381,12 @@ void Console::drawSpectrum(juce::Graphics& g) {
 
     for (const int db : {-36, -60, -84}) {
         const float y = plotYForDb(static_cast<float>(db));
-        g.setColour(theme::roseEmber.withAlpha(0.95f));
+        g.setColour(theme::textPhantom);
+        const float dotted[] = {1.0f, 3.0f};
         g.drawDashedLine(juce::Line<float>(static_cast<float>(plot.getX()), y, static_cast<float>(plot.getRight()), y),
-                         dash, 2, 1.0f);
-        drawText(g, theme::numberFont(8.0f), theme::roseDim, juce::String(db), static_cast<float>(plot.getRight() - 2),
-                 y - 1.0f, juce::Justification::right);
+                         dotted, 2, 1.0f);
+        drawText(g, theme::numberFont(8.0f), theme::textDim, juce::String(db), static_cast<float>(plot.getRight() - 2),
+                 y - 3.0f, juce::Justification::right);
     }
 
     const auto clipPlot = plot.withTrimmedBottom(1);
@@ -388,16 +398,24 @@ void Console::drawSpectrum(juce::Graphics& g) {
     drawSpectrumCurve(g, curves_[0], theme::roseBright, 1.5f, curveVisible_[0] ? 1.0f : 0.0f, true);
     g.restoreState();
 
-    drawText(g, theme::legendFont(7.5f, 0.0f), theme::rose, "SPECTRUM", 798.0f, 360.0f, juce::Justification::left);
-    drawText(g, theme::numberFont(8.5f), theme::roseDim, "20 Hz - 2 kHz", 798.0f, 378.0f, juce::Justification::left);
+    const auto stampFont = theme::legendFont(7.5f, 1.6f);
+    const auto stamp = juce::String("SPECTRUM");
+    drawText(g, stampFont, theme::rose, stamp, 798.0f, 360.0f, juce::Justification::left);
+    drawText(g, theme::numberFont(8.5f), theme::textDim, "20 Hz - 2 kHz", 798.0f + juce::GlyphArrangement::getStringWidth(stampFont, stamp) + 8.0f,
+             360.0f, juce::Justification::left);
 
     if (isSounding(frame_)) {
         const int share = juce::roundToInt(std::round(spectrum_.share() * 100.0f));
-        drawText(g, theme::numberLightFont(22.0f), theme::rose, juce::String(share), 798.0f, 390.0f,
-                 juce::Justification::left);
-        drawText(g, theme::numberFont(12.0f), theme::roseDim, "%", 858.0f, 390.0f, juce::Justification::left);
-        drawText(g, theme::legendFont(6.5f, 1.0f), theme::roseDim, "BELOW 150 Hz", 876.0f, 390.0f,
-                 juce::Justification::left);
+        const auto shareText = juce::String(share);
+        const auto shareFont = theme::numberLightFont(22.0f);
+        const auto percentFont = theme::numberFont(12.0f, 0.0f);
+        const auto labelFont = theme::legendFont(6.5f, 1.0f);
+        const float shareX = 798.0f;
+        const float percentX = shareX + juce::GlyphArrangement::getStringWidth(shareFont, shareText) + 2.0f;
+        const float labelX = percentX + juce::GlyphArrangement::getStringWidth(percentFont, "%") + 6.0f;
+        drawText(g, shareFont, theme::rose, shareText, shareX, 390.0f, juce::Justification::left);
+        drawText(g, percentFont, theme::roseDim, "%", percentX, 390.0f, juce::Justification::left);
+        drawText(g, labelFont, theme::roseDim, "BELOW 150 Hz", labelX, 390.0f, juce::Justification::left);
     }
 
     drawText(g, theme::legendFont(6.5f, 1.0f), theme::roseDim, "30-150 Hz", (bandLeft + bandRight) * 0.5f, 564.0f,
