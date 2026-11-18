@@ -217,6 +217,8 @@ void Steps::drawTrace(juce::Graphics& g, int step, juce::Rectangle<int> trace) c
             g.drawLine(static_cast<float>(trace.getX()), midY + 0.5f, static_cast<float>(trace.getRight()), midY + 0.5f, 1.0f);
         }
     } else {
+        juce::Path upperEdge;
+        juce::Path lowerEdge;
         for (int col = 0; col < stored.columns; ++col) {
             const float x = static_cast<float>(trace.getX() + col);
             float top = midY - stored.maximum[static_cast<std::size_t>(col)] * scale;
@@ -227,11 +229,20 @@ void Steps::drawTrace(juce::Graphics& g, int step, juce::Rectangle<int> trace) c
             g.setColour(fillColour.withAlpha(alpha * (brightBand ? 0.30f : 0.20f)));
             g.fillRect(x, top, 1.0f, std::max(1.0f, bottom - top));
 
-            g.setColour(edgeColour.withAlpha(alpha));
-            g.drawLine(x, top + 0.5f, x + 1.0f, top + 0.5f, 1.0f);
-            g.setColour(edgeColour.withAlpha(alpha * 0.7f));
-            g.drawLine(x, bottom + 0.5f, x + 1.0f, bottom + 0.5f, 1.0f);
+            const float centreX = x + 0.5f;
+            if (col == 0) {
+                upperEdge.startNewSubPath(centreX, top + 0.5f);
+                lowerEdge.startNewSubPath(centreX, bottom + 0.5f);
+            } else {
+                upperEdge.lineTo(centreX, top + 0.5f);
+                lowerEdge.lineTo(centreX, bottom + 0.5f);
+            }
         }
+
+        g.setColour(edgeColour.withAlpha(alpha));
+        g.strokePath(upperEdge, juce::PathStrokeType(1.0f));
+        g.setColour(edgeColour.withAlpha(alpha * 0.7f));
+        g.strokePath(lowerEdge, juce::PathStrokeType(1.0f));
     }
 
     if (step == currentStep_ && stored.columns < kTraceColumns) {
@@ -273,7 +284,12 @@ void Steps::drawCell(juce::Graphics& g, int step) const {
     } else {
         g.setColour(undertow::ui::theme::glass.withAlpha((0.30f + 0.10f * lightAmount) * offsetAlpha));
         g.fillRoundedRectangle(cellFloat.reduced(0.5f), 3.0f);
-        drawRestBorder(g, cell, 0.92f * offsetAlpha);
+        if (sounding) {
+            g.setColour(undertow::ui::theme::rule.withAlpha(offsetAlpha));
+            g.drawRoundedRectangle(cellFloat.reduced(0.5f), 3.0f, 1.0f);
+        } else {
+            drawRestBorder(g, cell, 0.92f * offsetAlpha);
+        }
     }
 
     drawTrace(g, step, trace);
