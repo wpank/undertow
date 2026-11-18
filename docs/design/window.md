@@ -244,16 +244,18 @@ are tall, and how far a hit's trace reaches across its cell is its decay.
 
 - **The step number**, `1` to `8`, top left (x + 7, baseline y + 13), Geist Mono 9.5 px.
 - **The cell** at rest: a glass face (`#09070B` at the top to `glass` at the bottom), scanlines (one dark row in three,
-  34% black), a 1 px `rule` border and a faint top highlight (`rose` at 7%, 1 px, inset 3 px).
+  34% black), a 1 px `rule` border and a faint top highlight (`rose` at 7%, 1 px, inset 3 px). A sounding cell's border
+  is a solid line, lit or not, played or not: the dashes mark a rest alone.
 - **The trace** fills `x + 4, y + 18, 66 x 34`. One min/max pair per pixel column, each taken with 0, so every
   column's band reaches from the middle line to the wave: a filled waveform, never a thin line. It is drawn as a filled
   band (the phosphor: `rose` at 20% times the trace's alpha, `rose_bright` at 30% while the cell is lit past half) with
   its upper and lower edges as 1 px strokes (at the trace's alpha, and 70% of it), so the edges are the brightest part
-  of the band. A sample of +-0.4 (-8 dBFS) reaches the half height; larger ones are clamped. When step `n` starts
-  (`meters().step` changes), its cell is cleared and its trace sweeps in from the left as the step plays, at 66 px per
-  step length (the step length from `seq_rate` and `meters().bpm`), from the newest output samples (`copyScope`). A
-  bright 1 px sweep head (`rose_bright` at 55%, with a 10 px soft dot at 18%) marks where it is, in the playing cell
-  only. A sounding cell that has not played yet shows a 1 px `rose_deep` line across its middle.
+  of the band. Each edge is one stroke joining the columns' maxima (or minima), never a tick per column, so a steep
+  wave's outline stays unbroken. A sample of +-0.4 (-8 dBFS) reaches the half height; larger ones are clamped. When
+  step `n` starts (`meters().step` changes), its cell is cleared and its trace sweeps in from the left as the step
+  plays, at 66 px per step length (the step length from `seq_rate` and `meters().bpm`), from the newest output samples
+  (`copyScope`). A bright 1 px sweep head (`rose_bright` at 55%, with a 10 px soft dot at 18%) marks where it is, in
+  the playing cell only. A sounding cell that has not played yet shows a 1 px `rose_deep` line across its middle.
 - **Lit:** the playing step's cell has a `rose_bright` border (1.2 px; `rule` blending to `rose_bright` with the
   light), an ember fill fading downwards (`rose_ember` at 55% of the light at the top to 12% at the bottom, and no
   other fill or frame inside the cell), a soft outer glow (`rose_bright` at 16% of the light, a 5 px stroke 3 px
