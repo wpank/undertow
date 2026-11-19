@@ -16,8 +16,9 @@ driven from a chat in Hermes, Nous Research's agent app, through the
 [roko plugin for Hermes](https://github.com/wpank/hermes-plugin-roko): each phase was planned and run from that chat,
 and merged once roko's checks passed.
 
-In 11 phases roko ran 34 tasks in 39 tries, and 31 of the 34 passed on their first. The runs took 1 h 54 min and
-$12.66 of model calls. roko's agents wrote all 4,788 lines of its C++; none of it was written by hand.
+In 11 phases roko ran 34 tasks in 39 tries, and 31 of the 34 passed on their first try. The runs took 1 h 54 min;
+writing and running the plans cost $12.66 in model calls. roko's agents wrote all 4,788 lines of its C++; none of it
+was written by hand.
 
 The specification came first, and the code was written to it:
 
