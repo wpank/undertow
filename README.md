@@ -6,9 +6,21 @@ three decays shape every hit, and an 8-step pitch and velocity sequencer plays t
 home. A dark rumble, fed by a ghost kick, sits under it all. VST3, AU and Standalone for macOS 11+ on Apple silicon,
 built with JUCE 8.0.12.
 
-## How this repository is built
+![Undertow 2's window, playing the Roll preset: the eight steps across the top, then the oscillators, filter and VCA,
+the spectrum and the sub's pitch](docs/images/window-roll.webp)
 
-The specification comes first, and the code is written to it:
+## How it was built
+
+[roko](https://github.com/wpank/roko), an open-source agent harness, wrote every line of the synth's code. It was
+driven from a chat in Hermes, Nous Research's agent app, through the
+[roko plugin for Hermes](https://github.com/wpank/hermes-plugin-roko): each phase was planned and run from that chat,
+and merged once roko's checks passed.
+
+In 11 phases roko ran 34 tasks in 39 tries, and 31 of the 34 passed on their first try. The runs took 1 h 54 min;
+writing and running the plans cost $12.66 in model calls. roko's agents wrote all 4,788 lines of its C++; none of it
+was written by hand.
+
+The specification came first, and the code was written to it:
 
 - `docs/PRD.md`: the product, its sound as measurable behaviours, the architecture, the parameters and the phases.
 - `docs/specs/phase-N-*.md`: one spec per phase, with the exact C++ API and numbered acceptance checks that run as
@@ -16,7 +28,7 @@ The specification comes first, and the code is written to it:
 - `tests/spec/`: the acceptance tests, written before the code. A phase is done when its tests pass; the code
   changes, never the tests.
 
-The code is written phase by phase by roko, an agent harness, from these specs.
+roko wrote the code phase by phase from these specs.
 
 ## Build and check
 
@@ -33,8 +45,9 @@ tools/pluginval.sh 10 artifacts/reports/pluginval-strict.txt   # at its strictes
 ```
 
 The `core` preset (`build/core`) builds the plain C++ DSP library and its tests in seconds, without JUCE. The
-`plugin` preset (`build/plugin`) adds the JUCE plugin; the first build in a new checkout compiles the JUCE modules
-(about a minute).
+`plugin` preset (`build/plugin`) adds the JUCE plugin. The first `tools/check.sh --plugin` in a new checkout downloads
+JUCE and pluginval and compiles the JUCE modules: about 5 minutes in all on an M4 Pro. Later runs build only what
+changed.
 
 ## Install
 
@@ -56,6 +69,23 @@ Undertow 2 as an instrument.
   new instance is silent until it is played. Free plays whenever the clock runs; Notes plays one hit for each MIDI
   note.
 - The eight presets are the host's program list: Init, Roll, Hold, Drift, Rumble, Pressure, Offbeat and Deep.
+
+## Listen
+
+```sh
+tools/check.sh                     # once, so the core build exists
+tools/render-demos.sh              # every preset, offline
+```
+
+`tools/render-demos.sh` builds the offline renderer (`undertow_render`, the core without the plugin), empties
+`build/demos/` and renders each of the eight presets on its own root, 8 bars at 130 BPM: `build/demos/<preset>.wav`
+(48 kHz, 24-bit stereo) and `build/demos/<preset>-hits.json`, the hits it played. One preset at a time:
+
+```sh
+build/core/tools/render/undertow_render --preset roll --bars 8 --out roll.wav   # --list prints the presets
+```
+
+`--bpm`, `--note` and `--sample-rate` set the rest.
 
 ## Layout
 
